@@ -1,40 +1,40 @@
-"use client"
-import Navbar from "../components/Navbar"
-import Footer from "../components/Footer"
-import { useState, useEffect } from "react"
+"use client";
+import Navbar from "../components/Navbar";
+import Footer from "../components/Footer";
+import { useState, useEffect } from "react";
 import { 
   loginWithEmail, registerWithEmail, loginWithGoogle, 
-  logout, onAuthChange, resetPassword, db } from "../utils/firebase"
-import { User } from "firebase/auth"
-import { useRouter } from "next/router"
-import { doc, setDoc, getDoc } from "firebase/firestore";
-
-
+  logout, onAuthChange, resetPassword, db 
+} from "../utils/firebase";
+import { User } from "firebase/auth";
+import { useRouter } from "next/router";
+import { doc, setDoc } from "firebase/firestore";
 
 export default function AuthPage() {
-  const [user, setUser] = useState<User | null>(null)
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [isRegister, setIsRegister] = useState(false)
-  const router = useRouter()
+  const [user, setUser] = useState<User | null>(null);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isRegister, setIsRegister] = useState(false);
+  const router = useRouter();
 
-    useEffect(() => {
-        const unsub = onAuthChange((u) => {
-            setUser(u)
-            if (u) {
-            const redirect = localStorage.getItem("redirectAfterLogin")
-            if (redirect === "form") {
-                localStorage.removeItem("redirectAfterLogin")
-                router.push("/form")    // 🔹 merge la formular
-            } else {
-                router.push("/dashboard") // 🔹 altfel dashboard direct
-            }
-            }
-        })
-        return () => unsub()
-    }, [router])
+  // ✅ Redirect authenticated users
+  useEffect(() => {
+    const unsub = onAuthChange((u) => {
+      setUser(u);
+      if (u) {
+        const redirect = localStorage.getItem("redirectAfterLogin");
+        if (redirect === "form") {
+          localStorage.removeItem("redirectAfterLogin");
+          router.push("/form");
+        } else {
+          router.push("/dashboard");
+        }
+      }
+    });
+    return () => unsub();
+  }, [router]);
 
-
+  // ✅ Email/Password Auth
   const handleEmailAuth = async () => {
     try {
       if (isRegister) {
@@ -54,32 +54,31 @@ export default function AuthPage() {
       }
     } catch (err: any) {
       alert("❌ Eroare: " + err.message);
-    }  // 👈 asigură-te că această acoladă există
+    }
   };
 
-
+  // ✅ Resetare parolă
   const handleResetPassword = async () => {
     if (!email) {
-      alert("Introduceți adresa de email pentru resetare!")
-      return
+      alert("Introduceți adresa de email pentru resetare!");
+      return;
     }
     try {
-      await resetPassword(email)
-      alert("📩 Ți-am trimis un email pentru resetarea parolei.")
+      await resetPassword(email);
+      alert("📩 Ți-am trimis un email pentru resetarea parolei.");
     } catch (err: any) {
-      alert("❌ Eroare: " + err.message)
+      alert("❌ Eroare: " + err.message);
     }
-  }
+  };
 
+  // ✅ Login cu Google
   const handleGoogle = async () => {
     try {
-        await loginWithGoogle()
-        // ❌ scoatem router.push("/dashboard")
+      await loginWithGoogle();
     } catch (err: any) {
-        alert("❌ Eroare: " + err.message)
+      alert("❌ Eroare: " + err.message);
     }
- }
-
+  };
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-6 bg-gray-50">
@@ -122,6 +121,7 @@ export default function AuthPage() {
               </p>
             )}
 
+            {/* Toggle între login / register */}
             <p className="text-center text-sm text-gray-600 mb-3">
               {isRegister ? "Ai deja cont?" : "Nu ai cont?"}{" "}
               <span
@@ -132,14 +132,13 @@ export default function AuthPage() {
               </span>
             </p>
 
-            {/* Google */}
+            {/* Google Login */}
             <button
               onClick={handleGoogle}
-              className="w-full bg-red-500 text-white py-2 rounded mb-2 hover:bg-red-600"
+              className="w-full bg-red-500 text-white py-2 rounded hover:bg-red-600"
             >
               Login cu Google
             </button>
-            
           </>
         ) : (
           <>
@@ -154,5 +153,5 @@ export default function AuthPage() {
         )}
       </div>
     </div>
-  )
+  );
 }
