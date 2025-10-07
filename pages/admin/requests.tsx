@@ -29,6 +29,7 @@ import {
   User,
   Mail,
   Phone,
+  ExternalLink,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
@@ -62,7 +63,10 @@ export default function AdminRequestsPage() {
           const data = r.data();
           let requestId = data.requestId;
           if (!requestId) {
-            requestId = `REQ-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+            requestId = `REQ-${Math.random()
+              .toString(36)
+              .substring(2, 7)
+              .toUpperCase()}`;
             await updateDoc(doc(db, "requests", r.id), { requestId });
           }
           return { id: r.id, requestId, ...data };
@@ -130,6 +134,17 @@ export default function AdminRequestsPage() {
     setSelectedClient(clientReqs[0]);
   };
 
+  // ✅ Go to full client profile
+  const goToClientProfile = (client: any) => {
+    if (client?.userId) {
+      router.push(`/admin/clients/${client.userId}`);
+    } else if (client?.email) {
+      router.push(`/admin/clients?email=${encodeURIComponent(client.email)}`);
+    } else {
+      toast.error("⚠️ Clientul nu are un profil asociat!");
+    }
+  };
+
   return (
     <AdminProtectedRoute>
       <AdminLayout>
@@ -165,10 +180,7 @@ export default function AdminRequestsPage() {
                     </h3>
                   </div>
                   <div className="flex items-center gap-3 mt-2">
-                    <h4
-                      className="text-3xl font-bold"
-                      style={{ color: c.color }}
-                    >
+                    <h4 className="text-3xl font-bold" style={{ color: c.color }}>
                       {c.value}
                     </h4>
                     <PieChart width={55} height={55}>
@@ -248,7 +260,10 @@ export default function AdminRequestsPage() {
                     const parts = fullName.split(" ").filter(Boolean);
                     const first = parts[0];
                     const last = parts[parts.length - 1];
-                    if (parts.length >= 3 && parts[1][0].toUpperCase() === last[0].toUpperCase()) {
+                    if (
+                      parts.length >= 3 &&
+                      parts[1][0].toUpperCase() === last[0].toUpperCase()
+                    ) {
                       displayName = `${first} ${parts[1][0].toUpperCase()}.`;
                     } else if (first.includes("-")) {
                       const [pre, suf] = first.split("-");
@@ -280,10 +295,14 @@ export default function AdminRequestsPage() {
                           </span>
                           {r.createdAt?.seconds && (
                             <span className="text-[11px] text-gray-400">
-                              {new Date(r.createdAt.seconds * 1000).toLocaleDateString("ro-RO")}
+                              {new Date(
+                                r.createdAt.seconds * 1000
+                              ).toLocaleDateString("ro-RO")}
                             </span>
                           )}
-                          <span className="text-[11px] text-gray-500 truncate">{r.email}</span>
+                          <span className="text-[11px] text-gray-500 truncate">
+                            {r.email}
+                          </span>
                         </div>
                       </td>
 
@@ -335,16 +354,23 @@ export default function AdminRequestsPage() {
                       {/* Companie */}
                       <td className="p-3 border-b text-sm text-gray-700">
                         {r.assignedCompany ? (
-                          <span className="font-medium text-gray-800">{r.assignedCompany}</span>
+                          <span className="font-medium text-gray-800">
+                            {r.assignedCompany}
+                          </span>
                         ) : (
-                          <span className="text-gray-400 italic">— neatribuit —</span>
+                          <span className="text-gray-400 italic">
+                            — neatribuit —
+                          </span>
                         )}
                       </td>
 
                       {/* Acțiuni */}
                       <td className="p-3 border-b text-center">
                         {processingId === r.id ? (
-                          <Loader2 className="animate-spin inline text-emerald-600" size={16} />
+                          <Loader2
+                            className="animate-spin inline text-emerald-600"
+                            size={16}
+                          />
                         ) : (
                           <div className="flex items-center justify-center gap-3">
                             <button
@@ -383,10 +409,19 @@ export default function AdminRequestsPage() {
                   <User size={18} /> Detalii Client
                 </h3>
                 <div className="space-y-2 text-sm text-gray-700">
-                  <p><strong>Nume:</strong> {selectedClient.customerName}</p>
-                  <p><strong>Email:</strong> {selectedClient.email}</p>
-                  <p><strong>Telefon:</strong> {selectedClient.phone || "-"}</p>
-                  <p><strong>Cererile făcute:</strong></p>
+                  <p>
+                    <strong>Nume:</strong> {selectedClient.customerName}
+                  </p>
+                  <p>
+                    <strong>Email:</strong> {selectedClient.email}
+                  </p>
+                  <p>
+                    <strong>Telefon:</strong>{" "}
+                    {selectedClient.phone || "-"}
+                  </p>
+                  <p className="mt-3 font-semibold text-emerald-700">
+                    Cererile făcute:
+                  </p>
                   <ul className="pl-4 list-disc text-gray-600">
                     {clientRequests.map((c) => (
                       <li key={c.id}>
@@ -394,6 +429,12 @@ export default function AdminRequestsPage() {
                       </li>
                     ))}
                   </ul>
+                  <button
+                    onClick={() => goToClientProfile(selectedClient)}
+                    className="mt-5 w-full bg-gradient-to-r from-emerald-500 to-sky-500 text-white py-2 rounded-xl flex items-center justify-center gap-2 font-medium hover:scale-[1.02] transition-all"
+                  >
+                    <ExternalLink size={16} /> Vezi profil complet
+                  </button>
                 </div>
               </div>
             </div>
