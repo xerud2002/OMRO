@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { db, auth, onAuthChange } from "../../utils/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
-import { useRouter } from "next/router";
+import { useRouter } from "next/navigation";
 import CompanyLayout from "../../components/CompanyLayout";
 import { motion } from "framer-motion";
 import {

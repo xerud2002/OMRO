@@ -3,7 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import Head from "next/head";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/router";
+import { useRouter } from "next/navigation";
 import { Truck, FormInput, Users, CheckCircle, ArrowRight } from "lucide-react";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
