@@ -10,6 +10,7 @@ import {
   Building2,
   Users,
   ClipboardList,
+  MessageSquare,
   LogOut,
   Menu,
   X,
@@ -26,8 +27,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [pendingCompanies, setPendingCompanies] = useState<number>(0);
   const [newRequests, setNewRequests] = useState<number>(0);
+  const [newMessages, setNewMessages] = useState<number>(0);
 
-  // 🔹 Fetch counts once (companies pending verification, new requests)
+  // 🔹 Fetch counts (companies pending, new requests, recent messages)
   useEffect(() => {
     const fetchCounts = async () => {
       try {
@@ -44,8 +46,22 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           (r) => r.data().status?.toLowerCase?.() === "noua"
         ).length;
 
+        // 🔹 Count requests that have messages in last 48h (for badge)
+        let recentMessagesCount = 0;
+        for (const r of requestsSnap.docs) {
+          const msgs = r.data()?.messagesLastUpdated;
+          if (
+            msgs &&
+            new Date(msgs.toDate ? msgs.toDate() : msgs).getTime() >
+              Date.now() - 1000 * 60 * 60 * 48
+          ) {
+            recentMessagesCount++;
+          }
+        }
+
         setPendingCompanies(pending);
         setNewRequests(newReq);
+        setNewMessages(recentMessagesCount);
       } catch (err) {
         console.error("❌ Eroare la încărcarea badge-urilor admin:", err);
       }
@@ -77,6 +93,12 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       path: "/admin/requests",
       icon: <ClipboardList size={20} />,
       badge: newRequests,
+    },
+    {
+      name: "Mesaje",
+      path: "/admin/messages",
+      icon: <MessageSquare size={20} />,
+      badge: newMessages,
     },
   ];
 

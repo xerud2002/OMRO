@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { auth, db, storage } from "../utils/firebase";
-import { collection, addDoc, Timestamp, setDoc, doc } from "firebase/firestore";
+import { setDoc, doc, Timestamp } from "firebase/firestore";
 import emailjs from "@emailjs/browser";
 import toast from "react-hot-toast";
 import { ArrowLeft, ArrowRight, Send } from "lucide-react";
@@ -139,16 +139,20 @@ export default function MoveForm() {
         );
       }
 
-      // Create request doc
-      const docRef = await addDoc(collection(db, "requests"), {
+      // 🔹 Generează ID scurt unic (ex: "REQ-AX93F")
+      const shortId = `REQ-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+
+      // 🔹 Creează manual documentul cu ID-ul personalizat
+      await setDoc(doc(db, "requests", shortId), {
         ...formData,
         media: mediaUrls,
         userId: auth.currentUser?.uid || null,
         createdAt: Timestamp.now(),
         status: "Nouă",
+        requestId: shortId, // pentru referințe ulterioare
       });
 
-      // Save user contact info if logged in
+      // 🔹 Salvează informațiile de contact ale utilizatorului (dacă e logat)
       if (auth.currentUser) {
         await setDoc(
           doc(db, "users", auth.currentUser.uid),
@@ -161,9 +165,9 @@ export default function MoveForm() {
         );
       }
 
-      // Send upload link via email if survey type = media_later
+      // 🔹 Trimite e-mail cu link de upload dacă survey = "media_later"
       if (formData.survey === "media_later" && formData.email) {
-        const uploadLink = `${window.location.origin}/upload/${docRef.id}`;
+        const uploadLink = `${window.location.origin}/upload/${shortId}`;
         await emailjs.send(
           process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID!,
           process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID!,
@@ -179,7 +183,7 @@ export default function MoveForm() {
       toast.dismiss();
       toast.success("✅ Cererea ta a fost salvată cu succes!");
 
-      // Reset
+      // Reset form
       setFormData(defaultFormData);
       setStep(0);
       localStorage.removeItem("moveFormData");
