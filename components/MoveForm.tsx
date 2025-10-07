@@ -9,7 +9,7 @@ import emailjs from "@emailjs/browser";
 import toast from "react-hot-toast";
 import { ArrowLeft, ArrowRight, Send } from "lucide-react";
 
-// 🔹 Import step components
+// 🔹 Import all step components
 import StepService from "../components/formSteps/StepService";
 import StepProperty from "../components/formSteps/StepProperty";
 import StepPickupAddress from "../components/formSteps/StepPickupAddress";
@@ -21,7 +21,7 @@ import StepDismantling from "../components/formSteps/StepDismantling";
 import StepSurvey from "../components/formSteps/StepSurvey";
 import StepContact from "../components/formSteps/StepContact";
 
-// Step labels for progress bar
+// 🧭 Step titles
 const steps = [
   "Tip serviciu",
   "Dimensiunea mutării",
@@ -38,9 +38,9 @@ const steps = [
 export default function MoveForm() {
   const router = useRouter();
   const [hydrated, setHydrated] = useState(false);
-  const [step, setStep] = useState<number>(0);
+  const [step, setStep] = useState(0);
 
-  // Default form structure
+  // ✅ Default form state
   const defaultFormData = {
     serviceType: "",
     propertyType: "",
@@ -49,19 +49,12 @@ export default function MoveForm() {
     floor: "",
     lift: "",
     packing: "",
-    stairsFrom: "",
-    stairsTo: "",
+    dismantling: "",
     survey: "",
     details: "",
     name: "",
     phone: "",
     email: "",
-    dismantling: "",
-    propertyTypeTo: "",
-    roomsTo: "",
-    houseFloorsTo: "",
-    floorTo: "",
-    liftTo: "",
     moveDate: "",
     moveOption: "",
     pickupCounty: "",
@@ -78,25 +71,32 @@ export default function MoveForm() {
     deliveryDetails: "",
     deliveryPostal: "",
     deliveryInstructions: "",
+    propertyTypeTo: "",
+    roomsTo: "",
+    houseFloorsTo: "",
+    floorTo: "",
+    liftTo: "",
     media: [] as File[],
   };
 
   const [formData, setFormData] = useState<any>(defaultFormData);
 
-  // ✅ Hydration check + restore saved progress
+  // ✅ Restore progress from localStorage
   useEffect(() => {
-    try {
-      const savedStep = localStorage.getItem("moveFormStep");
-      const savedData = localStorage.getItem("moveFormData");
-      if (savedStep) setStep(Number(savedStep));
-      if (savedData) setFormData(JSON.parse(savedData));
-    } catch {
-      console.warn("⚠️ Failed to restore saved form data");
+    const savedStep = localStorage.getItem("moveFormStep");
+    const savedData = localStorage.getItem("moveFormData");
+    if (savedStep) setStep(Number(savedStep));
+    if (savedData) {
+      try {
+        setFormData(JSON.parse(savedData));
+      } catch {
+        console.warn("⚠️ Invalid saved data, resetting form");
+      }
     }
     setHydrated(true);
   }, []);
 
-  // ✅ Persist step and form data in localStorage
+  // ✅ Persist progress
   useEffect(() => {
     if (hydrated) localStorage.setItem("moveFormStep", step.toString());
   }, [step, hydrated]);
@@ -108,26 +108,28 @@ export default function MoveForm() {
 
   if (!hydrated)
     return (
-      <div className="text-center py-10 text-emerald-600">Se încarcă...</div>
+      <div className="text-center py-16 text-emerald-600 font-medium">
+        Se încarcă formularul...
+      </div>
     );
 
-  // 🔹 Update field value
+  // 🔹 Field change helper
   const handleChange = (field: string, value: any) => {
     setFormData((prev: any) => ({ ...prev, [field]: value }));
   };
 
-  // 🔹 Step navigation
+  // 🔹 Navigation
   const nextStep = () => setStep((prev) => Math.min(prev + 1, steps.length - 1));
   const prevStep = () => setStep((prev) => Math.max(prev - 1, 0));
 
-  // ✅ Handle form submission
+  // ✅ Submission
   const handleSubmit = async () => {
     try {
       toast.loading("Se trimite cererea...");
 
-      // Upload media if attached
+      // Upload files if any
       let mediaUrls: string[] = [];
-      if (formData.media?.length && formData.survey === "media") {
+      if (formData.survey === "media" && formData.media.length > 0) {
         mediaUrls = await Promise.all(
           formData.media.map(async (file: File) => {
             const storageRef = ref(storage, `uploads/${Date.now()}-${file.name}`);
@@ -137,7 +139,7 @@ export default function MoveForm() {
         );
       }
 
-      // Save request to Firestore
+      // Create request doc
       const docRef = await addDoc(collection(db, "requests"), {
         ...formData,
         media: mediaUrls,
@@ -146,7 +148,7 @@ export default function MoveForm() {
         status: "Nouă",
       });
 
-      // Update user contact info
+      // Save user contact info if logged in
       if (auth.currentUser) {
         await setDoc(
           doc(db, "users", auth.currentUser.uid),
@@ -159,8 +161,8 @@ export default function MoveForm() {
         );
       }
 
-      // Send upload link email if user selected "media_later"
-      if (formData.survey === "media_later") {
+      // Send upload link via email if survey type = media_later
+      if (formData.survey === "media_later" && formData.email) {
         const uploadLink = `${window.location.origin}/upload/${docRef.id}`;
         await emailjs.send(
           process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID!,
@@ -175,9 +177,9 @@ export default function MoveForm() {
       }
 
       toast.dismiss();
-      toast.success("✅ Cererea a fost salvată cu succes!");
+      toast.success("✅ Cererea ta a fost salvată cu succes!");
 
-      // Reset form + localStorage
+      // Reset
       setFormData(defaultFormData);
       setStep(0);
       localStorage.removeItem("moveFormData");
@@ -191,7 +193,7 @@ export default function MoveForm() {
     }
   };
 
-  // 🔹 Step renderer
+  // 🔹 Render correct step
   const renderStep = () => {
     switch (step) {
       case 0:
@@ -204,7 +206,10 @@ export default function MoveForm() {
         );
       case 3:
         return (
-          <StepDeliveryProperty formData={formData} handleChange={handleChange} />
+          <StepDeliveryProperty
+            formData={formData}
+            handleChange={handleChange}
+          />
         );
       case 4:
         return (
@@ -243,7 +248,7 @@ export default function MoveForm() {
           transition={{ duration: 0.6 }}
           className="bg-white/80 backdrop-blur-xl border border-emerald-100 shadow-xl rounded-3xl p-10 w-full max-w-2xl hover:shadow-emerald-100"
         >
-          {/* --- Progress bar --- */}
+          {/* --- Progress --- */}
           <div className="mb-10 text-center">
             <p className="text-sm text-gray-600 mb-2">
               Pasul {step + 1} din {steps.length}
