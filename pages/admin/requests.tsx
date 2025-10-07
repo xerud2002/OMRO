@@ -8,6 +8,8 @@ import {
   doc,
   updateDoc,
   deleteDoc,
+  query,
+  where,
 } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { PieChart, Pie, Cell } from "recharts";
@@ -24,6 +26,9 @@ import {
   ClipboardList,
   Home,
   MapPin,
+  User,
+  Mail,
+  Phone,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
@@ -37,9 +42,11 @@ export default function AdminRequestsPage() {
   const [filter, setFilter] = useState<string>("");
   const [search, setSearch] = useState<string>("");
   const [selected, setSelected] = useState<any | null>(null);
+  const [selectedClient, setSelectedClient] = useState<any | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [clientRequests, setClientRequests] = useState<any[]>([]);
 
-  // --- Load data ---
+  // --- Load requests ---
   useEffect(() => {
     const unsub = onAuthChange(async (u) => {
       if (!u) return router.push("/company/auth");
@@ -103,6 +110,7 @@ export default function AdminRequestsPage() {
     return matchesFilter && (!search || matchesSearch);
   });
 
+  // ✅ Handle delete
   const handleDelete = async (id: string) => {
     if (!confirm("Sigur vrei să ștergi această cerere?")) return;
     setProcessingId(id);
@@ -110,6 +118,16 @@ export default function AdminRequestsPage() {
     setRequests((prev) => prev.filter((r) => r.id !== id));
     setProcessingId(null);
     toast.success("🗑️ Cererea a fost ștearsă!");
+  };
+
+  // ✅ Handle client click → load all their requests
+  const handleClientClick = async (email: string) => {
+    if (!email) return;
+    const q = query(collection(db, "requests"), where("email", "==", email));
+    const snap = await getDocs(q);
+    const clientReqs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    setClientRequests(clientReqs);
+    setSelectedClient(clientReqs[0]);
   };
 
   return (
@@ -224,27 +242,19 @@ export default function AdminRequestsPage() {
               </thead>
               <tbody>
                 {filtered.map((r) => {
-                  // 🔹 Format client name intelligently
                   const fullName = (r.customerName || "").trim();
                   let displayName = fullName;
-
                   if (fullName.includes(" ")) {
-                    const parts = fullName.split(" ");
-                    const firstName = parts[0];
-                    const lastName = parts[parts.length - 1];
-
-                    // Handle cases like “Maria Magdalena Popescu”
-                    if (parts.length > 2 && parts[1][0].toUpperCase() === lastName[0].toUpperCase()) {
-                      displayName = `${firstName} ${parts[1][0].toUpperCase()}.`;
-                    } 
-                    // Handle cases like “Ana-Maria Popescu”
-                    else if (firstName.includes("-")) {
-                      const prefix = firstName.split("-")[1]?.[0]?.toUpperCase();
-                      displayName = `${firstName.split("-")[0]}-${prefix}.`;
-                    } 
-                    // Standard case “Maria Popescu” → “Maria P.”
-                    else {
-                      displayName = `${firstName} ${lastName[0].toUpperCase()}.`;
+                    const parts = fullName.split(" ").filter(Boolean);
+                    const first = parts[0];
+                    const last = parts[parts.length - 1];
+                    if (parts.length >= 3 && parts[1][0].toUpperCase() === last[0].toUpperCase()) {
+                      displayName = `${first} ${parts[1][0].toUpperCase()}.`;
+                    } else if (first.includes("-")) {
+                      const [pre, suf] = first.split("-");
+                      displayName = `${pre}-${suf[0].toUpperCase()}.`;
+                    } else {
+                      displayName = `${first} ${last[0].toUpperCase()}.`;
                     }
                   }
 
@@ -278,8 +288,12 @@ export default function AdminRequestsPage() {
                       </td>
 
                       {/* Client */}
-                      <td className="p-3 border-b text-sm text-gray-800 font-medium">
-                        {displayName}
+                      <td
+                        className="p-3 border-b text-sm text-gray-800 font-medium cursor-pointer hover:text-emerald-600"
+                        onClick={() => handleClientClick(r.email)}
+                        title="Vezi detalii client"
+                      >
+                        {displayName || "-"}
                       </td>
 
                       {/* Detalii mutare */}
@@ -355,27 +369,31 @@ export default function AdminRequestsPage() {
             </table>
           </div>
 
-
-          {/* === MODAL DETALII === */}
-          {selected && (
+          {/* === MODAL DETALII CLIENT === */}
+          {selectedClient && (
             <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
               <div className="bg-white rounded-3xl shadow-xl p-8 w-full max-w-lg relative">
                 <button
-                  onClick={() => setSelected(null)}
+                  onClick={() => setSelectedClient(null)}
                   className="absolute top-4 right-4 text-gray-500 hover:text-red-500"
                 >
                   ✕
                 </button>
-                <h3 className="text-xl font-semibold text-emerald-700 mb-4">
-                  Detalii cerere {selected.requestId}
+                <h3 className="text-xl font-semibold text-emerald-700 mb-4 flex items-center gap-2">
+                  <User size={18} /> Detalii Client
                 </h3>
-                <div className="space-y-1 text-sm">
-                  <p><strong>Client:</strong> {selected.customerName}</p>
-                  <p><strong>Email:</strong> {selected.email}</p>
-                  <p><strong>Telefon:</strong> {selected.phone}</p>
-                  <p><strong>Colectare:</strong> {selected.pickupCity}</p>
-                  <p><strong>Livrare:</strong> {selected.deliveryCity}</p>
-                  <p><strong>Status:</strong> {selected.status}</p>
+                <div className="space-y-2 text-sm text-gray-700">
+                  <p><strong>Nume:</strong> {selectedClient.customerName}</p>
+                  <p><strong>Email:</strong> {selectedClient.email}</p>
+                  <p><strong>Telefon:</strong> {selectedClient.phone || "-"}</p>
+                  <p><strong>Cererile făcute:</strong></p>
+                  <ul className="pl-4 list-disc text-gray-600">
+                    {clientRequests.map((c) => (
+                      <li key={c.id}>
+                        {c.pickupCity} → {c.deliveryCity} ({c.status})
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               </div>
             </div>
