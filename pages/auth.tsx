@@ -3,7 +3,7 @@ import Navbar from "../components/Navbar"
 import Footer from "../components/Footer"
 import { useState, useEffect } from "react"
 import { 
-  loginWithEmail, registerWithEmail, loginWithGoogle, loginWithFacebook, 
+  loginWithEmail, registerWithEmail, loginWithGoogle, 
   logout, onAuthChange, resetPassword, db } from "../utils/firebase"
 import { User } from "firebase/auth"
 import { useRouter } from "next/router"
@@ -80,14 +80,6 @@ export default function AuthPage() {
     }
  }
 
-  const handleFacebook = async () => {
-    try {
-        await loginWithFacebook()
-        // ❌ scoatem router.push("/dashboard")
-    } catch (err: any) {
-        alert("❌ Eroare: " + err.message)
-    }
-    }
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen p-6 bg-gray-50">
@@ -140,19 +132,14 @@ export default function AuthPage() {
               </span>
             </p>
 
-            {/* Google & Facebook */}
+            {/* Google */}
             <button
               onClick={handleGoogle}
               className="w-full bg-red-500 text-white py-2 rounded mb-2 hover:bg-red-600"
             >
               Login cu Google
             </button>
-            <button
-              onClick={handleFacebook}
-              className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
-            >
-              Login cu Facebook
-            </button>
+            
           </>
         ) : (
           <>
