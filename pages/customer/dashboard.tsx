@@ -177,13 +177,21 @@ export default function ClientDashboard() {
                     </div>
 
                     {/* Buttons */}
-                    <div className="flex gap-2 mt-auto">
+                    <div className="flex flex-col sm:flex-row gap-2 mt-auto">
+                      <button
+                        onClick={() => router.push(`/customer/${order.id}`)}
+                        className="flex-1 inline-flex items-center justify-center gap-1 bg-gradient-to-r from-emerald-500 to-sky-500 text-white py-2 rounded-xl font-medium shadow hover:scale-[1.02] transition-all"
+                      >
+                        <MessageSquare size={16} /> Detalii
+                      </button>
+
                       <button
                         onClick={() => router.push(`/form?id=${order.id}`)}
                         className="flex-1 inline-flex items-center justify-center gap-1 bg-gradient-to-r from-yellow-400 to-yellow-500 text-white py-2 rounded-xl font-medium shadow hover:scale-[1.02] transition-all"
                       >
                         <Edit size={16} /> Editează
                       </button>
+
                       <button
                         onClick={async () => {
                           if (confirm("Sigur vrei să ștergi această cerere?")) {
