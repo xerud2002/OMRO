@@ -1,0 +1,160 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 🎨 Paletă de culori personalizată */
+:root {
+  --color-emerald: #10b981;
+  --color-sky: #0ea5e9;
+  --color-dark: #064e3b;
+}
+
+/* 🌿 BODY global */
+body {
+  @apply font-sans text-gray-800 bg-gradient-to-br from-emerald-50 via-white to-sky-50;
+  background-attachment: fixed;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  scroll-behavior: smooth;
+}
+
+/* 🌿 CARD (folosit în MoveForm și alte componente) */
+.card {
+  @apply bg-white/70 backdrop-blur-sm rounded-3xl shadow-md border border-emerald-100 transition-all duration-300 hover:shadow-lg hover:shadow-emerald-100/50;
+}
+
+/* 🌿 Butoane principale */
+.btn-primary {
+  @apply inline-flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-500 to-sky-500 text-white font-medium py-2 px-6 rounded-xl shadow-md hover:opacity-95 hover:shadow-lg transition-all;
+}
+
+/* 🌿 Butoane contur */
+.btn-outline {
+  @apply inline-flex items-center justify-center gap-2 border border-emerald-400 text-emerald-700 font-medium py-2 px-5 rounded-xl hover:bg-emerald-50 transition-all;
+}
+
+/* 🌿 INPUTS / SELECT / TEXTAREA */
+input,
+select,
+textarea {
+  @apply w-full border border-gray-300 rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400 transition-all bg-white/70;
+}
+
+/* 🌿 Calendar (stil curat, modern) */
+.rdp {
+  --rdp-cell-size: 42px !important;
+  --rdp-accent-color: var(--color-emerald);
+  --rdp-background-color: var(--color-emerald);
+  margin: 0 auto;
+  width: 100%;
+  max-width: 480px !important;
+  font-size: 0.95rem;
+  color: #065f46;
+  border-radius: 1.5rem;
+}
+
+.rdp-caption_label {
+  @apply font-semibold text-emerald-700;
+}
+
+.rdp-day {
+  @apply rounded-full transition-all duration-150 hover:bg-emerald-50 hover:text-emerald-700;
+}
+
+.rdp-day_selected {
+  @apply bg-gradient-to-r from-emerald-500 to-sky-500 text-white shadow-md scale-105;
+}
+
+.rdp-day_today {
+  @apply border border-emerald-400 font-medium text-emerald-700;
+}
+
+/* 🌿 Calendar container */
+.calendar-box {
+  @apply bg-white/80 backdrop-blur-sm border border-emerald-100 rounded-3xl shadow-lg p-6 w-full max-w-md mx-auto transition-all hover:shadow-emerald-100;
+}
+
+/* 🌿 HERO OVERLAY (pentru homepage) */
+.hero-overlay {
+  @apply bg-white/20 backdrop-blur-[2px] rounded-3xl border border-white/30 shadow-md p-8 text-center;
+}
+
+
+/* 🌿 Animations */
+.fade-in {
+  animation: fadeIn 0.5s ease-in-out forwards;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 🌿 Scrollbar subtil pentru pagini lungi */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(to bottom, var(--color-emerald), var(--color-sky));
+  border-radius: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f9fafb;
+}
+
+/* 🌿 React Calendar (dacă folosești și acest pachet) */
+.react-calendar {
+  width: 100%;
+  background: transparent;
+  border: none;
+  font-family: "Inter", "Poppins", sans-serif;
+}
+
+.react-calendar__tile {
+  padding: 12px 6px;
+  border-radius: 9999px;
+  transition: all 0.2s ease;
+}
+
+.react-calendar__tile:hover {
+  background-color: #ecfdf5;
+  color: #065f46;
+}
+
+.react-calendar__tile--now {
+  border: 1px solid #10b981;
+  color: #047857;
+  font-weight: 500;
+}
+
+.selected-tile {
+  background: linear-gradient(to right, #10b981, #0ea5e9);
+  color: white !important;
+  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.4);
+  transform: scale(1.05);
+}
+
+.react-calendar__navigation button {
+  color: #065f46;
+  font-weight: 600;
+  font-size: 0.9rem;
+  border-radius: 8px;
+  padding: 4px 8px;
+  transition: all 0.2s ease;
+}
+
+.react-calendar__navigation button:hover {
+  background-color: #ecfdf5;
+}
+
+.react-calendar__month-view__weekdays {
+  color: #059669;
+  font-weight: 600;
+  text-transform: lowercase;
+}
