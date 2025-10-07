@@ -11,12 +11,10 @@ import {
   FileText,
   User,
   MapPin,
-  Phone,
-  Mail,
-  ShieldCheck,
   Upload,
   FolderOpen,
   Landmark,
+  ShieldCheck,
   Save,
   Send,
   Loader2,
@@ -45,25 +43,39 @@ export default function CompanyProfile() {
     verified: false,
   });
 
+  // 🔹 Load or initialize company profile
   useEffect(() => {
     const unsub = onAuthChange(async (u) => {
       if (!u) {
         router.push("/company/auth");
         return;
       }
-      const snap = await getDoc(doc(db, "companies", u.uid));
-      if (snap.exists()) {
-        setForm((p: any) => ({ ...p, ...snap.data() }));
-      } else {
-        setForm((p: any) => ({ ...p, email: u.email || "" }));
+
+      try {
+        const snap = await getDoc(doc(db, "companies", u.uid));
+        if (snap.exists()) {
+          setForm((p: any) => ({ ...p, ...snap.data() }));
+        } else {
+          // create basic record if missing
+          await setDoc(doc(db, "companies", u.uid), {
+            email: u.email || "",
+            verified: false,
+            createdAt: new Date(),
+          });
+          setForm((p: any) => ({ ...p, email: u.email || "" }));
+        }
+      } catch (err) {
+        console.error("Error loading company:", err);
       }
+
       setLoading(false);
     });
+
     return () => unsub();
   }, [router]);
 
-  const handleChange = (f: string, v: any) =>
-    setForm((p: any) => ({ ...p, [f]: v }));
+  const handleChange = (field: string, value: any) =>
+    setForm((prev: any) => ({ ...prev, [field]: value }));
 
   const toggleService = (service: string) => {
     setForm((prev: any) => {
@@ -77,45 +89,61 @@ export default function CompanyProfile() {
     });
   };
 
+  // 🔹 Upload logo or documents
   const handleUpload = async (e: any, field: string) => {
-    const file = e.target.files[0];
+    const file = e.target.files?.[0];
     if (!file) return;
     setUploading(true);
     try {
-      const refPath = ref(
-        storage,
-        `companies/${auth.currentUser?.uid}/${Date.now()}-${file.name}`
-      );
-      await uploadBytes(refPath, file);
-      const url = await getDownloadURL(refPath);
-      if (field === "logo") handleChange("logo", url);
-      else handleChange("documents", [...form.documents, url]);
+      const path = `companies/${auth.currentUser?.uid}/${Date.now()}-${file.name}`;
+      const fileRef = ref(storage, path);
+      await uploadBytes(fileRef, file);
+      const url = await getDownloadURL(fileRef);
+
+      if (field === "logo") {
+        handleChange("logo", url);
+      } else {
+        handleChange("documents", [...form.documents, url]);
+      }
       alert("✅ Fișier încărcat cu succes!");
     } catch (err) {
       console.error(err);
-      alert("❌ Eroare la încărcare fișier");
+      alert("❌ Eroare la încărcare fișier!");
+    } finally {
+      setUploading(false);
     }
-    setUploading(false);
   };
 
+  // 🔹 Save profile
   const handleSave = async () => {
     if (!auth.currentUser) return;
-    await setDoc(
-      doc(db, "companies", auth.currentUser.uid),
-      { ...form, updatedAt: new Date() },
-      { merge: true }
-    );
-    alert("✅ Profil salvat!");
+    try {
+      await setDoc(
+        doc(db, "companies", auth.currentUser.uid),
+        { ...form, updatedAt: new Date() },
+        { merge: true }
+      );
+      alert("✅ Profil salvat cu succes!");
+    } catch (err) {
+      console.error(err);
+      alert("❌ Eroare la salvare profil.");
+    }
   };
 
+  // 🔹 Submit for verification
   const handleSubmitForVerification = async () => {
     if (!auth.currentUser) return;
-    await setDoc(
-      doc(db, "companies", auth.currentUser.uid),
-      { submittedForVerification: true },
-      { merge: true }
-    );
-    alert("📩 Profil trimis spre verificare!");
+    try {
+      await setDoc(
+        doc(db, "companies", auth.currentUser.uid),
+        { submittedForVerification: true },
+        { merge: true }
+      );
+      alert("📩 Profil trimis spre verificare!");
+    } catch (err) {
+      console.error(err);
+      alert("❌ Eroare la trimiterea verificării.");
+    }
   };
 
   if (loading)
@@ -135,28 +163,27 @@ export default function CompanyProfile() {
         transition={{ duration: 0.5 }}
         className="max-w-4xl mx-auto space-y-10"
       >
-        {/* Header Card */}
+        {/* HEADER */}
         <div className="bg-gradient-to-r from-emerald-500 to-sky-500 text-white rounded-3xl shadow-lg p-8 text-center">
           <h1 className="text-3xl font-bold mb-2">Profil firmă de mutări</h1>
           <p className="text-emerald-50 max-w-2xl mx-auto">
-            Completează toate informațiile necesare pentru verificare și afișare publică
-            pe platformă.
+            Completează toate informațiile pentru verificare și afișare pe platformă.
           </p>
         </div>
 
-        {/* Profile Form */}
+        {/* FORM */}
         <div className="bg-white/80 backdrop-blur-md rounded-3xl shadow-lg p-8 border border-emerald-100">
           {/* LOGO */}
           <div className="flex flex-col items-center mb-10">
             {form.logo ? (
               <img
                 src={form.logo}
+                alt="Logo firmă"
                 className="w-28 h-28 rounded-full border-4 border-emerald-100 object-cover shadow-lg mb-3"
-                alt="Logo"
               />
             ) : (
               <div className="w-28 h-28 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center text-gray-400 mb-3">
-                <Building2 className="text-gray-400" size={28} />
+                <Building2 size={28} />
               </div>
             )}
             <label className="cursor-pointer text-sm text-emerald-600 hover:underline">
@@ -165,14 +192,14 @@ export default function CompanyProfile() {
               <input
                 type="file"
                 accept="image/*"
-                onChange={(e) => handleUpload(e, "logo")}
                 disabled={uploading}
+                onChange={(e) => handleUpload(e, "logo")}
                 className="hidden"
               />
             </label>
           </div>
 
-          {/* SECTION: DATE FIRMĂ */}
+          {/* COMPANY DATA */}
           <Section icon={<FileText />} title="Date firmă">
             <Input label="Nume firmă" field="name" value={form.name} onChange={handleChange} />
             <Input label="CUI / CIF" field="cui" value={form.cui} onChange={handleChange} />
@@ -181,7 +208,7 @@ export default function CompanyProfile() {
             <Input label="Email firmă" field="email" value={form.email} onChange={handleChange} />
           </Section>
 
-          {/* SECTION: CONTACT */}
+          {/* CONTACT */}
           <Section icon={<User />} title="Persoană de contact">
             <Input label="Nume contact" field="contactName" value={form.contactName} onChange={handleChange} />
             <Input label="Funcție" field="contactRole" value={form.contactRole} onChange={handleChange} />
@@ -189,7 +216,7 @@ export default function CompanyProfile() {
             <Input label="Email contact" field="contactEmail" value={form.contactEmail} onChange={handleChange} />
           </Section>
 
-          {/* SECTION: SERVICII */}
+          {/* SERVICES */}
           <Section icon={<FolderOpen />} title="Servicii oferite">
             <div className="flex flex-wrap gap-2">
               {[
@@ -216,28 +243,37 @@ export default function CompanyProfile() {
             </div>
           </Section>
 
-          {/* SECTION: ZONE */}
+          {/* LOCATION */}
           <Section icon={<MapPin />} title="Zone acoperite">
             <Input label="Oraș principal" field="city" value={form.city} onChange={handleChange} />
             <Input label="Județ" field="county" value={form.county} onChange={handleChange} />
           </Section>
 
-          {/* SECTION: DOCUMENTE */}
+          {/* DOCUMENTS */}
           <Section icon={<Landmark />} title="Documente și asigurare">
             <label className="flex items-center gap-2 mb-3 text-sm font-medium text-gray-600">
               <Upload size={16} className="text-emerald-600" /> Încarcă documente (PDF / JPG / PNG)
             </label>
             <input
               type="file"
+              id="company-docs"
+              title="Selectează fișierele pentru încărcare"
               multiple
-              onChange={(e) => handleUpload(e, "documents")}
               disabled={uploading}
+              onChange={(e) => handleUpload(e, "documents")}
               className="mb-3 text-sm"
             />
+            <label
+              htmlFor="company-docs"
+              className="sr-only"
+            >
+              Selectează fișierele pentru încărcare
+            </label>
+
             <ul className="mt-2 text-sm space-y-1">
               {form.documents.map((url: string, i: number) => (
                 <li key={i}>
-                  <a href={url} target="_blank" className="text-emerald-600 underline">
+                  <a href={url} target="_blank" rel="noopener noreferrer" className="text-emerald-600 underline">
                     Document {i + 1}
                   </a>
                 </li>
@@ -267,6 +303,7 @@ export default function CompanyProfile() {
           <div className="mt-6 flex flex-col md:flex-row gap-3 justify-center">
             <button
               onClick={handleSave}
+              disabled={uploading}
               className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-500 to-sky-500 text-white px-6 py-2.5 rounded-xl shadow-md hover:scale-[1.03] transition-all"
             >
               <Save size={18} /> Salvează
@@ -274,6 +311,7 @@ export default function CompanyProfile() {
             {!form.verified && (
               <button
                 onClick={handleSubmitForVerification}
+                disabled={uploading}
                 className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-yellow-500 to-orange-500 text-white px-6 py-2.5 rounded-xl shadow-md hover:scale-[1.03] transition-all"
               >
                 <Send size={18} /> Trimite spre verificare
@@ -287,7 +325,6 @@ export default function CompanyProfile() {
 }
 
 /* ---------- Reusable Subcomponents ---------- */
-
 function Section({
   title,
   icon,
@@ -312,7 +349,7 @@ function Input({ label, field, value, onChange }: any) {
     <div className="mb-3">
       <input
         placeholder={label}
-        value={value}
+        value={value || ""}
         onChange={(e) => onChange(field, e.target.value)}
         className="w-full border border-gray-300 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-400 text-sm"
       />
