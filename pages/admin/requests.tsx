@@ -12,21 +12,52 @@ import {
 import { useRouter } from "next/navigation";
 // @ts-ignore
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
-import { ClipboardList, Loader2, Trash2, X } from "lucide-react";
+import { ClipboardList, Loader2, Trash2 } from "lucide-react";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
 import AdminLayout from "../../components/AdminLayout";
 import AdminProtectedRoute from "../../components/AdminProtectedRoute";
 
+/* ---------- ✅ Type Definitions ---------- */
+interface CompanyData {
+  id: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+}
+
+interface UserData {
+  id: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+  role?: string;
+}
+
+interface RequestData {
+  id: string;
+  status: "noua" | "in_interes" | "finalizata" | "anulata";
+  customerName?: string;
+  email?: string;
+  phone?: string;
+  pickupCity?: string;
+  deliveryCity?: string;
+  moveDate?: string;
+  assignedCompany?: string;
+  assignedCompanyId?: string;
+  userId?: string;
+}
+
+/* ---------- ✅ Component ---------- */
 export default function AdminRequestsPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [companies, setCompanies] = useState<any[]>([]);
-  const [requests, setRequests] = useState<any[]>([]);
-  const [users, setUsers] = useState<any[]>([]);
-  const [selectedRequest, setSelectedRequest] = useState<any>(null);
+  const [companies, setCompanies] = useState<CompanyData[]>([]);
+  const [requests, setRequests] = useState<RequestData[]>([]);
+  const [users, setUsers] = useState<UserData[]>([]);
+  const [selectedRequest, setSelectedRequest] = useState<RequestData | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
-  const [filter, setFilter] = useState("");
+  const [filter, setFilter] = useState<string>("");
 
   // --- Load data ---
   useEffect(() => {
@@ -51,8 +82,8 @@ export default function AdminRequestsPage() {
         getDocs(collection(db, "users")),
       ]);
 
-      setCompanies(companiesSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      setUsers(usersSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      setCompanies(companiesSnap.docs.map((d) => ({ id: d.id, ...d.data() } as CompanyData)));
+      setUsers(usersSnap.docs.map((d) => ({ id: d.id, ...d.data() } as UserData)));
 
       // 🧠 Normalizează statusurile și le corectează dacă lipsesc
       const usersMap = new Map(usersSnap.docs.map((d) => [d.id, d.data()]));
@@ -60,11 +91,10 @@ export default function AdminRequestsPage() {
         requestsSnap.docs.map(async (r) => {
           const data = r.data();
           const user = usersMap.get(data.userId);
-          const normalizedStatus = ["noua", "in_interes", "finalizata", "anulata"].includes(
-            data.status
-          )
-            ? data.status
-            : "noua";
+          const normalizedStatus: RequestData["status"] =
+            ["noua", "in_interes", "finalizata", "anulata"].includes(data.status)
+              ? data.status
+              : "noua";
 
           if (data.status !== normalizedStatus) {
             await updateDoc(doc(db, "requests", r.id), { status: normalizedStatus });
@@ -77,7 +107,7 @@ export default function AdminRequestsPage() {
             customerName: user?.name || "Client necunoscut",
             email: user?.email || "-",
             phone: user?.phone || "-",
-          };
+          } as RequestData;
         })
       );
 
@@ -127,7 +157,7 @@ export default function AdminRequestsPage() {
     toast.success("🗑️ Cererea a fost ștearsă!");
   };
 
-  const handleStatus = async (id: string, status: string) => {
+  const handleStatus = async (id: string, status: RequestData["status"]) => {
     setProcessingId(id);
     await updateDoc(doc(db, "requests", id), { status });
     setRequests((prev) =>
@@ -140,6 +170,7 @@ export default function AdminRequestsPage() {
   const handleAssign = async (id: string, companyId: string) => {
     setProcessingId(id);
     const company = companies.find((c) => c.id === companyId);
+    if (!company) return;
     await updateDoc(doc(db, "requests", id), {
       assignedCompany: company.name,
       assignedCompanyId: company.id,
@@ -223,7 +254,7 @@ export default function AdminRequestsPage() {
                     <td className="p-3 border-b">{r.phone}</td>
                     <td className="p-3 border-b">{r.pickupCity}</td>
                     <td className="p-3 border-b">{r.deliveryCity}</td>
-                    <td className="p-3 border-b">{r.moveDate}</td>
+                    <td className="p-3 border-b">{r.moveDate || "-"}</td>
                     <td className="p-3 border-b">{r.assignedCompany || "-"}</td>
                     <td className="p-3 border-b text-center">
                       <span
