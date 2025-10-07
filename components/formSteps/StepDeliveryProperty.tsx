@@ -6,42 +6,57 @@ interface StepProps {
   handleChange: (field: string, value: any) => void;
 }
 
-export default function StepDeliveryProperty({ formData, handleChange }: StepProps) {
+/**
+ * Step 4 – Destination Property Type
+ * Collects details about the destination property (house, apartment, office, etc.)
+ */
+export default function StepDeliveryProperty({
+  formData,
+  handleChange,
+}: StepProps) {
   return (
     <div className="text-center">
       <h2 className="text-2xl font-bold text-emerald-700 mb-6">
-        Tipul de proprietate la destinație 🏠
+        Tipul de proprietate la destinație
       </h2>
 
       <div className="max-w-md mx-auto text-left space-y-5">
-        {/* Tip proprietate */}
+        {/* --- Tip proprietate --- */}
         <div>
-          <label className="block text-sm font-medium text-gray-600 mb-1">
+          <label
+            htmlFor="propertyTypeTo"
+            className="block text-sm font-medium text-gray-700 mb-1"
+          >
             Tip proprietate
           </label>
           <select
-            className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-300 outline-none transition-all"
-            value={formData.propertyTypeTo}
+            id="propertyTypeTo"
+            className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-400 outline-none transition-all"
+            value={formData.propertyTypeTo || ""}
             onChange={(e) => handleChange("propertyTypeTo", e.target.value)}
           >
             <option value="">Selectează...</option>
-            <option>Casă</option>
-            <option>Apartament</option>
-            <option>Office</option>
-            <option>Depozit</option>
+            <option value="Casă">Casă</option>
+            <option value="Apartament">Apartament</option>
+            <option value="Office">Office</option>
+            <option value="Depozit">Depozit</option>
           </select>
         </div>
 
-        {/* Casă */}
+        {/* --- Caz: Casă --- */}
         {formData.propertyTypeTo === "Casă" && (
           <>
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">
+              <label
+                htmlFor="roomsTo"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
                 Număr camere
               </label>
               <select
-                className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-300 outline-none transition-all"
-                value={formData.roomsTo}
+                id="roomsTo"
+                className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-400 outline-none transition-all"
+                value={formData.roomsTo || ""}
                 onChange={(e) => handleChange("roomsTo", e.target.value)}
               >
                 <option value="">Selectează...</option>
@@ -54,16 +69,20 @@ export default function StepDeliveryProperty({ formData, handleChange }: StepPro
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">
+              <label
+                htmlFor="houseFloorsTo"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
                 Câte etaje are casa?
               </label>
               <select
-                className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-300 outline-none transition-all"
+                id="houseFloorsTo"
+                className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-400 outline-none transition-all"
                 value={formData.houseFloorsTo || ""}
                 onChange={(e) => handleChange("houseFloorsTo", e.target.value)}
               >
                 <option value="">Selectează...</option>
-                <option>Parter</option>
+                <option>Fără etaj</option>
                 <option>1 etaj</option>
                 <option>2 etaje</option>
                 <option>3+ etaje</option>
@@ -72,17 +91,21 @@ export default function StepDeliveryProperty({ formData, handleChange }: StepPro
           </>
         )}
 
-        {/* Apartament / Office */}
+        {/* --- Caz: Apartament / Office --- */}
         {(formData.propertyTypeTo === "Apartament" ||
           formData.propertyTypeTo === "Office") && (
           <>
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">
+              <label
+                htmlFor="roomsTo"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
                 Număr camere
               </label>
               <select
-                className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-300 outline-none transition-all"
-                value={formData.roomsTo}
+                id="roomsTo"
+                className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-400 outline-none transition-all"
+                value={formData.roomsTo || ""}
                 onChange={(e) => handleChange("roomsTo", e.target.value)}
               >
                 <option value="">Selectează...</option>
@@ -95,12 +118,16 @@ export default function StepDeliveryProperty({ formData, handleChange }: StepPro
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">
+              <label
+                htmlFor="floorTo"
+                className="block text-sm font-medium text-gray-700 mb-1"
+              >
                 Etaj
               </label>
               <select
-                className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-300 outline-none transition-all"
-                value={formData.floorTo}
+                id="floorTo"
+                className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-400 outline-none transition-all"
+                value={formData.floorTo || ""}
                 onChange={(e) => handleChange("floorTo", e.target.value)}
               >
                 <option value="">Selectează...</option>
@@ -115,11 +142,15 @@ export default function StepDeliveryProperty({ formData, handleChange }: StepPro
 
             {formData.floorTo && formData.floorTo !== "Parter" && (
               <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">
+                <label
+                  htmlFor="liftTo"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
                   Există lift?
                 </label>
                 <select
-                  className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-300 outline-none transition-all"
+                  id="liftTo"
+                  className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-400 outline-none transition-all"
                   value={formData.liftTo || ""}
                   onChange={(e) => handleChange("liftTo", e.target.value)}
                 >

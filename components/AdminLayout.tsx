@@ -1,6 +1,9 @@
 "use client";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { collection, getDocs } from "firebase/firestore";
 import { logout, db } from "../utils/firebase";
 import {
   LayoutDashboard,
@@ -12,9 +15,6 @@ import {
   X,
   Shield,
 } from "lucide-react";
-import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { collection, getDocs } from "firebase/firestore";
 
 type AdminLayoutProps = {
   children: React.ReactNode;
@@ -24,10 +24,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
-  const [pendingCompanies, setPendingCompanies] = useState(0);
-  const [newRequests, setNewRequests] = useState(0);
+  const [pendingCompanies, setPendingCompanies] = useState<number>(0);
+  const [newRequests, setNewRequests] = useState<number>(0);
 
-  // 🔹 Load dynamic badge counts once
+  // 🔹 Fetch counts once (companies pending verification, new requests)
   useEffect(() => {
     const fetchCounts = async () => {
       try {
@@ -41,7 +41,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         ).length;
 
         const newReq = requestsSnap.docs.filter(
-          (r) => r.data().status === "noua" // ✅ updated Romanian status
+          (r) => r.data().status?.toLowerCase?.() === "noua"
         ).length;
 
         setPendingCompanies(pending);
@@ -54,6 +54,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     fetchCounts();
   }, []);
 
+  // 🔹 Admin navigation menu
   const menu = [
     {
       name: "Dashboard",
@@ -79,6 +80,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     },
   ];
 
+  // 🔹 Logout handler
   const handleLogout = async () => {
     await logout();
     router.push("/company/auth");
@@ -86,14 +88,15 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
   return (
     <div className="min-h-screen flex bg-gradient-to-br from-emerald-50 to-sky-50 text-gray-800">
-      {/* --- SIDEBAR --- */}
+      {/* === SIDEBAR === */}
       <aside
         className={`fixed md:static top-0 left-0 h-full w-64 bg-white/80 backdrop-blur-xl shadow-xl flex flex-col justify-between rounded-r-3xl border-r border-emerald-100 transform transition-transform duration-300 ${
           isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         }`}
       >
+        {/* --- Sidebar Top --- */}
         <div>
-          {/* --- Logo / Title --- */}
+          {/* --- Header / Logo --- */}
           <div className="p-6 text-2xl font-bold text-emerald-700 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Shield className="text-emerald-600" size={26} />
@@ -112,31 +115,35 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
           {/* --- Navigation --- */}
           <nav className="mt-4 space-y-1">
-            {menu.map((item) => (
-              <Link
-                key={item.path}
-                href={item.path}
-                className={`flex items-center justify-between py-3 px-6 rounded-l-full transition-all duration-200 ${
-                  pathname === item.path
-                    ? "bg-gradient-to-r from-emerald-100 to-sky-100 text-emerald-700 font-semibold shadow-sm"
-                    : "hover:bg-emerald-50 text-gray-700"
-                }`}
-                onClick={() => setIsOpen(false)}
-              >
-                <div className="flex items-center gap-3">
-                  <span className="text-emerald-600">{item.icon}</span>
-                  {item.name}
-                </div>
-                {item.badge && item.badge > 0 && (
-                  <span
-                    className="ml-2 bg-emerald-500 text-white text-xs font-bold px-2 py-0.5 rounded-full"
-                    aria-label={`Număr ${item.name.toLowerCase()}: ${item.badge}`}
-                  >
-                    {item.badge}
-                  </span>
-                )}
-              </Link>
-            ))}
+            {menu.map((item) => {
+              const active = pathname === item.path;
+              return (
+                <Link
+                  key={item.path}
+                  href={item.path}
+                  className={`flex items-center justify-between py-3 px-6 rounded-l-full transition-all duration-200 ${
+                    active
+                      ? "bg-gradient-to-r from-emerald-100 to-sky-100 text-emerald-700 font-semibold shadow-sm"
+                      : "hover:bg-emerald-50 text-gray-700"
+                  }`}
+                  onClick={() => setIsOpen(false)}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-emerald-600">{item.icon}</span>
+                    {item.name}
+                  </div>
+
+                  {item.badge && item.badge > 0 && (
+                    <span
+                      className="ml-2 bg-emerald-500 text-white text-xs font-bold px-2 py-0.5 rounded-full"
+                      aria-label={`Număr ${item.name.toLowerCase()}: ${item.badge}`}
+                    >
+                      {item.badge}
+                    </span>
+                  )}
+                </Link>
+              );
+            })}
           </nav>
         </div>
 
@@ -154,7 +161,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         </div>
       </aside>
 
-      {/* --- Mobile Toggle Button --- */}
+      {/* === MOBILE MENU TOGGLE === */}
       <button
         type="button"
         title="Deschide meniul"
@@ -165,7 +172,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         <Menu size={22} />
       </button>
 
-      {/* --- MAIN CONTENT --- */}
+      {/* === MAIN CONTENT === */}
       <main className="flex-1 p-6 md:p-10 w-full overflow-auto">
         <AnimatePresence mode="wait">
           <motion.div

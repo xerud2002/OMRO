@@ -1,6 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
+import { handleRoleRedirect } from "../../utils/handleRoleRedirect";
 import {
   registerWithEmail,
   loginWithEmail,
@@ -9,9 +11,8 @@ import {
   logout,
   db,
 } from "../../utils/firebase";
-import { doc, setDoc, getDoc } from "firebase/firestore";
+import { doc, setDoc } from "firebase/firestore";
 import { User } from "firebase/auth";
-import { motion } from "framer-motion";
 import {
   Building2,
   Mail,
@@ -21,7 +22,6 @@ import {
   Landmark,
   LogOut,
   UserPlus,
-  ArrowRight,
   LogIn,
   Factory,
 } from "lucide-react";
@@ -30,30 +30,14 @@ export default function CompanyAuthPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
 
-  // 🔹 Listen for auth changes & redirect by role
+  // 🔹 Detect auth changes & redirect by role
   useEffect(() => {
     const unsub = onAuthChange(async (u) => {
       if (u) {
-        const snap = await getDoc(doc(db, "users", u.uid));
-
-        let role = "company";
-        if (!snap.exists()) {
-          await setDoc(doc(db, "users", u.uid), {
-            email: u.email,
-            role,
-            createdAt: new Date(),
-          });
-        } else {
-          const data = snap.data();
-          role = data.role || "company";
-        }
-
-        if (role === "admin") router.push("/admin/companies");
-        else if (role === "company") router.push("/company/dashboard");
-        else router.push("/customer/dashboard");
+        setUser(u);
+        await handleRoleRedirect(u, router);
       }
     });
-
     return () => unsub();
   }, [router]);
 
@@ -66,6 +50,7 @@ export default function CompanyAuthPage() {
   const [county, setCounty] = useState("");
   const [isRegister, setIsRegister] = useState(false);
 
+  // 🔹 Register / Login handler
   const handleAuth = async () => {
     try {
       if (isRegister) {
@@ -102,6 +87,7 @@ export default function CompanyAuthPage() {
     }
   };
 
+  // 🔹 Logged-in view
   if (user) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-emerald-50 to-sky-50">
@@ -124,6 +110,7 @@ export default function CompanyAuthPage() {
     );
   }
 
+  // 🔹 Auth form
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-emerald-50 to-sky-50 p-6">
       <motion.div
@@ -145,75 +132,52 @@ export default function CompanyAuthPage() {
           </p>
         </div>
 
-        {/* Register fields */}
+        {/* Register-only fields */}
         {isRegister && (
           <>
-            <div className="relative mb-3">
-              <Building2 className="absolute left-3 top-3.5 text-gray-400" size={18} />
-              <input
-                type="text"
-                placeholder="Numele firmei"
-                className="w-full border border-gray-300 p-3 pl-10 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                value={companyName}
-                onChange={(e) => setCompanyName(e.target.value)}
-              />
-            </div>
-            <div className="relative mb-3">
-              <Phone className="absolute left-3 top-3.5 text-gray-400" size={18} />
-              <input
-                type="text"
-                placeholder="Telefon"
-                className="w-full border border-gray-300 p-3 pl-10 rounded-lg focus:ring-2 focus:ring-emerald-400"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-              />
-            </div>
-            <div className="relative mb-3">
-              <MapPin className="absolute left-3 top-3.5 text-gray-400" size={18} />
-              <input
-                type="text"
-                placeholder="Oraș"
-                className="w-full border border-gray-300 p-3 pl-10 rounded-lg focus:ring-2 focus:ring-emerald-400"
-                value={city}
-                onChange={(e) => setCity(e.target.value)}
-              />
-            </div>
-            <div className="relative mb-3">
-              <Landmark className="absolute left-3 top-3.5 text-gray-400" size={18} />
-              <input
-                type="text"
-                placeholder="Județ"
-                className="w-full border border-gray-300 p-3 pl-10 rounded-lg focus:ring-2 focus:ring-emerald-400"
-                value={county}
-                onChange={(e) => setCounty(e.target.value)}
-              />
-            </div>
+            <Input
+              icon={<Building2 size={18} />}
+              placeholder="Numele firmei"
+              value={companyName}
+              onChange={setCompanyName}
+            />
+            <Input
+              icon={<Phone size={18} />}
+              placeholder="Telefon"
+              value={phone}
+              onChange={setPhone}
+            />
+            <Input
+              icon={<MapPin size={18} />}
+              placeholder="Oraș"
+              value={city}
+              onChange={setCity}
+            />
+            <Input
+              icon={<Landmark size={18} />}
+              placeholder="Județ"
+              value={county}
+              onChange={setCounty}
+            />
           </>
         )}
 
-        {/* Shared Fields */}
-        <div className="relative mb-3">
-          <Mail className="absolute left-3 top-3.5 text-gray-400" size={18} />
-          <input
-            type="email"
-            placeholder="Email"
-            className="w-full border border-gray-300 p-3 pl-10 rounded-lg focus:ring-2 focus:ring-emerald-400"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </div>
-        <div className="relative mb-5">
-          <Lock className="absolute left-3 top-3.5 text-gray-400" size={18} />
-          <input
-            type="password"
-            placeholder="Parolă"
-            className="w-full border border-gray-300 p-3 pl-10 rounded-lg focus:ring-2 focus:ring-emerald-400"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </div>
+        {/* Shared fields */}
+        <Input
+          icon={<Mail size={18} />}
+          placeholder="Email"
+          value={email}
+          onChange={setEmail}
+        />
+        <Input
+          icon={<Lock size={18} />}
+          placeholder="Parolă"
+          type="password"
+          value={password}
+          onChange={setPassword}
+        />
 
-        {/* Submit Button */}
+        {/* Submit button */}
         <button
           onClick={handleAuth}
           className="w-full inline-flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-500 to-sky-500 text-white py-2.5 rounded-xl mb-3 shadow-md hover:scale-[1.02] transition-all"
@@ -229,7 +193,7 @@ export default function CompanyAuthPage() {
           )}
         </button>
 
-        {/* Switch form type */}
+        {/* Toggle form type */}
         <p className="text-center text-sm text-gray-600 mb-4">
           {isRegister ? "Ai deja cont?" : "Nu ai cont?"}{" "}
           <span
@@ -240,7 +204,7 @@ export default function CompanyAuthPage() {
           </span>
         </p>
 
-        {/* Google Login */}
+        {/* Google login */}
         <button
           onClick={() => loginWithGoogle("company")}
           className="w-full inline-flex items-center justify-center gap-2 bg-red-500 text-white py-2.5 rounded-xl shadow-md hover:bg-red-600 transition-all"
@@ -249,6 +213,34 @@ export default function CompanyAuthPage() {
           <span>Login cu Google</span>
         </button>
       </motion.div>
+    </div>
+  );
+}
+
+/* 🔸 Small reusable input component */
+function Input({
+  icon,
+  placeholder,
+  value,
+  onChange,
+  type = "text",
+}: {
+  icon: React.ReactNode;
+  placeholder: string;
+  value: string;
+  onChange: (v: string) => void;
+  type?: string;
+}) {
+  return (
+    <div className="relative mb-3">
+      <div className="absolute left-3 top-3.5 text-gray-400">{icon}</div>
+      <input
+        type={type}
+        placeholder={placeholder}
+        className="w-full border border-gray-300 p-3 pl-10 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
     </div>
   );
 }

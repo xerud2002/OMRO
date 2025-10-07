@@ -1,21 +1,22 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, PhoneCall } from "lucide-react";
 
-const Navbar: React.FC = () => {
+export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
-  // Detect scroll for background change
+  // 🔹 Detect scroll to change background
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 10);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // 🔹 Navigation links
   const navLinks = [
     { href: "/about", label: "Despre Noi" },
     { href: "/contact", label: "Contact" },
@@ -31,20 +32,24 @@ const Navbar: React.FC = () => {
       }`}
     >
       <div className="max-w-7xl mx-auto flex justify-between items-center px-6 py-3">
-        
-        {/* Logo bazat pe imaginea finală */}
-        <Link href="/" className="flex items-center space-x-2">
+        {/* === LOGO === */}
+        <Link
+          href="/"
+          className="flex items-center space-x-2"
+          title="Acasă - ofertemutare.ro"
+          aria-label="Acasă"
+        >
           <Image
-            src="/logo.png" // Vă rugăm să vă asigurați că această cale și nume de fișier sunt corecte!
-            alt="OFERTE MUTARE Logo"
-            width={180} 
-            height={40} 
+            src="/logo.png"
+            alt="ofertemutare.ro Logo"
+            width={180}
+            height={40}
             priority
+            className="object-contain"
           />
         </Link>
-        {/* Sfârșit Logo */}
 
-        {/* Desktop Nav */}
+        {/* === DESKTOP NAV === */}
         <nav className="hidden md:flex items-center space-x-4">
           {navLinks.map((item) => (
             <Link
@@ -55,55 +60,64 @@ const Navbar: React.FC = () => {
               {item.label}
             </Link>
           ))}
+
+          {/* CTA: Obține Oferte */}
           <Link
             href="/form"
             className="ml-3 inline-flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-sky-500 text-white font-semibold px-5 py-2 rounded-full shadow-md hover:shadow-lg hover:scale-105 transition-all"
           >
-            <PhoneCall size={18} /> Obține Oferte
+            <PhoneCall size={18} />
+            Obține Oferte
           </Link>
         </nav>
 
-        {/* Mobile Menu Button */}
+        {/* === MOBILE MENU BUTTON === */}
         <button
-          onClick={() => setIsOpen(!isOpen)}
+          type="button"
+          aria-label={isOpen ? "Închide meniul" : "Deschide meniul"}
           title={isOpen ? "Închide meniul" : "Deschide meniul"}
+          onClick={() => setIsOpen((prev) => !prev)}
           className="md:hidden p-2 rounded-lg text-emerald-700 hover:bg-emerald-50 transition"
         >
           {isOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
       </div>
 
-      {/* Mobile Dropdown */}
-      {isOpen && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0 }}
-          className="md:hidden bg-white/95 backdrop-blur-lg shadow-lg border-t border-emerald-100"
-        >
-          <nav className="flex flex-col px-6 py-4 space-y-2">
-            {navLinks.map((item) => (
+      {/* === MOBILE MENU === */}
+      <AnimatePresence>
+        {isOpen && (
+          <motion.nav
+            key="mobile-nav"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.25 }}
+            className="md:hidden bg-white/95 backdrop-blur-lg shadow-lg border-t border-emerald-100"
+          >
+            <div className="flex flex-col px-6 py-4 space-y-2">
+              {navLinks.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setIsOpen(false)}
+                  className="px-3 py-2 rounded-lg text-gray-700 font-medium hover:bg-gradient-to-r hover:from-emerald-500 hover:to-sky-500 hover:text-white transition-all"
+                >
+                  {item.label}
+                </Link>
+              ))}
+
               <Link
-                key={item.href}
-                href={item.href}
+                href="/form"
                 onClick={() => setIsOpen(false)}
-                className="px-3 py-2 rounded-lg text-gray-700 font-medium hover:bg-gradient-to-r hover:from-emerald-500 hover:to-sky-500 hover:text-white transition-all"
+                className="mt-3 inline-flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-500 to-sky-500 text-white font-semibold px-5 py-2 rounded-full shadow-md hover:shadow-lg transition-all"
               >
-                {item.label}
+                <PhoneCall size={18} />
+                Obține Oferte
               </Link>
-            ))}
-            <Link
-              href="/form"
-              onClick={() => setIsOpen(false)}
-              className="mt-3 inline-flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-500 to-sky-500 text-white font-semibold px-5 py-2 rounded-full shadow-md hover:shadow-lg transition-all"
-            >
-              <PhoneCall size={18} /> Obține Oferte
-            </Link>
-          </nav>
-        </motion.div>
-      )}
+            </div>
+          </motion.nav>
+        )}
+      </AnimatePresence>
     </header>
   );
-};
-
-export default Navbar;
+}

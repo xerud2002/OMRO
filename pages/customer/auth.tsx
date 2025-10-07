@@ -1,6 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
+import { handleRoleRedirect } from "../../utils/handleRoleRedirect";
 import {
   registerWithEmail,
   loginWithEmail,
@@ -10,9 +12,8 @@ import {
   resetPassword,
   db,
 } from "../../utils/firebase";
-import { doc, setDoc, getDoc } from "firebase/firestore";
+import { doc, setDoc } from "firebase/firestore";
 import { User } from "firebase/auth";
-import { motion } from "framer-motion";
 import {
   UserPlus,
   LogIn,
@@ -20,7 +21,6 @@ import {
   Lock,
   RefreshCw,
   LogOut,
-  ArrowRight,
 } from "lucide-react";
 
 export default function CustomerAuthPage() {
@@ -30,37 +30,18 @@ export default function CustomerAuthPage() {
   const [password, setPassword] = useState("");
   const [isRegister, setIsRegister] = useState(false);
 
-  // ✅ Detect auth state and redirect by Firestore role
+  // 🔹 Detect auth state and redirect by role
   useEffect(() => {
     const unsub = onAuthChange(async (u) => {
-      if (!u) return;
-      setUser(u);
-
-      const userRef = doc(db, "users", u.uid);
-      const snap = await getDoc(userRef);
-
-      let role = "customer";
-      if (snap.exists()) {
-        const data = snap.data();
-        role = data.role || "customer";
-      } else {
-        await setDoc(userRef, {
-          email: u.email,
-          role,
-          createdAt: new Date(),
-        });
+      if (u) {
+        setUser(u);
+        await handleRoleRedirect(u, router);
       }
-
-      // Redirect by role
-      if (role === "admin") router.push("/admin/companies");
-      else if (role === "company") router.push("/company/dashboard");
-      else router.push("/customer/dashboard");
     });
-
     return () => unsub();
   }, [router]);
 
-  // ✅ Email / Password auth
+  // 🔹 Email / Password Auth
   const handleEmailAuth = async () => {
     try {
       if (isRegister) {
@@ -73,7 +54,7 @@ export default function CustomerAuthPage() {
           createdAt: new Date(),
         });
 
-        alert("✅ Cont client creat!");
+        alert("✅ Cont client creat cu succes!");
         router.push("/customer/dashboard");
       } else {
         await loginWithEmail(email, password);
@@ -84,7 +65,7 @@ export default function CustomerAuthPage() {
     }
   };
 
-  // ✅ Reset password
+  // 🔹 Reset password
   const handleResetPassword = async () => {
     if (!email) return alert("Introduceți adresa de email!");
     try {
@@ -95,32 +76,19 @@ export default function CustomerAuthPage() {
     }
   };
 
-  // ✅ Google login
+  // 🔹 Google login
   const handleGoogle = async () => {
     try {
       const cred = await loginWithGoogle();
       const u = cred.user;
-      const ref = doc(db, "users", u.uid);
-      const snap = await getDoc(ref);
 
-      if (!snap.exists()) {
-        await setDoc(ref, {
-          email: u.email,
-          role: "customer",
-          createdAt: new Date(),
-        });
-      }
-
-      const data = (await getDoc(ref)).data();
-      if (data?.role === "company") router.push("/company/dashboard");
-      else if (data?.role === "admin") router.push("/admin/companies");
-      else router.push("/customer/dashboard");
+      await handleRoleRedirect(u, router);
     } catch (err: any) {
       alert("❌ Eroare Google Login: " + err.message);
     }
   };
 
-  // ✅ Logged in view
+  // 🔹 Logged-in view
   if (user) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-emerald-50 to-sky-50">
@@ -143,7 +111,7 @@ export default function CustomerAuthPage() {
     );
   }
 
-  // ✅ Auth form
+  // 🔹 Auth form
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-emerald-50 to-sky-50 p-6">
       <motion.div
@@ -164,31 +132,23 @@ export default function CustomerAuthPage() {
           </p>
         </div>
 
-        {/* Email */}
-        <div className="relative mb-3">
-          <Mail className="absolute left-3 top-3.5 text-gray-400" size={18} />
-          <input
-            type="email"
-            placeholder="Email"
-            className="w-full border border-gray-300 p-3 pl-10 rounded-lg focus:ring-2 focus:ring-emerald-400"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </div>
+        {/* Inputs */}
+        <Input
+          icon={<Mail size={18} />}
+          placeholder="Email"
+          value={email}
+          onChange={setEmail}
+          type="email"
+        />
+        <Input
+          icon={<Lock size={18} />}
+          placeholder="Parolă"
+          value={password}
+          onChange={setPassword}
+          type="password"
+        />
 
-        {/* Password */}
-        <div className="relative mb-5">
-          <Lock className="absolute left-3 top-3.5 text-gray-400" size={18} />
-          <input
-            type="password"
-            placeholder="Parolă"
-            className="w-full border border-gray-300 p-3 pl-10 rounded-lg focus:ring-2 focus:ring-emerald-400"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-        </div>
-
-        {/* Main action button */}
+        {/* Submit Button */}
         <button
           onClick={handleEmailAuth}
           className="w-full inline-flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-500 to-sky-500 text-white py-2.5 rounded-xl mb-3 shadow-md hover:scale-[1.03] transition-all"
@@ -235,6 +195,34 @@ export default function CustomerAuthPage() {
           <span>Login cu Google</span>
         </button>
       </motion.div>
+    </div>
+  );
+}
+
+/* 🔸 Small reusable input component */
+function Input({
+  icon,
+  placeholder,
+  value,
+  onChange,
+  type = "text",
+}: {
+  icon: React.ReactNode;
+  placeholder: string;
+  value: string;
+  onChange: (v: string) => void;
+  type?: string;
+}) {
+  return (
+    <div className="relative mb-3">
+      <div className="absolute left-3 top-3.5 text-gray-400">{icon}</div>
+      <input
+        type={type}
+        placeholder={placeholder}
+        className="w-full border border-gray-300 p-3 pl-10 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
     </div>
   );
 }

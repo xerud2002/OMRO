@@ -1,32 +1,35 @@
 "use client";
 import { useEffect, useState } from "react";
-import { onAuthChange, db } from "../utils/firebase";
-import { doc, getDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
+import { doc, getDoc } from "firebase/firestore";
 import toast from "react-hot-toast";
+import { onAuthChange, db } from "../utils/firebase";
+import LoadingSpinner from "../components/LoadingSpinner";
 
 export default function AdminProtectedRoute({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [loading, setLoading] = useState(true);
   const router = useRouter();
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const unsub = onAuthChange(async (user) => {
+      // 🚫 Not logged in
       if (!user) {
         toast.error("🔒 Trebuie să te autentifici ca admin.");
-        router.push("/company/auth");
+        await router.push("/company/auth");
         return;
       }
 
-      const userDoc = await getDoc(doc(db, "users", user.uid));
-      const data = userDoc.data();
+      // 🔍 Verify user role
+      const userRef = doc(db, "users", user.uid);
+      const userSnap = await getDoc(userRef);
 
-      if (!userDoc.exists() || data?.role !== "admin") {
+      if (!userSnap.exists() || userSnap.data()?.role !== "admin") {
         toast.error("⛔ Acces interzis. Doar adminii pot intra aici.");
-        router.push("/");
+        await router.push("/");
         return;
       }
 
@@ -36,13 +39,13 @@ export default function AdminProtectedRoute({
     return () => unsub();
   }, [router]);
 
+  // ⏳ Loading state
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-[70vh] text-emerald-600 text-lg">
-        Se verifică accesul administratorului...
-      </div>
+      <LoadingSpinner text="Se verifică accesul administratorului..." />
     );
   }
 
+  // ✅ Access granted
   return <>{children}</>;
 }

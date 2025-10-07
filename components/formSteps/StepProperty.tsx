@@ -6,60 +6,74 @@ interface StepProps {
   handleChange: (field: string, value: any) => void;
 }
 
+/**
+ * Step 2 – Property Type & Collection Details
+ * Collects details about the pickup property (house, apartment, office, storage).
+ */
 export default function StepProperty({ formData, handleChange }: StepProps) {
   return (
     <div className="text-center">
       <h2 className="text-2xl font-bold text-emerald-700 mb-6">
-        Tipul de proprietate și detalii colectare 🏠
+        Tipul de proprietate și detalii colectare
       </h2>
 
-      <div className="max-w-md mx-auto text-left space-y-4">
-        {/* Tip proprietate */}
+      <div className="max-w-md mx-auto text-left space-y-5">
+        {/* --- Tip proprietate --- */}
         <div>
-          <label className="block text-sm font-medium text-gray-600 mb-1">
+          <label
+            htmlFor="propertyType"
+            className="block text-sm font-medium text-gray-700 mb-1"
+          >
             Tip proprietate
           </label>
           <select
-            className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-300 outline-none transition-all"
+            id="propertyType"
+            className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-400 outline-none transition-all"
             value={formData.propertyType || ""}
             onChange={(e) => handleChange("propertyType", e.target.value)}
-            aria-label="Tip proprietate"
           >
             <option value="">Selectează tipul</option>
-            <option>Casă</option>
-            <option>Apartament</option>
-            <option>Office</option>
-            <option>Storage</option>
+            <option value="Casă">Casă</option>
+            <option value="Apartament">Apartament</option>
+            <option value="Office">Office</option>
+            <option value="Storage">Depozit / Storage</option>
           </select>
         </div>
 
-        {/* Mărime / Camere */}
+        {/* --- Mărime / Camere --- */}
         {formData.propertyType && (
-          <>
+          <div>
             {formData.propertyType === "Storage" ? (
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">
+              <>
+                <label
+                  htmlFor="storageSize"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
                   Mărimea spațiului (m³)
                 </label>
                 <input
+                  id="storageSize"
                   type="number"
                   min="1"
-                  className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-300 outline-none transition-all"
+                  placeholder="Ex: 12"
+                  className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-400 outline-none transition-all"
                   value={formData.rooms || ""}
                   onChange={(e) => handleChange("rooms", e.target.value)}
-                  placeholder="Ex: 12"
                 />
-              </div>
+              </>
             ) : (
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">
+              <>
+                <label
+                  htmlFor="rooms"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
                   Număr camere
                 </label>
                 <select
-                  className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-300 outline-none transition-all"
+                  id="rooms"
+                  className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-400 outline-none transition-all"
                   value={formData.rooms || ""}
                   onChange={(e) => handleChange("rooms", e.target.value)}
-                  aria-label="Număr camere"
                 >
                   <option value="">Selectează</option>
                   <option>1 cameră</option>
@@ -68,22 +82,25 @@ export default function StepProperty({ formData, handleChange }: StepProps) {
                   <option>4 camere</option>
                   <option>5+ camere</option>
                 </select>
-              </div>
+              </>
             )}
-          </>
+          </div>
         )}
 
-        {/* Detalii pentru casă */}
+        {/* --- Detalii pentru casă --- */}
         {formData.propertyType === "Casă" && formData.rooms && (
           <div>
-            <label className="block text-sm font-medium text-gray-600 mb-1">
+            <label
+              htmlFor="houseFloors"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               Câte etaje are casa?
             </label>
             <select
-              className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-300 outline-none transition-all"
+              id="houseFloors"
+              className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-400 outline-none transition-all"
               value={formData.houseFloors || ""}
               onChange={(e) => handleChange("houseFloors", e.target.value)}
-              aria-label="Etaje casă"
             >
               <option value="">Selectează</option>
               <option>Fără etaj</option>
@@ -94,20 +111,23 @@ export default function StepProperty({ formData, handleChange }: StepProps) {
           </div>
         )}
 
-        {/* Detalii pentru apartament / office */}
+        {/* --- Detalii pentru apartament / office --- */}
         {(formData.propertyType === "Apartament" ||
           formData.propertyType === "Office") &&
           formData.rooms && (
             <>
               <div>
-                <label className="block text-sm font-medium text-gray-600 mb-1">
+                <label
+                  htmlFor="floor"
+                  className="block text-sm font-medium text-gray-700 mb-1"
+                >
                   La ce etaj este?
                 </label>
                 <select
-                  className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-300 outline-none transition-all"
+                  id="floor"
+                  className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-400 outline-none transition-all"
                   value={formData.floor || ""}
                   onChange={(e) => handleChange("floor", e.target.value)}
-                  aria-label="Etaj"
                 >
                   <option value="">Selectează</option>
                   <option>Parter</option>
@@ -119,16 +139,19 @@ export default function StepProperty({ formData, handleChange }: StepProps) {
                 </select>
               </div>
 
-              {formData.floor !== "" && formData.floor !== "Parter" && (
+              {formData.floor && formData.floor !== "Parter" && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">
+                  <label
+                    htmlFor="lift"
+                    className="block text-sm font-medium text-gray-700 mb-1"
+                  >
                     Există lift?
                   </label>
                   <select
-                    className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-300 outline-none transition-all"
+                    id="lift"
+                    className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-400 outline-none transition-all"
                     value={formData.lift || ""}
                     onChange={(e) => handleChange("lift", e.target.value)}
-                    aria-label="Lift disponibil"
                   >
                     <option value="">Selectează</option>
                     <option>Da</option>
