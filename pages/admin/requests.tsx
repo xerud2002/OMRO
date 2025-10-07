@@ -8,8 +8,10 @@ import {
   doc,
   updateDoc,
   deleteDoc,
+  addDoc,
   query,
   where,
+  orderBy,
 } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { PieChart, Pie, Cell } from "recharts";
@@ -19,7 +21,6 @@ import {
   CheckCircle2,
   Ban,
   Hash,
-  Eye,
   Trash2,
   SearchCheck,
   Loader2,
@@ -27,9 +28,13 @@ import {
   Home,
   MapPin,
   User,
-  Mail,
-  Phone,
   ExternalLink,
+  ChevronLeft,
+  ChevronRight,
+  Edit3,
+  FileText,
+  Clock,
+  Building2,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
@@ -40,14 +45,18 @@ export default function AdminRequestsPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [requests, setRequests] = useState<any[]>([]);
+  const [companies, setCompanies] = useState<any[]>([]);
   const [filter, setFilter] = useState<string>("");
   const [search, setSearch] = useState<string>("");
   const [selected, setSelected] = useState<any | null>(null);
-  const [selectedClient, setSelectedClient] = useState<any | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
-  const [clientRequests, setClientRequests] = useState<any[]>([]);
+  const [notes, setNotes] = useState<string>("");
+  const [timeline, setTimeline] = useState<any[]>([]);
 
-  // --- Load requests ---
+  const [currentPage, setCurrentPage] = useState(1);
+  const rowsPerPage = 10;
+
+  // Load everything
   useEffect(() => {
     const unsub = onAuthChange(async (u) => {
       if (!u) return router.push("/company/auth");
@@ -57,22 +66,25 @@ export default function AdminRequestsPage() {
         return router.push("/");
       }
 
-      const requestsSnap = await getDocs(collection(db, "requests"));
+      const [reqSnap, compSnap] = await Promise.all([
+        getDocs(collection(db, "requests")),
+        getDocs(query(collection(db, "companies"), where("verified", "==", true))),
+      ]);
+
       const merged = await Promise.all(
-        requestsSnap.docs.map(async (r) => {
+        reqSnap.docs.map(async (r) => {
           const data = r.data();
           let requestId = data.requestId;
           if (!requestId) {
-            requestId = `REQ-${Math.random()
-              .toString(36)
-              .substring(2, 7)
-              .toUpperCase()}`;
+            requestId = `REQ-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
             await updateDoc(doc(db, "requests", r.id), { requestId });
           }
           return { id: r.id, requestId, ...data };
         })
       );
+
       setRequests(merged);
+      setCompanies(compSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
       setLoading(false);
     });
     return () => unsub();
@@ -87,62 +99,97 @@ export default function AdminRequestsPage() {
       </AdminLayout>
     );
 
-  // ✅ Stats
+  const total = requests.length || 1;
   const stats = {
     noua: requests.filter((r) => r.status === "noua").length,
     in_interes: requests.filter((r) => r.status === "in_interes").length,
     finalizata: requests.filter((r) => r.status === "finalizata").length,
     anulata: requests.filter((r) => r.status === "anulata").length,
+    expirata: requests.filter((r) => r.status === "expirata").length,
   };
 
-  const total = requests.length || 1;
   const chartData = [
-    { name: "Nouă", value: stats.noua, color: "#60A5FA", icon: Inbox },
+    { name: "Nouă", value: stats.noua, color: "#facc15", icon: Inbox },
     { name: "În interes", value: stats.in_interes, color: "#38BDF8", icon: Handshake },
     { name: "Finalizată", value: stats.finalizata, color: "#10B981", icon: CheckCircle2 },
-    { name: "Anulată", value: stats.anulata, color: "#F87171", icon: Ban },
+    { name: "Anulată", value: stats.anulata, color: "#EF4444", icon: Ban },
+    { name: "Expirată", value: stats.expirata, color: "#9CA3AF", icon: Clock },
   ];
 
-  // ✅ Filter + search
   const filtered = requests.filter((r) => {
-    const matchesFilter = filter ? r.status === filter : true;
-    const matchesSearch =
+    const f = filter ? r.status === filter : true;
+    const s =
       r.customerName?.toLowerCase().includes(search) ||
       r.email?.toLowerCase().includes(search) ||
       r.pickupCity?.toLowerCase().includes(search) ||
       r.deliveryCity?.toLowerCase().includes(search);
-    return matchesFilter && (!search || matchesSearch);
+    return f && (!search || s);
   });
 
-  // ✅ Handle delete
-  const handleDelete = async (id: string) => {
+  // Pagination
+  const indexOfLast = currentPage * rowsPerPage;
+  const indexOfFirst = indexOfLast - rowsPerPage;
+  const currentRows = filtered.slice(indexOfFirst, indexOfLast);
+  const totalPages = Math.ceil(filtered.length / rowsPerPage);
+
+  // 🔹 Quick status update
+  const handleStatusChange = async (id: string, newStatus: string) => {
+    await updateDoc(doc(db, "requests", id), { status: newStatus });
+    await addActivity(id, `Status schimbat la: ${newStatus}`);
+    setRequests((p) => p.map((r) => (r.id === id ? { ...r, status: newStatus } : r)));
+    toast.success(`✅ Status actualizat la "${newStatus}"`);
+  };
+
+  // 🔹 Assign company
+  const handleAssignCompany = async (id: string, compId: string) => {
+    const comp = companies.find((c) => c.id === compId);
+    if (!comp) return;
+    await updateDoc(doc(db, "requests", id), {
+      assignedCompany: comp.name,
+      assignedCompanyId: comp.id,
+      status: "in_interes",
+    });
+    await addActivity(id, `Cererea atribuită companiei: ${comp.name}`);
+    setRequests((p) =>
+      p.map((r) =>
+        r.id === id
+          ? { ...r, assignedCompany: comp.name, assignedCompanyId: comp.id, status: "in_interes" }
+          : r
+      )
+    );
+    toast.success(`🏢 Cererea atribuită: ${comp.name}`);
+  };
+
+  // 🔹 Notes modal
+  const openNotes = async (req: any) => {
+    setSelected(req);
+    const q = query(collection(db, "requests", req.id, "history"), orderBy("createdAt", "desc"));
+    const snap = await getDocs(q);
+    setTimeline(snap.docs.map((d) => d.data()));
+  };
+
+  const addNote = async () => {
+    if (!notes.trim() || !selected) return;
+    await addActivity(selected.id, notes);
+    setNotes("");
+    toast.success("🗒 Notă adăugată");
+    openNotes(selected);
+  };
+
+  const addActivity = async (reqId: string, text: string) => {
+    await addDoc(collection(db, "requests", reqId, "history"), {
+      text,
+      createdAt: new Date(),
+    });
+  };
+
+  const deleteRequest = async (id: string) => {
     if (!confirm("Sigur vrei să ștergi această cerere?")) return;
     setProcessingId(id);
     await deleteDoc(doc(db, "requests", id));
-    setRequests((prev) => prev.filter((r) => r.id !== id));
+    setRequests((p) => p.filter((r) => r.id !== id));
     setProcessingId(null);
-    toast.success("🗑️ Cererea a fost ștearsă!");
-  };
-
-  // ✅ Handle client click → load all their requests
-  const handleClientClick = async (email: string) => {
-    if (!email) return;
-    const q = query(collection(db, "requests"), where("email", "==", email));
-    const snap = await getDocs(q);
-    const clientReqs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    setClientRequests(clientReqs);
-    setSelectedClient(clientReqs[0]);
-  };
-
-  // ✅ Go to full client profile
-  const goToClientProfile = (client: any) => {
-    if (client?.userId) {
-      router.push(`/admin/clients/${client.userId}`);
-    } else if (client?.email) {
-      router.push(`/admin/clients?email=${encodeURIComponent(client.email)}`);
-    } else {
-      toast.error("⚠️ Clientul nu are un profil asociat!");
-    }
+    toast.success("🗑️ Cererea ștearsă");
   };
 
   return (
@@ -152,72 +199,40 @@ export default function AdminRequestsPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="max-w-7xl mx-auto p-8 bg-gradient-to-br from-emerald-50 to-sky-50 rounded-3xl shadow-xl mt-8 mb-20"
+          className="max-w-7xl mx-auto p-8 bg-white/80 rounded-3xl shadow-xl mt-6 mb-20 border border-emerald-100"
         >
-          <h1 className="text-3xl font-bold text-center text-emerald-700 mb-10">
+          <h1 className="text-3xl font-bold text-emerald-700 mb-10 text-center">
             📦 Panou Admin – Cereri Clienți
           </h1>
 
-          {/* === KPI CARDS === */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-12">
+          {/* KPI */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-6 mb-12">
             {chartData.map((c) => {
               const Icon = c.icon;
               return (
                 <motion.div
                   key={c.name}
                   whileHover={{ scale: 1.03 }}
-                  className="bg-white/90 rounded-2xl p-5 border border-gray-100 shadow-sm hover:shadow-lg transition-all flex flex-col justify-between items-center"
+                  className="bg-white rounded-2xl p-4 border border-gray-200 shadow-sm text-center"
                 >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className="p-2 rounded-full"
-                      style={{ backgroundColor: `${c.color}22` }}
-                    >
-                      <Icon size={22} color={c.color} />
-                    </div>
-                    <h3 className="text-sm text-gray-600 font-medium capitalize">
-                      {c.name}
-                    </h3>
-                  </div>
-                  <div className="flex items-center gap-3 mt-2">
-                    <h4 className="text-3xl font-bold" style={{ color: c.color }}>
-                      {c.value}
-                    </h4>
-                    <PieChart width={55} height={55}>
-                      <Pie
-                        data={[
-                          { value: c.value },
-                          { value: total - c.value },
-                        ]}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={16}
-                        outerRadius={23}
-                        startAngle={90}
-                        endAngle={450}
-                        stroke="none"
-                      >
-                        <Cell fill={c.color} />
-                        <Cell fill="#E5E7EB" />
-                      </Pie>
-                    </PieChart>
-                  </div>
+                  <Icon className="mx-auto mb-1" color={c.color} />
+                  <h3 className="text-sm text-gray-600 font-medium">{c.name}</h3>
+                  <h4 className="text-2xl font-bold" style={{ color: c.color }}>
+                    {c.value}
+                  </h4>
                 </motion.div>
               );
             })}
           </div>
 
-          {/* === FILTER BAR === */}
-          <div className="flex flex-col sm:flex-row justify-between items-center gap-3 mb-6">
+          {/* Filter */}
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-3 mb-5">
             <div className="flex items-center gap-2 text-emerald-700 font-semibold">
               <ClipboardList size={20} /> Cereri înregistrate
             </div>
             <div className="flex items-center gap-2">
               <div className="relative">
-                <SearchCheck
-                  size={16}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                />
+                <SearchCheck size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
                   placeholder="Caută client, oraș..."
@@ -234,208 +249,183 @@ export default function AdminRequestsPage() {
                 <option value="in_interes">În interes</option>
                 <option value="finalizata">Finalizată</option>
                 <option value="anulata">Anulată</option>
+                <option value="expirata">Expirată</option>
               </select>
             </div>
           </div>
 
-          {/* === TABLE === */}
-          <div className="overflow-x-auto border border-gray-200 rounded-2xl shadow-md bg-white/90">
-            <table className="w-full text-sm">
-              <thead className="bg-emerald-50 text-gray-800">
+          {/* Table */}
+          <div className="overflow-x-auto rounded-2xl border border-gray-200 shadow-sm">
+            <table className="w-full text-sm text-gray-700">
+              <thead className="bg-emerald-50 text-gray-800 font-semibold text-center">
                 <tr>
-                  <th className="p-3 border-b w-[15%]">ID / Dată / Email</th>
-                  <th className="p-3 border-b w-[18%]">Client</th>
-                  <th className="p-3 border-b w-[25%]">Detalii mutare</th>
-                  <th className="p-3 border-b w-[12%]">Data mutării</th>
-                  <th className="p-3 border-b w-[10%] text-center">Status</th>
-                  <th className="p-3 border-b w-[15%]">Companie</th>
-                  <th className="p-3 border-b w-[10%] text-center">Acțiuni</th>
+                  <th className="py-3 px-4">ID / Dată / Email</th>
+                  <th className="py-3 px-4">Client</th>
+                  <th className="py-3 px-4">Detalii</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4">Companie</th>
+                  <th className="py-3 px-4">Acțiuni</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((r) => {
-                  const fullName = (r.customerName || "").trim();
-                  let displayName = fullName;
-                  if (fullName.includes(" ")) {
-                    const parts = fullName.split(" ").filter(Boolean);
-                    const first = parts[0];
-                    const last = parts[parts.length - 1];
-                    if (
-                      parts.length >= 3 &&
-                      parts[1][0].toUpperCase() === last[0].toUpperCase()
-                    ) {
-                      displayName = `${first} ${parts[1][0].toUpperCase()}.`;
-                    } else if (first.includes("-")) {
-                      const [pre, suf] = first.split("-");
-                      displayName = `${pre}-${suf[0].toUpperCase()}.`;
-                    } else {
-                      displayName = `${first} ${last[0].toUpperCase()}.`;
-                    }
-                  }
-
-                  return (
-                    <tr
-                      key={r.id}
-                      className={`transition ${
-                        r.status === "finalizata"
-                          ? "bg-green-50 hover:bg-green-100"
-                          : r.status === "in_interes"
-                          ? "bg-blue-50 hover:bg-blue-100"
-                          : r.status === "anulata"
-                          ? "bg-red-50 hover:bg-red-100"
-                          : "hover:bg-yellow-50"
-                      }`}
-                    >
-                      {/* ID / Date / Email */}
-                      <td className="p-3 border-b text-xs text-gray-600">
-                        <div className="flex flex-col leading-tight">
-                          <span className="font-semibold text-gray-800 flex items-center gap-1">
-                            <Hash size={13} className="text-emerald-600" />
-                            {r.requestId || r.id}
-                          </span>
-                          {r.createdAt?.seconds && (
-                            <span className="text-[11px] text-gray-400">
-                              {new Date(
-                                r.createdAt.seconds * 1000
-                              ).toLocaleDateString("ro-RO")}
-                            </span>
-                          )}
-                          <span className="text-[11px] text-gray-500 truncate">
-                            {r.email}
-                          </span>
+                {currentRows.map((r) => (
+                  <tr
+                    key={r.id}
+                    className={`text-center border-b hover:bg-emerald-50 transition ${
+                      r.status === "finalizata"
+                        ? "border-l-4 border-l-green-500"
+                        : r.status === "in_interes"
+                        ? "border-l-4 border-l-blue-400"
+                        : r.status === "anulata"
+                        ? "border-l-4 border-l-red-400"
+                        : r.status === "expirata"
+                        ? "border-l-4 border-l-gray-400"
+                        : "border-l-4 border-l-yellow-400"
+                    }`}
+                  >
+                    <td className="py-3 px-4 text-left">
+                      <div className="text-xs text-gray-600">
+                        <Hash size={12} className="inline text-emerald-600" /> {r.requestId}
+                      </div>
+                      {r.createdAt?.seconds && (
+                        <div className="text-[11px] text-gray-400">
+                          {new Date(r.createdAt.seconds * 1000).toLocaleDateString("ro-RO")}
                         </div>
-                      </td>
-
-                      {/* Client */}
-                      <td
-                        className="p-3 border-b text-sm text-gray-800 font-medium cursor-pointer hover:text-emerald-600"
-                        onClick={() => handleClientClick(r.email)}
-                        title="Vezi detalii client"
+                      )}
+                      <div className="text-[11px] text-gray-500 truncate">{r.email}</div>
+                    </td>
+                    <td className="py-3 px-4 font-medium">{r.customerName || "-"}</td>
+                    <td className="py-3 px-4 text-left">
+                      <div className="text-xs text-gray-700 flex items-center gap-1">
+                        <MapPin size={12} /> {r.pickupCity} → {r.deliveryCity}
+                      </div>
+                      <div className="text-xs text-gray-500 flex items-center gap-1">
+                        <Home size={12} /> {r.propertyType || "-"} • {r.rooms || "?"} camere
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <select
+                        value={r.status}
+                        onChange={(e) => handleStatusChange(r.id, e.target.value)}
+                        className="border border-gray-300 rounded-md px-2 py-1 text-xs focus:ring-emerald-400"
                       >
-                        {displayName || "-"}
-                      </td>
-
-                      {/* Detalii mutare */}
-                      <td className="p-3 border-b text-sm">
-                        <div className="flex flex-col">
-                          <p className="font-medium text-gray-700 flex items-center gap-1">
-                            <MapPin size={13} className="text-sky-600" />
-                            {r.pickupCity || "-"} → {r.deliveryCity || "-"}
-                          </p>
-                          <p className="text-xs text-gray-500 flex items-center gap-1">
-                            <Home size={12} className="text-emerald-600" />
-                            {r.propertyType || "Proprietate"} • {r.rooms || "?"} camere
-                          </p>
-                        </div>
-                      </td>
-
-                      {/* Data mutării */}
-                      <td className="p-3 border-b text-sm text-gray-700">
-                        {r.moveDate || "-"}
-                      </td>
-
-                      {/* Status */}
-                      <td className="p-3 border-b text-center">
-                        <span
-                          className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold ${
-                            r.status === "finalizata"
-                              ? "bg-green-100 text-green-700"
-                              : r.status === "in_interes"
-                              ? "bg-blue-100 text-blue-700"
-                              : r.status === "anulata"
-                              ? "bg-red-100 text-red-700"
-                              : "bg-yellow-100 text-yellow-700"
-                          }`}
-                        >
-                          {r.status.replace("_", " ")}
-                        </span>
-                      </td>
-
-                      {/* Companie */}
-                      <td className="p-3 border-b text-sm text-gray-700">
-                        {r.assignedCompany ? (
-                          <span className="font-medium text-gray-800">
-                            {r.assignedCompany}
-                          </span>
-                        ) : (
-                          <span className="text-gray-400 italic">
-                            — neatribuit —
-                          </span>
-                        )}
-                      </td>
-
-                      {/* Acțiuni */}
-                      <td className="p-3 border-b text-center">
-                        {processingId === r.id ? (
-                          <Loader2
-                            className="animate-spin inline text-emerald-600"
-                            size={16}
-                          />
-                        ) : (
-                          <div className="flex items-center justify-center gap-3">
-                            <button
-                              onClick={() => setSelected(r)}
-                              className="text-sky-600 hover:underline text-sm font-medium"
-                            >
-                              <Eye size={15} className="inline mr-1" /> Vezi
-                            </button>
-                            <button
-                              onClick={() => handleDelete(r.id)}
-                              className="text-gray-500 hover:text-red-500 text-sm font-medium"
-                            >
-                              <Trash2 size={14} className="inline" /> Șterge
-                            </button>
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
+                        <option value="noua">Nouă</option>
+                        <option value="in_interes">În interes</option>
+                        <option value="finalizata">Finalizată</option>
+                        <option value="anulata">Anulată</option>
+                        <option value="expirata">Expirată</option>
+                      </select>
+                    </td>
+                    <td className="py-3 px-4">
+                      <select
+                        value={r.assignedCompanyId || ""}
+                        onChange={(e) => handleAssignCompany(r.id, e.target.value)}
+                        className="border border-gray-300 rounded-md px-2 py-1 text-xs focus:ring-emerald-400"
+                      >
+                        <option value="">— neatribuit —</option>
+                        {companies.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td className="py-3 px-4 flex justify-center gap-2">
+                      <button
+                        onClick={() => openNotes(r)}
+                        className="text-emerald-600 hover:text-emerald-800"
+                        title="Note & Istoric"
+                      >
+                        <FileText size={16} />
+                      </button>
+                      <button
+                        onClick={() => deleteRequest(r.id)}
+                        className="text-gray-500 hover:text-red-600"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
 
-          {/* === MODAL DETALII CLIENT === */}
-          {selectedClient && (
+          {/* Pagination */}
+          {filtered.length > rowsPerPage && (
+            <div className="flex justify-between items-center mt-5 text-sm text-gray-600">
+              <p>
+                Afișează <strong>{indexOfFirst + 1}–{Math.min(indexOfLast, filtered.length)}</strong>{" "}
+                din <strong>{filtered.length}</strong>
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                  disabled={currentPage === 1}
+                  className={`px-3 py-1 rounded-lg border ${
+                    currentPage === 1 ? "opacity-40 cursor-not-allowed" : "hover:bg-emerald-50 border-emerald-200"
+                  }`}
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <button
+                  onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+                  disabled={currentPage === totalPages}
+                  className={`px-3 py-1 rounded-lg border ${
+                    currentPage === totalPages
+                      ? "opacity-40 cursor-not-allowed"
+                      : "hover:bg-emerald-50 border-emerald-200"
+                  }`}
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Notes Modal */}
+          {selected && (
             <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
               <div className="bg-white rounded-3xl shadow-xl p-8 w-full max-w-lg relative">
                 <button
-                  onClick={() => setSelectedClient(null)}
+                  onClick={() => setSelected(null)}
                   className="absolute top-4 right-4 text-gray-500 hover:text-red-500"
                 >
                   ✕
                 </button>
                 <h3 className="text-xl font-semibold text-emerald-700 mb-4 flex items-center gap-2">
-                  <User size={18} /> Detalii Client
+                  <Edit3 size={18} /> Note & Istoric
                 </h3>
-                <div className="space-y-2 text-sm text-gray-700">
-                  <p>
-                    <strong>Nume:</strong> {selectedClient.customerName}
-                  </p>
-                  <p>
-                    <strong>Email:</strong> {selectedClient.email}
-                  </p>
-                  <p>
-                    <strong>Telefon:</strong>{" "}
-                    {selectedClient.phone || "-"}
-                  </p>
-                  <p className="mt-3 font-semibold text-emerald-700">
-                    Cererile făcute:
-                  </p>
-                  <ul className="pl-4 list-disc text-gray-600">
-                    {clientRequests.map((c) => (
-                      <li key={c.id}>
-                        {c.pickupCity} → {c.deliveryCity} ({c.status})
-                      </li>
-                    ))}
-                  </ul>
-                  <button
-                    onClick={() => goToClientProfile(selectedClient)}
-                    className="mt-5 w-full bg-gradient-to-r from-emerald-500 to-sky-500 text-white py-2 rounded-xl flex items-center justify-center gap-2 font-medium hover:scale-[1.02] transition-all"
-                  >
-                    <ExternalLink size={16} /> Vezi profil complet
-                  </button>
+                <div className="max-h-[300px] overflow-y-auto mb-4">
+                  {timeline.length === 0 ? (
+                    <p className="text-gray-500 text-sm">Nicio activitate înregistrată.</p>
+                  ) : (
+                    <ul className="text-sm text-gray-700 space-y-2">
+                      {timeline.map((t, i) => (
+                        <li key={i} className="border-b pb-2">
+                          <p>{t.text}</p>
+                          <span className="text-[11px] text-gray-400">
+                            {t.createdAt?.seconds
+                              ? new Date(t.createdAt.seconds * 1000).toLocaleString("ro-RO")
+                              : ""}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Adaugă o notă internă..."
+                  className="w-full border rounded-lg p-2 text-sm mb-3 focus:ring-2 focus:ring-emerald-400"
+                />
+                <button
+                  onClick={addNote}
+                  className="w-full bg-gradient-to-r from-emerald-500 to-sky-500 text-white py-2 rounded-xl font-medium hover:scale-[1.02] transition-all"
+                >
+                  Adaugă notă
+                </button>
               </div>
             </div>
           )}
