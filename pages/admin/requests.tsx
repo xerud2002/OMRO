@@ -12,7 +12,7 @@ import {
 import { useRouter } from "next/navigation";
 // @ts-ignore
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
-import { ClipboardList, Loader2, Trash2 } from "lucide-react";
+import { ClipboardList, Loader2, Trash2, Hash } from "lucide-react";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
 import AdminLayout from "../../components/AdminLayout";
@@ -36,6 +36,7 @@ interface UserData {
 
 interface RequestData {
   id: string;
+  requestId?: string;
   status: "noua" | "in_interes" | "finalizata" | "anulata";
   customerName?: string;
   email?: string;
@@ -85,12 +86,14 @@ export default function AdminRequestsPage() {
       setCompanies(companiesSnap.docs.map((d) => ({ id: d.id, ...d.data() } as CompanyData)));
       setUsers(usersSnap.docs.map((d) => ({ id: d.id, ...d.data() } as UserData)));
 
-      // 🧠 Normalizează statusurile și le corectează dacă lipsesc
+      // 🧠 Normalizează statusurile + adaugă ID scurt dacă lipsește
       const usersMap = new Map(usersSnap.docs.map((d) => [d.id, d.data()]));
       const merged = await Promise.all(
         requestsSnap.docs.map(async (r) => {
           const data = r.data();
           const user = usersMap.get(data.userId);
+
+          // 🔹 Normalize status
           const normalizedStatus: RequestData["status"] =
             ["noua", "in_interes", "finalizata", "anulata"].includes(data.status)
               ? data.status
@@ -100,8 +103,16 @@ export default function AdminRequestsPage() {
             await updateDoc(doc(db, "requests", r.id), { status: normalizedStatus });
           }
 
+          // 🔹 Add requestId if missing
+          let requestId = data.requestId;
+          if (!requestId) {
+            requestId = `REQ-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+            await updateDoc(doc(db, "requests", r.id), { requestId });
+          }
+
           return {
             id: r.id,
+            requestId,
             ...data,
             status: normalizedStatus,
             customerName: user?.name || "Client necunoscut",
@@ -127,7 +138,7 @@ export default function AdminRequestsPage() {
     return (
       <AdminLayout>
         <div className="flex justify-center items-center h-[70vh] text-emerald-600 text-lg">
-          Se încarcă cererile...
+          <Loader2 className="animate-spin mr-2" /> Se încarcă cererile...
         </div>
       </AdminLayout>
     );
@@ -235,6 +246,7 @@ export default function AdminRequestsPage() {
             <table className="w-full text-sm">
               <thead className="bg-emerald-50 text-left">
                 <tr>
+                  <th className="p-3 border-b">ID</th>
                   <th className="p-3 border-b">Client</th>
                   <th className="p-3 border-b">Email</th>
                   <th className="p-3 border-b">Telefon</th>
@@ -249,6 +261,10 @@ export default function AdminRequestsPage() {
               <tbody>
                 {filtered.map((r) => (
                   <tr key={r.id} className="hover:bg-emerald-50 transition">
+                    <td className="p-3 border-b text-xs text-gray-600 flex items-center gap-1">
+                      <Hash size={12} className="text-emerald-500" />
+                      {r.requestId || r.id}
+                    </td>
                     <td className="p-3 border-b font-medium">{r.customerName}</td>
                     <td className="p-3 border-b">{r.email}</td>
                     <td className="p-3 border-b">{r.phone}</td>
@@ -268,17 +284,6 @@ export default function AdminRequestsPage() {
                             : "bg-yellow-100 text-yellow-700"
                         }`}
                       >
-                        <span
-                          className={`w-2.5 h-2.5 rounded-full ${
-                            r.status === "finalizata"
-                              ? "bg-green-500"
-                              : r.status === "in_interes"
-                              ? "bg-blue-500"
-                              : r.status === "anulata"
-                              ? "bg-red-500"
-                              : "bg-yellow-400"
-                          }`}
-                        ></span>
                         {r.status === "noua"
                           ? "Nouă"
                           : r.status === "in_interes"

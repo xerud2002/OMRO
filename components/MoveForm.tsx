@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { auth, db, storage } from "../utils/firebase";
-import { setDoc, doc, Timestamp } from "firebase/firestore";
+import { setDoc, doc, getDoc, Timestamp } from "firebase/firestore";
 import emailjs from "@emailjs/browser";
 import toast from "react-hot-toast";
 import { ArrowLeft, ArrowRight, Send } from "lucide-react";
@@ -139,8 +139,14 @@ export default function MoveForm() {
         );
       }
 
-      // 🔹 Generează ID scurt unic (ex: "REQ-AX93F")
-      const shortId = `REQ-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+      // 🔹 Generează ID scurt unic și verifică să nu existe deja
+      let shortId: string;
+      let exists = true;
+      do {
+        shortId = `REQ-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+        const checkDoc = await getDoc(doc(db, "requests", shortId));
+        exists = checkDoc.exists();
+      } while (exists);
 
       // 🔹 Creează manual documentul cu ID-ul personalizat
       await setDoc(doc(db, "requests", shortId), {

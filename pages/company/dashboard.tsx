@@ -10,6 +10,8 @@ import {
   addDoc,
   doc,
   getDoc,
+  updateDoc,
+  setDoc,
 } from "firebase/firestore";
 import CompanyLayout from "../../components/CompanyLayout";
 import counties from "../../utils/counties";
@@ -24,6 +26,7 @@ import {
   Phone,
   Mail,
   Loader2,
+  Hash,
 } from "lucide-react";
 
 export default function CompanyDashboard() {
@@ -75,8 +78,23 @@ export default function CompanyDashboard() {
     }
 
     const snap = await getDocs(q);
-    const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    list.sort((a: any, b: any) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
+    const list: any[] = [];
+
+    for (const d of snap.docs) {
+      const data = d.data();
+
+      // ✅ Dacă cererea nu are requestId, generează și salvează unul scurt
+      if (!data.requestId) {
+        const shortId = `REQ-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+        await updateDoc(doc(db, "requests", d.id), { requestId: shortId });
+        data.requestId = shortId;
+      }
+
+      list.push({ id: d.id, ...data });
+    }
+
+    // Sortează după data creării
+    list.sort((a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0));
     setJobs(list);
     setLoading(false);
   };
@@ -199,6 +217,12 @@ export default function CompanyDashboard() {
                       : "-"}
                   </span>
                 </div>
+
+                {/* ID-ul scurt */}
+                <p className="flex items-center gap-1 text-xs text-gray-500 mb-2">
+                  <Hash size={12} className="text-emerald-500" />
+                  <strong>ID:</strong> {job.requestId || job.id}
+                </p>
 
                 {/* Info */}
                 <div className="space-y-1 text-sm text-gray-700 mb-3">
