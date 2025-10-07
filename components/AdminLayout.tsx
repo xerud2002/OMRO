@@ -27,25 +27,27 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const [pendingCompanies, setPendingCompanies] = useState(0);
   const [newRequests, setNewRequests] = useState(0);
 
-  // 🔹 Load dynamic badge counts
+  // 🔹 Load dynamic badge counts once
   useEffect(() => {
     const fetchCounts = async () => {
       try {
-        const companiesSnap = await getDocs(collection(db, "companies"));
-        const requestsSnap = await getDocs(collection(db, "requests"));
+        const [companiesSnap, requestsSnap] = await Promise.all([
+          getDocs(collection(db, "companies")),
+          getDocs(collection(db, "requests")),
+        ]);
 
         const pending = companiesSnap.docs.filter(
           (c) => c.data().submittedForVerification && !c.data().verified
         ).length;
 
         const newReq = requestsSnap.docs.filter(
-          (r) => r.data().status === "new"
+          (r) => r.data().status === "noua" // ✅ updated Romanian status
         ).length;
 
         setPendingCompanies(pending);
         setNewRequests(newReq);
       } catch (err) {
-        console.error("Error loading admin counters:", err);
+        console.error("❌ Eroare la încărcarea badge-urilor admin:", err);
       }
     };
 
@@ -98,6 +100,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               <span>Admin Panel</span>
             </div>
             <button
+              type="button"
               title="Închide meniul"
               aria-label="Închide meniul"
               className="md:hidden text-gray-600 hover:text-emerald-700"
@@ -125,7 +128,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                   {item.name}
                 </div>
                 {item.badge && item.badge > 0 && (
-                  <span className="ml-2 bg-emerald-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                  <span
+                    className="ml-2 bg-emerald-500 text-white text-xs font-bold px-2 py-0.5 rounded-full"
+                    aria-label={`Număr ${item.name.toLowerCase()}: ${item.badge}`}
+                  >
                     {item.badge}
                   </span>
                 )}
@@ -137,6 +143,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         {/* --- Logout Button --- */}
         <div className="p-6 border-t border-emerald-100">
           <button
+            type="button"
             title="Deconectare"
             aria-label="Deconectare"
             onClick={handleLogout}
@@ -147,8 +154,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         </div>
       </aside>
 
-      {/* --- Mobile toggle --- */}
+      {/* --- Mobile Toggle Button --- */}
       <button
+        type="button"
         title="Deschide meniul"
         aria-label="Deschide meniul"
         onClick={() => setIsOpen(true)}
