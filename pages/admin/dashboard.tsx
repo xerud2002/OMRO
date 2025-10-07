@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { db, onAuthChange } from "../../utils/firebase";
 import { collection, getDocs, getDoc, doc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
-// @ts-ignore
 import {
   PieChart,
   Pie,
@@ -21,8 +20,6 @@ import {
   Users,
   ShieldCheck,
   Clock,
-  CheckCircle,
-  XCircle,
   ActivitySquare,
 } from "lucide-react";
 import { motion } from "framer-motion";
@@ -38,10 +35,12 @@ interface CompanyData {
   suspended?: boolean;
   county?: string;
 }
+
 interface UserData {
   id: string;
   role?: string;
 }
+
 interface RequestData {
   id: string;
   customerName?: string;
@@ -74,17 +73,27 @@ export default function AdminDashboardOverview() {
         return;
       }
 
-      // Load all data in parallel
-      const [companiesSnap, usersSnap, requestsSnap] = await Promise.all([
-        getDocs(collection(db, "companies")),
-        getDocs(collection(db, "users")),
-        getDocs(collection(db, "requests")),
-      ]);
+      try {
+        // Load all data in parallel
+        const [companiesSnap, usersSnap, requestsSnap] = await Promise.all([
+          getDocs(collection(db, "companies")),
+          getDocs(collection(db, "users")),
+          getDocs(collection(db, "requests")),
+        ]);
 
-      setCompanies(companiesSnap.docs.map((d) => ({ id: d.id, ...(d.data() as CompanyData) })));
-      setUsers(usersSnap.docs.map((d) => ({ id: d.id, ...(d.data() as UserData) })));
-      setRequests(requestsSnap.docs.map((d) => ({ id: d.id, ...(d.data() as RequestData) })));
-      setLoading(false);
+        setCompanies(
+          companiesSnap.docs.map((d) => ({ ...d.data(), id: d.id } as CompanyData))
+        );
+        setUsers(usersSnap.docs.map((d) => ({ ...d.data(), id: d.id } as UserData)));
+        setRequests(
+          requestsSnap.docs.map((d) => ({ ...d.data(), id: d.id } as RequestData))
+        );
+      } catch (err) {
+        console.error("❌ Eroare la încărcarea datelor:", err);
+        toast.error("Eroare la încărcarea datelor.");
+      } finally {
+        setLoading(false);
+      }
     });
 
     return () => unsub();
@@ -101,11 +110,13 @@ export default function AdminDashboardOverview() {
 
   // --- Statistics ---
   const verifiedCompanies = companies.filter((c) => c.verified).length;
-  const pendingCompanies = companies.filter((c) => c.submittedForVerification && !c.verified).length;
+  const pendingCompanies = companies.filter(
+    (c) => c.submittedForVerification && !c.verified
+  ).length;
   const totalRequests = requests.length;
   const totalUsers = users.filter((u) => u.role === "customer").length;
 
-  // ✅ Updated request status categories
+  // ✅ Request statuses
   const newRequests = requests.filter((r) => r.status === "noua").length;
   const interestRequests = requests.filter((r) => r.status === "in_interes").length;
   const completedRequests = requests.filter((r) => r.status === "finalizata").length;
@@ -180,7 +191,15 @@ export default function AdminDashboardOverview() {
             </h2>
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
-                <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
+                <Pie
+                  data={pieData}
+                  dataKey="value"
+                  nameKey="name"
+                  cx="50%"
+                  cy="50%"
+                  outerRadius={100}
+                  label
+                >
                   {pieData.map((entry, index) => (
                     <Cell key={index} fill={entry.color} />
                   ))}
@@ -215,34 +234,31 @@ export default function AdminDashboardOverview() {
             <p className="text-gray-500">Nu există cereri recente.</p>
           ) : (
             <ul className="divide-y divide-gray-100">
-              {requests
-                .slice(-5)
-                .reverse()
-                .map((r) => (
-                  <li
-                    key={r.id}
-                    className="py-2 flex justify-between items-center text-sm text-gray-700"
+              {requests.slice(-5).reverse().map((r) => (
+                <li
+                  key={r.id}
+                  className="py-2 flex justify-between items-center text-sm text-gray-700"
+                >
+                  <span>
+                    📦 <strong>{r.customerName || "Client"}</strong> din{" "}
+                    <em>{r.pickupCity || "-"}</em> →{" "}
+                    <em>{r.deliveryCity || "-"}</em>
+                  </span>
+                  <span
+                    className={`text-xs px-3 py-1 rounded-full ${
+                      r.status === "finalizata"
+                        ? "bg-green-100 text-green-700"
+                        : r.status === "in_interes"
+                        ? "bg-blue-100 text-blue-700"
+                        : r.status === "anulata"
+                        ? "bg-red-100 text-red-700"
+                        : "bg-yellow-100 text-yellow-700"
+                    }`}
                   >
-                    <span>
-                      📦 <strong>{r.customerName || "Client"}</strong> din{" "}
-                      <em>{r.pickupCity || "-"}</em> →{" "}
-                      <em>{r.deliveryCity || "-"}</em>
-                    </span>
-                    <span
-                      className={`text-xs px-3 py-1 rounded-full ${
-                        r.status === "finalizata"
-                          ? "bg-green-100 text-green-700"
-                          : r.status === "in_interes"
-                          ? "bg-blue-100 text-blue-700"
-                          : r.status === "anulata"
-                          ? "bg-red-100 text-red-700"
-                          : "bg-yellow-100 text-yellow-700"
-                      }`}
-                    >
-                      {r.status || "nouă"}
-                    </span>
-                  </li>
-                ))}
+                    {r.status || "nouă"}
+                  </span>
+                </li>
+              ))}
             </ul>
           )}
         </div>
