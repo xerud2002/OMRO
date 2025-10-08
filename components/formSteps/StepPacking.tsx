@@ -27,19 +27,19 @@ export default function StepPacking({ formData, handleChange }: StepProps) {
   ];
 
   return (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-emerald-700 text-center mb-6">
+    <div className="text-center space-y-6">
+      <h2 className="text-2xl font-bold text-emerald-700">
         Ai nevoie de ajutor la împachetare?
       </h2>
 
-      <div className="grid gap-3">
+      <div className="grid gap-3 max-w-md mx-auto">
         {options.map((opt) => {
           const selected = formData.packing === opt.value;
           return (
             <label
               key={opt.value}
               htmlFor={opt.value}
-              className={`border rounded-xl p-4 cursor-pointer transition-all duration-200 flex items-center text-left ${
+              className={`border rounded-xl p-4 text-left cursor-pointer transition-all duration-200 flex items-center ${
                 selected
                   ? "border-emerald-500 bg-gradient-to-r from-emerald-50 to-sky-50 shadow-sm text-emerald-700 font-medium"
                   : "border-gray-300 hover:border-emerald-300 hover:bg-emerald-50/40 text-gray-700"
@@ -60,7 +60,7 @@ export default function StepPacking({ formData, handleChange }: StepProps) {
         })}
       </div>
 
-      <p className="text-sm text-gray-500 text-center mt-4 max-w-md mx-auto">
+      <p className="text-sm text-gray-500 max-w-md mx-auto">
         Selectează opțiunea potrivită. Dacă alegi serviciul complet, echipa va
         aduce materiale de ambalare profesionale.
       </p>

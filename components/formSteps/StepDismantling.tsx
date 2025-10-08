@@ -17,23 +17,23 @@ export default function StepDismantling({ formData, handleChange }: StepProps) {
   ];
 
   return (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-emerald-700 text-center mb-6">
+    <div className="text-center space-y-6">
+      <h2 className="text-2xl font-bold text-emerald-700">
         Ai nevoie de ajutor la demontare și reasamblare mobilier?
       </h2>
 
-      <div className="flex flex-col sm:flex-row gap-4">
+      <div className="flex flex-col sm:flex-row gap-4 justify-center max-w-md mx-auto">
         {options.map((opt) => {
           const selected = formData.dismantling === opt.value;
           return (
             <label
               key={opt.value}
               htmlFor={opt.value}
-              className={`flex-1 border rounded-xl p-4 text-center cursor-pointer transition-all duration-200 ${
+              className={`flex-1 border rounded-xl p-4 cursor-pointer transition-all duration-200 text-center ${
                 selected
                   ? "border-emerald-500 bg-gradient-to-r from-emerald-50 to-sky-50 shadow-sm text-emerald-700 font-medium"
                   : "border-gray-300 hover:border-emerald-300 hover:bg-emerald-50/40 text-gray-700"
-              } hover:scale-[1.01]`}
+              } hover:scale-[1.02]`}
             >
               <input
                 id={opt.value}
@@ -50,7 +50,7 @@ export default function StepDismantling({ formData, handleChange }: StepProps) {
         })}
       </div>
 
-      <p className="text-sm text-gray-500 text-center mt-4 max-w-md mx-auto">
+      <p className="text-sm text-gray-500 max-w-md mx-auto">
         Selectează opțiunea potrivită. Echipa va veni pregătită cu unelte pentru
         mobilierul ce necesită demontare și reasamblare.
       </p>

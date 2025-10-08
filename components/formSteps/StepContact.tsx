@@ -1,5 +1,6 @@
 "use client";
 import React from "react";
+import FormInput from "../../components/form/FormInput";
 
 interface StepProps {
   formData: any;
@@ -12,75 +13,58 @@ interface StepProps {
  */
 export default function StepContact({ formData, handleChange }: StepProps) {
   return (
-    <div className="space-y-6">
-      <h2 className="text-2xl font-bold text-emerald-700 text-center mb-4">
+    <div className="text-center space-y-6">
+      <h2 className="text-2xl font-bold text-emerald-700">
         Datele tale de contact
       </h2>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="max-w-2xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
         {/* --- Nume complet --- */}
-        <div className="flex flex-col">
-          <label
-            htmlFor="name"
-            className="text-sm font-medium text-gray-700 mb-1"
-          >
-            Nume complet
-          </label>
-          <input
-            id="name"
-            type="text"
-            placeholder="Ex: Andrei Popescu"
-            className="border border-gray-300 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition"
-            value={formData.name}
-            onChange={(e) => handleChange("name", e.target.value)}
-            required
-          />
-        </div>
+        <FormInput
+          id="name"
+          label="Nume complet"
+          placeholder="Ex: Andrei Popescu"
+          value={formData.name || ""}
+          onChange={(e) => handleChange("name", e.target.value)}
+          required
+        />
 
         {/* --- Telefon --- */}
-        <div className="flex flex-col">
-          <label
-            htmlFor="phone"
-            className="text-sm font-medium text-gray-700 mb-1"
-          >
-            Telefon
-          </label>
-          <input
-            id="phone"
-            type="tel"
-            placeholder="Ex: 07xx xxx xxx"
-            className="border border-gray-300 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition"
-            value={formData.phone}
-            onChange={(e) => handleChange("phone", e.target.value)}
-            pattern="[0-9+ ]*"
-            required
-          />
-        </div>
+        <FormInput
+          id="phone"
+          label="Telefon"
+          type="tel"
+          placeholder="Ex: 07xx xxx xxx"
+          pattern="[0-9+ ]*"
+          value={formData.phone || ""}
+          onChange={(e) => handleChange("phone", e.target.value)}
+          required
+        />
       </div>
 
       {/* --- Email --- */}
-      <div className="flex flex-col">
-        <label
-          htmlFor="email"
-          className="text-sm font-medium text-gray-700 mb-1"
-        >
-          Email
-        </label>
-        <input
+      <div className="max-w-md mx-auto text-left">
+        <FormInput
           id="email"
+          label="Email"
           type="email"
           placeholder="Ex: contact@exemplu.ro"
-          className="border border-gray-300 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-emerald-400 transition"
-          value={formData.email}
+          value={formData.email || ""}
           onChange={(e) => handleChange("email", e.target.value)}
           required
         />
+
         {!formData.email && (
-          <p className="text-red-500 text-sm mt-2">
+          <p className="text-red-500 text-sm mt-1">
             Emailul este obligatoriu pentru a primi ofertele.
           </p>
         )}
       </div>
+
+      <p className="text-sm text-gray-500 max-w-md mx-auto">
+        Te rugăm să introduci date reale — companiile de mutări te vor contacta
+        direct pentru ofertă.
+      </p>
     </div>
   );
 }

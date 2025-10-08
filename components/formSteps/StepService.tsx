@@ -14,24 +14,24 @@ export default function StepService({ formData, handleChange }: StepProps) {
   const options = [
     {
       value: "Mutare completă",
-      label: "Mutare completă ",
+      label: "Mutare completă",
       desc: "Include ambalare, transport, descărcare și reasamblare.",
     },
     {
       value: "Transport câteva obiecte",
-      label: "Transport câteva obiecte ",
+      label: "Transport câteva obiecte",
       desc: "Pentru mobilă sau articole individuale ce trebuie mutate.",
     },
     {
       value: "Aruncare lucruri",
-      label: "Aruncare lucruri ",
+      label: "Aruncare lucruri",
       desc: "Scăpăm responsabil de mobilierul vechi sau resturile.",
     },
   ];
 
   return (
-    <fieldset className="text-center">
-      <legend className="text-2xl font-bold text-emerald-700 mb-6">
+    <fieldset className="text-center space-y-6">
+      <legend className="text-2xl font-bold text-emerald-700">
         Ce tip de serviciu dorești?
       </legend>
 
@@ -42,9 +42,9 @@ export default function StepService({ formData, handleChange }: StepProps) {
             <label
               key={opt.value}
               htmlFor={opt.value}
-              className={`flex flex-col items-center justify-between p-6 rounded-2xl border-2 cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md ${
+              className={`flex flex-col justify-between items-center p-6 rounded-2xl border-2 cursor-pointer transition-all duration-200 shadow-sm hover:shadow-md ${
                 selected
-                  ? "border-emerald-500 bg-emerald-50 text-emerald-700 font-medium"
+                  ? "border-emerald-500 bg-gradient-to-r from-emerald-50 to-sky-50 text-emerald-700 font-medium"
                   : "border-gray-200 hover:border-emerald-300 bg-white text-gray-700"
               } hover:scale-[1.02] focus-within:ring-2 focus-within:ring-emerald-400`}
               onClick={() => handleChange("serviceType", opt.value)}
@@ -65,7 +65,7 @@ export default function StepService({ formData, handleChange }: StepProps) {
         })}
       </div>
 
-      <p className="text-sm text-gray-500 mt-6 max-w-md mx-auto">
+      <p className="text-sm text-gray-500 max-w-md mx-auto">
         Selectează tipul de serviciu pentru care dorești o ofertă personalizată.
       </p>
     </fieldset>

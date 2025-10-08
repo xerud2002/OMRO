@@ -2,6 +2,8 @@
 import React from "react";
 import Select from "react-select";
 import counties from "../../utils/counties";
+import FormInput from "../../components/form/FormInput";
+import FormTextarea from "../../components/form/FormTextarea";
 
 interface StepProps {
   formData: any;
@@ -19,7 +21,7 @@ export default function StepPickupAddress({
   return (
     <div className="text-center">
       <h2 className="text-2xl font-bold text-emerald-700 mb-6">
-        Adresa completă de colectare 
+        Adresa completă de colectare
       </h2>
 
       <div className="max-w-md mx-auto text-left space-y-5">
@@ -58,54 +60,30 @@ export default function StepPickupAddress({
         </div>
 
         {/* --- Oraș --- */}
-        <div>
-          <label
-            htmlFor="pickupCity"
-            className="block text-sm font-medium text-gray-700 mb-1"
-          >
-            Oraș / Localitate
-          </label>
-          <input
-            id="pickupCity"
-            type="text"
-            placeholder="Ex: București, Cluj, Iași..."
-            className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-400 outline-none transition-all"
-            value={formData.pickupCity || ""}
-            onChange={(e) => handleChange("pickupCity", e.target.value)}
-          />
-        </div>
+        <FormInput
+          id="pickupCity"
+          label="Oraș / Localitate"
+          placeholder="Ex: București, Cluj, Iași..."
+          value={formData.pickupCity || ""}
+          onChange={(e) => handleChange("pickupCity", e.target.value)}
+        />
 
         {/* --- Stradă și număr --- */}
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex-1">
-            <label
-              htmlFor="pickupStreet"
-              className="block text-sm font-medium text-gray-700 mb-1"
-            >
-              Stradă
-            </label>
-            <input
+            <FormInput
               id="pickupStreet"
-              type="text"
+              label="Stradă"
               placeholder="Ex: Str. Mihai Eminescu"
-              className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-400 outline-none transition-all"
               value={formData.pickupStreet || ""}
               onChange={(e) => handleChange("pickupStreet", e.target.value)}
             />
           </div>
-
           <div className="sm:w-1/3">
-            <label
-              htmlFor="pickupNumber"
-              className="block text-sm font-medium text-gray-700 mb-1"
-            >
-              Nr.
-            </label>
-            <input
+            <FormInput
               id="pickupNumber"
-              type="text"
+              label="Nr."
               placeholder="Ex: 24A"
-              className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-400 outline-none transition-all"
               value={formData.pickupNumber || ""}
               onChange={(e) => handleChange("pickupNumber", e.target.value)}
             />
@@ -113,58 +91,32 @@ export default function StepPickupAddress({
         </div>
 
         {/* --- Detalii suplimentare --- */}
-        <div>
-          <label
-            htmlFor="pickupDetails"
-            className="block text-sm font-medium text-gray-700 mb-1"
-          >
-            Bloc / Scara / Etaj / Apartament (opțional)
-          </label>
-          <input
-            id="pickupDetails"
-            type="text"
-            placeholder="Ex: Bloc C3, Sc. 2, Et. 4, Ap. 12"
-            className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-400 outline-none transition-all"
-            value={formData.pickupDetails || ""}
-            onChange={(e) => handleChange("pickupDetails", e.target.value)}
-          />
-        </div>
+        <FormInput
+          id="pickupDetails"
+          label="Bloc / Scara / Etaj / Apartament (opțional)"
+          placeholder="Ex: Bloc C3, Sc. 2, Et. 4, Ap. 12"
+          value={formData.pickupDetails || ""}
+          onChange={(e) => handleChange("pickupDetails", e.target.value)}
+        />
 
         {/* --- Cod poștal --- */}
-        <div>
-          <label
-            htmlFor="pickupPostal"
-            className="block text-sm font-medium text-gray-700 mb-1"
-          >
-            Cod poștal
-          </label>
-          <input
-            id="pickupPostal"
-            type="text"
-            placeholder="Ex: 012345"
-            className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-400 outline-none transition-all"
-            value={formData.pickupPostal || ""}
-            onChange={(e) => handleChange("pickupPostal", e.target.value)}
-          />
-        </div>
+        <FormInput
+          id="pickupPostal"
+          label="Cod poștal"
+          placeholder="Ex: 012345"
+          value={formData.pickupPostal || ""}
+          onChange={(e) => handleChange("pickupPostal", e.target.value)}
+        />
 
         {/* --- Instrucțiuni speciale --- */}
-        <div>
-          <label
-            htmlFor="pickupInstructions"
-            className="block text-sm font-medium text-gray-700 mb-1"
-          >
-            Instrucțiuni speciale pentru acces
-          </label>
-          <textarea
-            id="pickupInstructions"
-            rows={3}
-            placeholder="Ex: interfon, acces camion, stradă îngustă..."
-            className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-400 outline-none transition-all"
-            value={formData.pickupInstructions || ""}
-            onChange={(e) => handleChange("pickupInstructions", e.target.value)}
-          />
-        </div>
+        <FormTextarea
+          id="pickupInstructions"
+          label="Instrucțiuni speciale pentru acces"
+          placeholder="Ex: interfon, acces camion, stradă îngustă..."
+          rows={3}
+          value={formData.pickupInstructions || ""}
+          onChange={(e) => handleChange("pickupInstructions", e.target.value)}
+        />
       </div>
     </div>
   );

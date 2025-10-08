@@ -50,12 +50,12 @@ export default function StepMoveDate({ formData, handleChange }: StepProps) {
 
   return (
     <motion.div
-      className="flex flex-col items-center text-center"
+      className="text-center flex flex-col items-center space-y-8"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
     >
-      <h2 className="text-2xl font-bold text-emerald-700 mb-6">
+      <h2 className="text-2xl font-bold text-emerald-700">
         Când dorești să aibă loc mutarea?
       </h2>
 
@@ -71,6 +71,7 @@ export default function StepMoveDate({ formData, handleChange }: StepProps) {
           <button
             onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
             aria-label="Luna precedentă"
+            title="Luna precedentă"
             className="p-2 rounded-full text-emerald-600 hover:bg-emerald-50 transition"
           >
             ‹
@@ -81,6 +82,7 @@ export default function StepMoveDate({ formData, handleChange }: StepProps) {
           <button
             onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
             aria-label="Luna următoare"
+            title="Luna următoare"
             className="p-2 rounded-full text-emerald-600 hover:bg-emerald-50 transition"
           >
             ›
@@ -115,7 +117,7 @@ export default function StepMoveDate({ formData, handleChange }: StepProps) {
                 aria-label={`Selectează data ${format(day, "d MMMM yyyy", {
                   locale: ro,
                 })}`}
-                className={`p-2 rounded-full text-sm font-medium transition-all duration-200 text-center
+                className={`p-2 rounded-full text-sm font-medium transition-all duration-200 text-center select-none
                   ${
                     outside
                       ? "text-gray-300"
@@ -138,36 +140,35 @@ export default function StepMoveDate({ formData, handleChange }: StepProps) {
       </motion.div>
 
       {/* === Flexible Date Options === */}
-      <div className="w-full max-w-md flex flex-col gap-3 mt-8">
-        {[
-          "Sunt flexibil cu data mutării",
-          "Încă nu știu data mutării",
-        ].map((opt) => (
-          <label
-            key={opt}
-            className={`p-4 rounded-xl border text-left cursor-pointer transition-all duration-200 ${
-              formData.moveOption === opt
-                ? "border-emerald-500 bg-gradient-to-r from-emerald-50 to-sky-50 shadow-md text-emerald-700 font-medium"
-                : "border-gray-300 hover:border-emerald-300 hover:bg-emerald-50/40 text-gray-700"
-            }`}
-          >
-            <input
-              type="radio"
-              name="moveOption"
-              value={opt}
-              checked={formData.moveOption === opt}
-              onChange={(e) => {
-                handleChange("moveOption", e.target.value);
-                handleChange("moveDate", "");
-              }}
-              className="hidden"
-            />
-            {opt}
-          </label>
-        ))}
+      <div className="w-full max-w-md flex flex-col gap-3">
+        {["Sunt flexibil cu data mutării", "Încă nu știu data mutării"].map(
+          (opt) => (
+            <label
+              key={opt}
+              className={`p-4 rounded-xl border text-left cursor-pointer transition-all duration-200 ${
+                formData.moveOption === opt
+                  ? "border-emerald-500 bg-gradient-to-r from-emerald-50 to-sky-50 shadow-md text-emerald-700 font-medium"
+                  : "border-gray-300 hover:border-emerald-300 hover:bg-emerald-50/40 text-gray-700"
+              }`}
+            >
+              <input
+                type="radio"
+                name="moveOption"
+                value={opt}
+                checked={formData.moveOption === opt}
+                onChange={(e) => {
+                  handleChange("moveOption", e.target.value);
+                  handleChange("moveDate", "");
+                }}
+                className="hidden"
+              />
+              {opt}
+            </label>
+          )
+        )}
       </div>
 
-      <p className="text-sm text-gray-500 mt-6 max-w-md">
+      <p className="text-sm text-gray-500 max-w-md">
         Dacă data exactă nu este stabilită, poți reveni ulterior pentru
         actualizare.
       </p>

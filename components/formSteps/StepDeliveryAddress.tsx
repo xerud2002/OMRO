@@ -2,6 +2,8 @@
 import React from "react";
 import Select from "react-select";
 import counties from "../../utils/counties";
+import FormInput from "../../components/form/FormInput";
+import FormTextarea from "../../components/form/FormTextarea";
 
 interface StepProps {
   formData: any;
@@ -59,54 +61,30 @@ export default function StepDeliveryAddress({
         </div>
 
         {/* --- Oraș --- */}
-        <div>
-          <label
-            htmlFor="deliveryCity"
-            className="block text-sm font-medium text-gray-700 mb-1"
-          >
-            Oraș / Localitate
-          </label>
-          <input
-            id="deliveryCity"
-            type="text"
-            placeholder="Ex: București, Cluj-Napoca"
-            className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-400 outline-none transition-all"
-            value={formData.deliveryCity || ""}
-            onChange={(e) => handleChange("deliveryCity", e.target.value)}
-          />
-        </div>
+        <FormInput
+          id="deliveryCity"
+          label="Oraș / Localitate"
+          placeholder="Ex: București, Cluj-Napoca"
+          value={formData.deliveryCity || ""}
+          onChange={(e) => handleChange("deliveryCity", e.target.value)}
+        />
 
         {/* --- Stradă și număr --- */}
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex-1">
-            <label
-              htmlFor="deliveryStreet"
-              className="block text-sm font-medium text-gray-700 mb-1"
-            >
-              Stradă
-            </label>
-            <input
+            <FormInput
               id="deliveryStreet"
-              type="text"
+              label="Stradă"
               placeholder="Ex: Strada Florilor"
-              className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-400 outline-none transition-all"
               value={formData.deliveryStreet || ""}
               onChange={(e) => handleChange("deliveryStreet", e.target.value)}
             />
           </div>
-
           <div className="sm:w-1/3">
-            <label
-              htmlFor="deliveryNumber"
-              className="block text-sm font-medium text-gray-700 mb-1"
-            >
-              Nr.
-            </label>
-            <input
+            <FormInput
               id="deliveryNumber"
-              type="text"
+              label="Nr."
               placeholder="Ex: 12A"
-              className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-400 outline-none transition-all"
               value={formData.deliveryNumber || ""}
               onChange={(e) => handleChange("deliveryNumber", e.target.value)}
             />
@@ -114,60 +92,34 @@ export default function StepDeliveryAddress({
         </div>
 
         {/* --- Detalii suplimentare --- */}
-        <div>
-          <label
-            htmlFor="deliveryDetails"
-            className="block text-sm font-medium text-gray-700 mb-1"
-          >
-            Bloc / Scara / Etaj / Apartament (opțional)
-          </label>
-          <input
-            id="deliveryDetails"
-            type="text"
-            placeholder="Ex: Bloc A, Scara 2, Etaj 3, Ap. 12"
-            className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-400 outline-none transition-all"
-            value={formData.deliveryDetails || ""}
-            onChange={(e) => handleChange("deliveryDetails", e.target.value)}
-          />
-        </div>
+        <FormInput
+          id="deliveryDetails"
+          label="Bloc / Scara / Etaj / Apartament (opțional)"
+          placeholder="Ex: Bloc A, Scara 2, Etaj 3, Ap. 12"
+          value={formData.deliveryDetails || ""}
+          onChange={(e) => handleChange("deliveryDetails", e.target.value)}
+        />
 
         {/* --- Cod poștal --- */}
-        <div>
-          <label
-            htmlFor="deliveryPostal"
-            className="block text-sm font-medium text-gray-700 mb-1"
-          >
-            Cod poștal
-          </label>
-          <input
-            id="deliveryPostal"
-            type="text"
-            placeholder="Ex: 010101"
-            className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-400 outline-none transition-all"
-            value={formData.deliveryPostal || ""}
-            onChange={(e) => handleChange("deliveryPostal", e.target.value)}
-          />
-        </div>
+        <FormInput
+          id="deliveryPostal"
+          label="Cod poștal"
+          placeholder="Ex: 010101"
+          value={formData.deliveryPostal || ""}
+          onChange={(e) => handleChange("deliveryPostal", e.target.value)}
+        />
 
         {/* --- Instrucțiuni --- */}
-        <div>
-          <label
-            htmlFor="deliveryInstructions"
-            className="block text-sm font-medium text-gray-700 mb-1"
-          >
-            Instrucțiuni speciale pentru acces (ex: interfon, restricții)
-          </label>
-          <textarea
-            id="deliveryInstructions"
-            rows={3}
-            placeholder="Ex: Interfon 123, acces prin spatele blocului"
-            className="w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-400 outline-none transition-all"
-            value={formData.deliveryInstructions || ""}
-            onChange={(e) =>
-              handleChange("deliveryInstructions", e.target.value)
-            }
-          />
-        </div>
+        <FormTextarea
+          id="deliveryInstructions"
+          label="Instrucțiuni speciale pentru acces (ex: interfon, restricții)"
+          placeholder="Ex: Interfon 123, acces prin spatele blocului"
+          rows={3}
+          value={formData.deliveryInstructions || ""}
+          onChange={(e) =>
+            handleChange("deliveryInstructions", e.target.value)
+          }
+        />
       </div>
     </div>
   );

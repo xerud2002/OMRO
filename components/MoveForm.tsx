@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { auth, db, storage } from "../utils/firebase";
 import { setDoc, doc, getDoc, Timestamp } from "firebase/firestore";
 import emailjs from "@emailjs/browser";
@@ -39,8 +39,9 @@ export default function MoveForm() {
   const router = useRouter();
   const [hydrated, setHydrated] = useState(false);
   const [step, setStep] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
 
-  // ✅ Default form state
+  // ✅ Default form data
   const defaultFormData = {
     serviceType: "",
     propertyType: "",
@@ -81,7 +82,7 @@ export default function MoveForm() {
 
   const [formData, setFormData] = useState<any>(defaultFormData);
 
-  // ✅ Restore progress from localStorage
+  // ✅ Restore from localStorage
   useEffect(() => {
     const savedStep = localStorage.getItem("moveFormStep");
     const savedData = localStorage.getItem("moveFormData");
@@ -113,33 +114,67 @@ export default function MoveForm() {
       </div>
     );
 
-  // 🔹 Field change helper
+  // 🔹 Update field helper
   const handleChange = (field: string, value: any) => {
     setFormData((prev: any) => ({ ...prev, [field]: value }));
   };
 
+  // 🔹 Validation by step
+  const validateStep = () => {
+    const requiredFields: Record<number, string[]> = {
+      0: ["serviceType"],
+      1: ["propertyType"],
+      2: ["pickupCity", "pickupCounty"],
+      4: ["deliveryCity", "deliveryCounty"],
+      9: ["name", "phone", "email"],
+    };
+    const fields = requiredFields[step];
+    if (!fields) return true;
+
+    for (const f of fields) {
+      if (!formData[f] || formData[f].trim() === "") {
+        toast.error("Completează toate câmpurile obligatorii înainte de a continua.");
+        return false;
+      }
+    }
+    return true;
+  };
+
   // 🔹 Navigation
-  const nextStep = () => setStep((prev) => Math.min(prev + 1, steps.length - 1));
+  const nextStep = () => {
+    if (validateStep()) setStep((prev) => Math.min(prev + 1, steps.length - 1));
+  };
   const prevStep = () => setStep((prev) => Math.max(prev - 1, 0));
 
-  // ✅ Submission
-  const handleSubmit = async () => {
-    try {
-      toast.loading("Se trimite cererea...");
+  // 🔹 Upload file helper with progress
+  const uploadWithProgress = (file: File) =>
+    new Promise<string>((resolve, reject) => {
+      const storageRef = ref(storage, `uploads/${Date.now()}-${file.name}`);
+      const uploadTask = uploadBytesResumable(storageRef, file);
+      uploadTask.on(
+        "state_changed",
+        undefined,
+        reject,
+        async () => resolve(await getDownloadURL(storageRef))
+      );
+    });
 
-      // Upload files if any
+  // ✅ Submit handler
+  const handleSubmit = async () => {
+    if (submitting) return;
+    setSubmitting(true);
+    toast.loading("Se trimite cererea...");
+
+    try {
+      // 🔹 Upload media if any
       let mediaUrls: string[] = [];
       if (formData.survey === "media" && formData.media.length > 0) {
         mediaUrls = await Promise.all(
-          formData.media.map(async (file: File) => {
-            const storageRef = ref(storage, `uploads/${Date.now()}-${file.name}`);
-            await uploadBytes(storageRef, file);
-            return getDownloadURL(storageRef);
-          })
+          formData.media.map((file: File) => uploadWithProgress(file))
         );
       }
 
-      // 🔹 Generează ID scurt unic și verifică să nu existe deja
+      // 🔹 Generate unique short ID
       let shortId: string;
       let exists = true;
       do {
@@ -148,17 +183,17 @@ export default function MoveForm() {
         exists = checkDoc.exists();
       } while (exists);
 
-      // 🔹 Creează manual documentul cu ID-ul personalizat
+      // 🔹 Save request
       await setDoc(doc(db, "requests", shortId), {
         ...formData,
         media: mediaUrls,
         userId: auth.currentUser?.uid || null,
         createdAt: Timestamp.now(),
         status: "Nouă",
-        requestId: shortId, // pentru referințe ulterioare
+        requestId: shortId,
       });
 
-      // 🔹 Salvează informațiile de contact ale utilizatorului (dacă e logat)
+      // 🔹 Save user contact if logged in
       if (auth.currentUser) {
         await setDoc(
           doc(db, "users", auth.currentUser.uid),
@@ -171,7 +206,7 @@ export default function MoveForm() {
         );
       }
 
-      // 🔹 Trimite e-mail cu link de upload dacă survey = "media_later"
+      // 🔹 Send upload link if “media later”
       if (formData.survey === "media_later" && formData.email) {
         const uploadLink = `${window.location.origin}/upload/${shortId}`;
         await emailjs.send(
@@ -187,23 +222,24 @@ export default function MoveForm() {
       }
 
       toast.dismiss();
-      toast.success("✅ Cererea ta a fost salvată cu succes!");
+      toast.success("✅ Cererea ta a fost trimisă cu succes!");
+      setTimeout(() => router.push("/customer/dashboard"), 1800);
 
-      // Reset form
+      // 🔹 Reset form
       setFormData(defaultFormData);
       setStep(0);
       localStorage.removeItem("moveFormData");
       localStorage.removeItem("moveFormStep");
-
-      router.push("/customer/dashboard");
     } catch (err) {
       console.error("❌ Eroare la salvare:", err);
       toast.dismiss();
       toast.error("A apărut o eroare la salvarea cererii.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  // 🔹 Render correct step
+  // 🔹 Step renderer
   const renderStep = () => {
     switch (step) {
       case 0:
@@ -211,36 +247,19 @@ export default function MoveForm() {
       case 1:
         return <StepProperty formData={formData} handleChange={handleChange} />;
       case 2:
-        return (
-          <StepPickupAddress formData={formData} handleChange={handleChange} />
-        );
+        return <StepPickupAddress formData={formData} handleChange={handleChange} />;
       case 3:
-        return (
-          <StepDeliveryProperty
-            formData={formData}
-            handleChange={handleChange}
-          />
-        );
+        return <StepDeliveryProperty formData={formData} handleChange={handleChange} />;
       case 4:
-        return (
-          <StepDeliveryAddress formData={formData} handleChange={handleChange} />
-        );
+        return <StepDeliveryAddress formData={formData} handleChange={handleChange} />;
       case 5:
         return <StepMoveDate formData={formData} handleChange={handleChange} />;
       case 6:
         return <StepPacking formData={formData} handleChange={handleChange} />;
       case 7:
-        return (
-          <StepDismantling formData={formData} handleChange={handleChange} />
-        );
+        return <StepDismantling formData={formData} handleChange={handleChange} />;
       case 8:
-        return (
-          <StepSurvey
-            formData={formData}
-            handleChange={handleChange}
-            setFormData={setFormData}
-          />
-        );
+        return <StepSurvey formData={formData} handleChange={handleChange} setFormData={setFormData} />;
       case 9:
         return <StepContact formData={formData} handleChange={handleChange} />;
       default:
@@ -260,10 +279,10 @@ export default function MoveForm() {
         >
           {/* --- Progress --- */}
           <div className="mb-10 text-center">
-            <p className="text-sm text-gray-600 mb-2">
-              Pasul {step + 1} din {steps.length}
+            <p className="text-sm text-gray-600 mb-1 font-medium">
+              {steps[step]} • Pasul {step + 1} din {steps.length}
             </p>
-            <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
+            <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
               <motion.div
                 initial={{ width: 0 }}
                 animate={{ width: `${((step + 1) / steps.length) * 100}%` }}
@@ -273,7 +292,7 @@ export default function MoveForm() {
             </div>
           </div>
 
-          {/* --- Step content --- */}
+          {/* --- Step Content --- */}
           <AnimatePresence mode="wait">
             <motion.div
               key={step}
@@ -286,7 +305,7 @@ export default function MoveForm() {
             </motion.div>
           </AnimatePresence>
 
-          {/* --- Navigation buttons --- */}
+          {/* --- Navigation --- */}
           <div className="mt-10 flex justify-between items-center">
             {step > 0 ? (
               <button
@@ -309,9 +328,14 @@ export default function MoveForm() {
             ) : (
               <button
                 onClick={handleSubmit}
-                className="flex items-center gap-2 px-6 py-2 rounded-full bg-gradient-to-r from-emerald-500 to-sky-500 text-white font-medium shadow-md hover:scale-105 transition-all"
+                disabled={submitting}
+                className={`flex items-center gap-2 px-6 py-2 rounded-full font-medium shadow-md transition-all ${
+                  submitting
+                    ? "bg-gray-400 cursor-not-allowed text-white"
+                    : "bg-gradient-to-r from-emerald-500 to-sky-500 text-white hover:scale-105"
+                }`}
               >
-                Trimite cererea <Send size={18} />
+                {submitting ? "Se trimite..." : <>Trimite cererea <Send size={18} /></>}
               </button>
             )}
           </div>
