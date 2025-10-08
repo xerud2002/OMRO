@@ -37,6 +37,7 @@ import {
   FileDown,
   MessageCircle,
   Mail,
+  Factory
 } from "lucide-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
@@ -398,6 +399,12 @@ export default function AdminDashboardOverview() {
             path="/admin/settings"
             icon={<Settings />}
             color="from-gray-400 to-gray-600"
+          />
+          <QuickLink
+            title="Generator"
+            path="/admin/generator"
+            icon={<Factory />}
+            color="from-sky-400 to-indigo-600"
           />
           <QuickLink
             title="Jurnal Activitate"

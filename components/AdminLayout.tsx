@@ -68,8 +68,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     router.push("/company/auth");
   };
 
-  // === Sidebar menu ===
-  const sections = [
+    // === Sidebar menu ===
+    const sections = [
     {
       title: "General",
       items: [
@@ -95,6 +95,16 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       ],
     },
     {
+      title: "Instrumente",
+      items: [
+        {
+          name: "Generator date fictive",
+          path: "/admin/generator",
+          icon: Sparkles,
+        },
+      ],
+    },
+    {
       title: "Suport & Setări",
       items: [
         { name: "Feedback & Recenzii", path: "/admin/reviews", icon: Star },
@@ -103,6 +113,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       ],
     },
   ];
+
 
   return (
     <div className="min-h-screen flex bg-gradient-to-br from-emerald-50 to-sky-50 text-gray-800">
