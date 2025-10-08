@@ -13,83 +13,95 @@ import { useRouter } from "next/navigation";
 import AdminLayout from "../../components/AdminLayout";
 import AdminProtectedRoute from "../../components/AdminProtectedRoute";
 import { motion } from "framer-motion";
+import toast from "react-hot-toast";
 import {
+  Loader2,
   MessageSquare,
-  Clock,
+  SearchCheck,
+  Mail,
   User,
   Building2,
-  Eye,
-  Loader2,
+  Ban,
+  FileDown,
+  Filter,
 } from "lucide-react";
 
 export default function AdminMessagesPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [conversations, setConversations] = useState<any[]>([]);
-  const [selectedChat, setSelectedChat] = useState<any | null>(null);
+  const [messages, setMessages] = useState<any[]>([]);
+  const [filter, setFilter] = useState("");
+  const [search, setSearch] = useState("");
+  const [selectedThread, setSelectedThread] = useState<any | null>(null);
 
+  // ✅ Load all conversations
   useEffect(() => {
     const unsub = onAuthChange(async (u) => {
-      if (!u) {
-        router.push("/company/auth");
-        return;
-      }
+      if (!u) return router.push("/company/auth");
 
-      const userSnap = await getDoc(doc(db, "users", u.uid));
-      if (!userSnap.exists() || userSnap.data()?.role !== "admin") {
+      const snap = await getDoc(doc(db, "users", u.uid));
+      if (!snap.exists() || snap.data().role !== "admin") {
+        toast.error("⛔ Acces interzis!");
         router.push("/");
         return;
       }
 
-      await loadAllConversations();
-      setLoading(false);
+      try {
+        const q = query(collection(db, "messages"), orderBy("lastMessageAt", "desc"));
+        const snap = await getDocs(q);
+        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        setMessages(list);
+      } catch (err) {
+        console.error("❌ Eroare la încărcare mesaje:", err);
+        toast.error("Eroare la încărcarea mesajelor!");
+      } finally {
+        setLoading(false);
+      }
     });
-
     return () => unsub();
   }, [router]);
-
-  // ✅ Load all requests + messages
-  const loadAllConversations = async () => {
-    const reqSnap = await getDocs(collection(db, "requests"));
-    const data: any[] = [];
-
-    for (const r of reqSnap.docs) {
-      const reqData = r.data();
-      const msgRef = collection(db, "requests", r.id, "messages");
-      const msgSnap = await getDocs(query(msgRef, orderBy("createdAt", "asc")));
-
-      if (msgSnap.docs.length > 0) {
-        const lastMsg = msgSnap.docs[msgSnap.docs.length - 1].data();
-        data.push({
-          id: r.id,
-          client: reqData.name || reqData.customerName || "Client necunoscut",
-          company: reqData.assignedCompany || "Nicio companie",
-          messages: msgSnap.docs.map((m) => ({ id: m.id, ...m.data() })),
-          lastMessage: lastMsg.text || lastMsg.fileName || "(Fișier trimis)",
-          lastDate: lastMsg.createdAt?.toDate
-            ? lastMsg.createdAt.toDate().toLocaleString("ro-RO")
-            : "-",
-        });
-      }
-    }
-
-    // Sort by last activity
-    data.sort(
-      (a, b) =>
-        new Date(b.lastDate).getTime() - new Date(a.lastDate).getTime()
-    );
-
-    setConversations(data);
-  };
 
   if (loading)
     return (
       <AdminLayout>
-        <div className="flex justify-center items-center h-[70vh] text-emerald-600 text-lg">
+        <div className="flex items-center justify-center h-[70vh] text-emerald-600">
           <Loader2 className="animate-spin mr-2" /> Se încarcă conversațiile...
         </div>
       </AdminLayout>
     );
+
+  // 🔍 Filter + search
+  const filtered = messages.filter((m) => {
+    const matchesFilter = filter ? m.status === filter : true;
+    const matchesSearch =
+      m.customerName?.toLowerCase().includes(search) ||
+      m.companyName?.toLowerCase().includes(search) ||
+      m.requestId?.toLowerCase().includes(search);
+    return matchesFilter && (!search || matchesSearch);
+  });
+
+  // 📤 Export CSV
+  const exportCSV = () => {
+    const header = "ID,Client,Companie,Status,Ultimul mesaj,Data\n";
+    const rows = messages
+      .map(
+        (m) =>
+          `${m.id},"${m.customerName || "-"}","${m.companyName || "-"}",${
+            m.status || "-"
+          },"${m.lastMessage || ""}",${
+            m.lastMessageAt?.seconds
+              ? new Date(m.lastMessageAt.seconds * 1000).toLocaleString("ro-RO")
+              : "-"
+          }`
+      )
+      .join("\n");
+    const blob = new Blob([header + rows], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "messages_export.csv";
+    a.click();
+  };
 
   return (
     <AdminProtectedRoute>
@@ -98,116 +110,148 @@ export default function AdminMessagesPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="max-w-6xl mx-auto bg-white/80 backdrop-blur-md border border-emerald-100 rounded-3xl shadow-lg p-8 mt-8 mb-20"
+          className="max-w-7xl mx-auto bg-white/80 backdrop-blur-md border border-emerald-100 rounded-3xl shadow-xl p-8 mt-6 mb-20"
         >
-          <h1 className="text-3xl font-bold text-center text-emerald-700 mb-10 flex items-center justify-center gap-2">
-            <MessageSquare size={26} /> Conversații client – companie
-          </h1>
+          {/* Header */}
+          <div className="flex justify-between items-center mb-8">
+            <h1 className="text-3xl font-bold text-emerald-700 flex items-center gap-2">
+              <MessageSquare size={26} /> Mesaje Clienți / Companii
+            </h1>
+            <button
+              onClick={exportCSV}
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-sky-500 text-white rounded-xl text-sm font-medium shadow-md hover:scale-[1.03] transition"
+            >
+              <FileDown size={16} /> Export CSV
+            </button>
+          </div>
 
-          {conversations.length === 0 ? (
-            <p className="text-center text-gray-500">
-              Nu există conversații încă.
-            </p>
-          ) : (
-            <div className="overflow-x-auto border border-gray-200 rounded-2xl shadow">
-              <table className="w-full text-sm">
-                <thead className="bg-emerald-50 text-left">
-                  <tr>
-                    <th className="p-3 border-b">Client</th>
-                    <th className="p-3 border-b">Companie</th>
-                    <th className="p-3 border-b">Ultimul mesaj</th>
-                    <th className="p-3 border-b">Data</th>
-                    <th className="p-3 border-b text-center">Acțiuni</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {conversations.map((c) => (
-                    <tr
-                      key={c.id}
-                      className="hover:bg-emerald-50 transition cursor-pointer"
-                    >
-                      <td className="p-3 border-b flex items-center gap-2">
-                        <User size={16} className="text-emerald-600" />
-                        {c.client}
-                      </td>
-                      <td className="p-3 border-b flex items-center gap-2">
-                        <Building2 size={16} className="text-sky-600" />
-                        {c.company}
-                      </td>
-                      <td className="p-3 border-b truncate max-w-[200px]">
-                        {c.lastMessage}
-                      </td>
-                      <td className="p-3 border-b text-gray-500">
-                        <Clock size={14} className="inline mr-1" />
-                        {c.lastDate}
-                      </td>
-                      <td className="p-3 border-b text-center">
-                        <button
-                          onClick={() => setSelectedChat(c)}
-                          className="text-emerald-600 hover:underline font-medium inline-flex items-center gap-1"
-                        >
-                          <Eye size={14} /> Vezi
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          {/* Filters */}
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-3 mb-6">
+            <div className="flex items-center gap-2 text-emerald-700 font-semibold">
+              <Filter size={18} /> Filtrează conversațiile
             </div>
+            <div className="flex gap-2">
+              <select
+                onChange={(e) => setFilter(e.target.value)}
+                className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-400"
+              >
+                <option value="">Toate</option>
+                <option value="active">Active</option>
+                <option value="archived">Arhivate</option>
+                <option value="reported">Raportate</option>
+              </select>
+              <div className="relative">
+                <SearchCheck
+                  size={16}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+                />
+                <input
+                  type="text"
+                  placeholder="Caută client, companie..."
+                  className="pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-400"
+                  onChange={(e) => setSearch(e.target.value.toLowerCase())}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Table */}
+          <div className="overflow-x-auto border border-gray-200 rounded-2xl shadow bg-white/90">
+            <table className="w-full text-sm">
+              <thead className="bg-emerald-50 text-gray-800">
+                <tr>
+                  <th className="p-3 border-b">Client</th>
+                  <th className="p-3 border-b">Companie</th>
+                  <th className="p-3 border-b">Cereră</th>
+                  <th className="p-3 border-b">Ultimul mesaj</th>
+                  <th className="p-3 border-b">Status</th>
+                  <th className="p-3 border-b text-center">Acțiuni</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((m) => (
+                  <tr key={m.id} className="hover:bg-emerald-50 transition">
+                    <td className="p-3 border-b font-medium flex items-center gap-2">
+                      <User size={14} className="text-emerald-600" />
+                      {m.customerName || "-"}
+                    </td>
+                    <td className="p-3 border-b flex items-center gap-2">
+                      <Building2 size={14} className="text-sky-600" />
+                      {m.companyName || "-"}
+                    </td>
+                    <td className="p-3 border-b text-gray-600">{m.requestId || "-"}</td>
+                    <td className="p-3 border-b text-gray-500 truncate max-w-[250px]">
+                      {m.lastMessage || "-"}
+                    </td>
+                    <td className="p-3 border-b capitalize text-gray-700">
+                      {m.status || "active"}
+                    </td>
+                    <td className="p-3 border-b text-center">
+                      <button
+                        onClick={() => setSelectedThread(m)}
+                        className="text-emerald-600 hover:underline text-sm"
+                      >
+                        Vezi
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {filtered.length === 0 && (
+            <p className="text-center text-gray-500 mt-6">
+              Nu există conversații care să corespundă filtrelor.
+            </p>
           )}
 
-          {/* === CHAT VIEWER MODAL === */}
-          {selectedChat && (
-            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
-              <div className="bg-white w-full max-w-2xl rounded-3xl shadow-xl p-6 relative">
+          {/* Modal */}
+          {selectedThread && (
+            <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+              <div className="bg-white rounded-3xl shadow-xl p-8 w-full max-w-lg relative max-h-[80vh] overflow-y-auto">
                 <button
-                  onClick={() => setSelectedChat(null)}
-                  className="absolute top-3 right-3 text-gray-500 hover:text-red-500"
+                  onClick={() => setSelectedThread(null)}
+                  className="absolute top-4 right-4 text-gray-500 hover:text-red-500"
                 >
                   ✕
                 </button>
-                <h2 className="text-xl font-semibold text-emerald-700 mb-2">
-                  Conversație #{selectedChat.id}
-                </h2>
-                <p className="text-sm text-gray-600 mb-4">
-                  👤 {selectedChat.client} &nbsp; | &nbsp; 🏢{" "}
-                  {selectedChat.company}
-                </p>
-
-                <div className="max-h-[400px] overflow-y-auto space-y-2 pr-2 border-t border-b py-3">
-                  {selectedChat.messages.map((msg: any) => (
-                    <div
-                      key={msg.id}
-                      className={`max-w-[80%] p-3 rounded-2xl text-sm ${
-                        msg.sender === "company"
-                          ? "ml-auto bg-gradient-to-r from-sky-500 to-emerald-500 text-white"
-                          : "mr-auto bg-gray-100 text-gray-800"
-                      }`}
-                    >
-                      {msg.text && <p>{msg.text}</p>}
-                      {msg.fileUrl && (
-                        <a
-                          href={msg.fileUrl}
-                          target="_blank"
-                          className="underline text-xs mt-1 block"
-                        >
-                          📎 {msg.fileName}
-                        </a>
-                      )}
-                      <span className="block text-[11px] opacity-70 mt-1">
-                        {msg.createdAt?.toDate
-                          ? msg.createdAt
-                              .toDate()
-                              .toLocaleString("ro-RO", {
-                                day: "2-digit",
-                                month: "short",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })
-                          : ""}
-                      </span>
+                <h3 className="text-xl font-semibold text-emerald-700 mb-4 flex items-center gap-2">
+                  <MessageSquare size={18} /> Conversație
+                </h3>
+                <div className="text-sm text-gray-700 space-y-3">
+                  <p><strong>Client:</strong> {selectedThread.customerName}</p>
+                  <p><strong>Companie:</strong> {selectedThread.companyName}</p>
+                  <p><strong>Status:</strong> {selectedThread.status}</p>
+                  <p className="mt-2 font-semibold text-emerald-700">Mesaje:</p>
+                  <div className="border border-gray-200 rounded-xl p-3 bg-gray-50 max-h-[300px] overflow-y-auto">
+                    {selectedThread.messages?.map((msg: any, idx: number) => (
+                      <div
+                        key={idx}
+                        className={`mb-2 ${
+                          msg.from === "company"
+                            ? "text-right text-sky-700"
+                            : "text-left text-gray-700"
+                        }`}
+                      >
+                        <p className="text-xs text-gray-400">
+                          {msg.timestamp?.seconds
+                            ? new Date(msg.timestamp.seconds * 1000).toLocaleString("ro-RO")
+                            : ""}
+                        </p>
+                        <p className="bg-white shadow-sm inline-block px-3 py-1 rounded-xl">
+                          {msg.text}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                  {selectedThread.status === "reported" && (
+                    <div className="mt-4">
+                      <button className="flex items-center gap-2 bg-red-500 text-white px-4 py-2 rounded-xl hover:bg-red-600 transition">
+                        <Ban size={16} /> Suspendă Compania
+                      </button>
                     </div>
-                  ))}
+                  )}
                 </div>
               </div>
             </div>
