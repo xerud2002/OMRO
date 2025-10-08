@@ -37,7 +37,8 @@ import {
   FileDown,
   MessageCircle,
   Mail,
-  Factory
+  Factory,
+  Gift, // 🎁 nou
 } from "lucide-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
@@ -48,6 +49,7 @@ interface CompanyData {
   id: string;
   verified?: boolean;
   submittedForVerification?: boolean;
+  freeLeads?: number;
 }
 interface UserData {
   id: string;
@@ -155,13 +157,12 @@ export default function AdminDashboardOverview() {
   }, 0);
 
   const totalMessages = messages.length;
-  const reportedMessages = messages.filter(
-    (m) => m.status === "reported"
-  ).length;
-  const unreadMessages = messages.filter((m) => m.status === "unread").length;
+
+  // 🔹 NEW — Free Leads Stats
+  const activeFreeCompanies = companies.filter((c) => (c.freeLeads ?? 0) > 0).length;
+  const totalFreeLeads = companies.reduce((sum, c) => sum + (c.freeLeads ?? 0), 0);
 
   // ---------- CHARTS ----------
-  // Requests by status
   const statusGroups = ["noua", "in_interes", "finalizata", "anulata"];
   const pieData = statusGroups.map((s) => ({
     name: s,
@@ -176,7 +177,6 @@ export default function AdminDashboardOverview() {
         : "#ef4444",
   }));
 
-  // Top counties
   const countyCount: Record<string, number> = {};
   requests.forEach((r) => {
     if (r.pickupCounty) {
@@ -189,7 +189,6 @@ export default function AdminDashboardOverview() {
     .sort((a, b) => b.count - a.count)
     .slice(0, 5);
 
-  // Latest payments chart
   const monthlyRevenue: Record<string, number> = {};
   payments.forEach((p) => {
     if (p.createdAt?.seconds) {
@@ -222,44 +221,20 @@ export default function AdminDashboardOverview() {
         </h1>
 
         {/* KPI Cards */}
-        <div className="grid sm:grid-cols-2 md:grid-cols-6 gap-6 mb-12">
-          <StatCard
-            title="Companii verificate"
-            value={verifiedCompanies}
-            icon={<ShieldCheck />}
-            color="from-green-400 to-emerald-600"
-          />
-          <StatCard
-            title="În verificare"
-            value={pendingCompanies}
-            icon={<Clock />}
-            color="from-yellow-400 to-orange-500"
-          />
-          <StatCard
-            title="Clienți activi"
-            value={totalClients}
-            icon={<Users />}
-            color="from-sky-400 to-blue-600"
-          />
-          <StatCard
-            title="Cererile totale"
-            value={totalRequests}
-            icon={<ClipboardList />}
-            color="from-emerald-400 to-green-600"
-          />
-          <StatCard
-            title="Venit total (RON)"
-            value={totalRevenue.toFixed(2)}
-            icon={<Coins />}
-            color="from-emerald-500 to-sky-600"
-          />
-          <StatCard
-            title="Conversații active"
-            value={totalMessages}
-            icon={<MessageCircle />}
-            color="from-indigo-400 to-purple-600"
-          />
+        <div className="grid sm:grid-cols-2 md:grid-cols-7 gap-6 mb-12">
+          <StatCard title="Companii verificate" value={verifiedCompanies} icon={<ShieldCheck />} color="from-green-400 to-emerald-600" />
+          <StatCard title="În verificare" value={pendingCompanies} icon={<Clock />} color="from-yellow-400 to-orange-500" />
+          <StatCard title="Clienți activi" value={totalClients} icon={<Users />} color="from-sky-400 to-blue-600" />
+          <StatCard title="Cererile totale" value={totalRequests} icon={<ClipboardList />} color="from-emerald-400 to-green-600" />
+          <StatCard title="Venit total (RON)" value={totalRevenue.toFixed(2)} icon={<Coins />} color="from-emerald-500 to-sky-600" />
+          <StatCard title="Lead-uri gratuite active" value={`${activeFreeCompanies}/${totalFreeLeads}`} icon={<Gift />} color="from-pink-400 to-rose-600" />
+          <StatCard title="Conversații active" value={messages.length} icon={<MessageCircle />} color="from-indigo-400 to-purple-600" />
         </div>
+
+        {/* restul codului rămâne identic */}
+        {/* Charts, Activity Feed, Quick Links */}
+        {/* ... (nu modificăm nimic mai jos) */}
+
 
         {/* Charts */}
         <div className="grid md:grid-cols-3 gap-8 mb-12">

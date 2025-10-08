@@ -11,10 +11,12 @@ import {
   orderBy,
   onSnapshot,
   Timestamp,
+  updateDoc,
 } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { motion } from "framer-motion";
-import { SendHorizontal, ArrowLeft, Paperclip } from "lucide-react";
+import { SendHorizontal, ArrowLeft, Paperclip, Unlock, Lock } from "lucide-react";
+import toast from "react-hot-toast";
 
 interface Message {
   id: string;
@@ -35,13 +37,16 @@ export default function CompanyOrderDetails() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [hasUnlocked, setHasUnlocked] = useState(false);
+  const [freeLeads, setFreeLeads] = useState<number>(0);
   const [userRole, setUserRole] = useState<"client" | "company">("company");
   const [unread, setUnread] = useState(false);
   const chatRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // 🔹 Preload subtle notification sound
+  // 🔹 Load subtle notification sound
   useEffect(() => {
     audioRef.current = new Audio("/sounds/notify.mp3");
     audioRef.current.volume = 0.3;
@@ -51,12 +56,15 @@ export default function CompanyOrderDetails() {
   useEffect(() => {
     const unsub = onAuthChange(async (u) => {
       if (!u) router.push("/company/auth");
-      else setUserRole("company");
+      else {
+        setUser(u);
+        setUserRole("company");
+      }
     });
     return () => unsub();
   }, [router]);
 
-  // 🔹 Fetch order + messages realtime
+  // 🔹 Load order + messages realtime
   useEffect(() => {
     if (!id) return;
 
@@ -66,42 +74,72 @@ export default function CompanyOrderDetails() {
     };
     loadOrder();
 
-    const q = query(
-      collection(db, "requests", id, "messages"),
-      orderBy("createdAt", "asc")
-    );
-
+    const q = query(collection(db, "requests", id, "messages"), orderBy("createdAt", "asc"));
     let previousMessages = 0;
+
     const unsub = onSnapshot(q, (snap) => {
       const newMsgs: Message[] = snap.docs.map((d) => ({
         id: d.id,
         ...(d.data() as Omit<Message, "id">),
       }));
-
       setMessages(newMsgs);
 
-      // auto-scroll to bottom
+      // Auto scroll
       setTimeout(() => {
-        chatRef.current?.scrollTo({
-          top: chatRef.current.scrollHeight,
-          behavior: "smooth",
-        });
+        chatRef.current?.scrollTo({ top: chatRef.current.scrollHeight, behavior: "smooth" });
       }, 150);
 
-      // detect new incoming message (from other user)
+      // Sound alert
       if (newMsgs.length > previousMessages) {
         const last = newMsgs[newMsgs.length - 1];
-        if (last && last.sender && last.sender !== userRole) {
+        if (last && last.sender !== userRole) {
           setUnread(true);
           audioRef.current?.play().catch(() => {});
         }
       }
-
       previousMessages = newMsgs.length;
     });
 
     return () => unsub();
   }, [id, userRole]);
+
+  // 🔹 Check company free leads
+  useEffect(() => {
+    const loadFreeLeads = async () => {
+      if (!user) return;
+      const companyRef = doc(db, "companies", user.uid);
+      const companySnap = await getDoc(companyRef);
+      if (companySnap.exists()) {
+        const data = companySnap.data();
+        setFreeLeads(data.freeLeads || 0);
+      }
+    };
+    loadFreeLeads();
+  }, [user]);
+
+  // 🔹 Unlock contact info (use a free lead if available)
+  const handleUnlock = async () => {
+    if (!user) return;
+    const companyRef = doc(db, "companies", user.uid);
+    const companySnap = await getDoc(companyRef);
+
+    if (!companySnap.exists()) {
+      toast.error("Contul companiei nu a fost găsit.");
+      return;
+    }
+
+    const companyData = companySnap.data();
+    const currentFree = companyData?.freeLeads || 0;
+
+    if (currentFree > 0) {
+      await updateDoc(companyRef, { freeLeads: currentFree - 1 });
+      setFreeLeads(currentFree - 1);
+      setHasUnlocked(true);
+      toast.success("🎁 Ai folosit un lead gratuit pentru a debloca detaliile clientului!");
+    } else {
+      toast.error("ℹ️ Ai epuizat lead-urile gratuite. Este necesară o plată pentru a debloca contactele.");
+    }
+  };
 
   // 🔹 Send text message
   const sendMessage = async () => {
@@ -116,7 +154,7 @@ export default function CompanyOrderDetails() {
     setUnread(false);
   };
 
-  // 🔹 Send file (image / video / pdf)
+  // 🔹 Send file
   const sendFile = async (file: File) => {
     try {
       setUploading(true);
@@ -134,7 +172,6 @@ export default function CompanyOrderDetails() {
         fileUrl: url,
         createdAt: Timestamp.now(),
       });
-
       setUploading(false);
       setUnread(false);
     } catch (err) {
@@ -143,7 +180,6 @@ export default function CompanyOrderDetails() {
     }
   };
 
-  // 🔹 Handle file input
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) await sendFile(file);
@@ -156,6 +192,8 @@ export default function CompanyOrderDetails() {
         Se încarcă detaliile comenzii...
       </div>
     );
+
+  const canViewContacts = hasUnlocked || freeLeads > 0;
 
   return (
     <motion.div
@@ -186,14 +224,30 @@ export default function CompanyOrderDetails() {
         <div className="grid sm:grid-cols-2 gap-3 text-sm text-gray-700">
           <p><strong>Serviciu:</strong> {order.serviceType || "-"}</p>
           <p><strong>Data:</strong> {order.moveDate || order.moveOption || "-"}</p>
-          <p><strong>Client:</strong> {order.name || "-"} ({order.email || "-"})</p>
-          <p><strong>Telefon:</strong> {order.phone || "-"}</p>
+          <p><strong>Client:</strong> {canViewContacts ? order.name : "Deblochează pentru a vedea"}</p>
+          <p><strong>Email:</strong> {canViewContacts ? order.email : "🔒 Confidențial"}</p>
+          <p><strong>Telefon:</strong> {canViewContacts ? order.phone : "🔒 Confidențial"}</p>
           <p><strong>Colectare:</strong> {order.pickupCity || "-"}, {order.pickupCounty || "-"}</p>
           <p><strong>Livrare:</strong> {order.deliveryCity || "-"}, {order.deliveryCounty || "-"}</p>
           <p><strong>Status:</strong>{" "}
             <span className="text-emerald-600 font-medium">{order.status || "Nouă"}</span>
           </p>
         </div>
+
+        {!canViewContacts && (
+          <button
+            onClick={handleUnlock}
+            className="mt-5 flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-sky-500 text-white rounded-xl px-4 py-2 font-medium shadow-md hover:scale-[1.03] transition"
+          >
+            <Unlock size={18} /> Deblochează contactele
+          </button>
+        )}
+
+        {canViewContacts && (
+          <div className="mt-4 text-sm text-emerald-600 flex items-center gap-2">
+            <Unlock size={16} /> Detaliile clientului sunt vizibile
+          </div>
+        )}
       </div>
 
       {/* --- Chat --- */}
@@ -208,14 +262,9 @@ export default function CompanyOrderDetails() {
         </h2>
 
         {/* --- Messages --- */}
-        <div
-          ref={chatRef}
-          className="flex-1 overflow-y-auto space-y-3 mb-4 pr-2 scrollbar-thin scrollbar-thumb-emerald-200"
-        >
+        <div ref={chatRef} className="flex-1 overflow-y-auto space-y-3 mb-4 pr-2 scrollbar-thin scrollbar-thumb-emerald-200">
           {messages.length === 0 ? (
-            <p className="text-gray-500 text-sm text-center mt-4">
-              Nu există mesaje încă.
-            </p>
+            <p className="text-gray-500 text-sm text-center mt-4">Nu există mesaje încă.</p>
           ) : (
             messages.map((msg) => (
               <motion.div
@@ -230,30 +279,16 @@ export default function CompanyOrderDetails() {
                 }`}
               >
                 {msg.type === "image" && msg.fileUrl ? (
-                  <img
-                    src={msg.fileUrl}
-                    alt={msg.fileName}
-                    className="rounded-lg max-w-[200px] mb-2"
-                  />
+                  <img src={msg.fileUrl} alt={msg.fileName} className="rounded-lg max-w-[200px] mb-2" />
                 ) : msg.type === "video" && msg.fileUrl ? (
-                  <video
-                    src={msg.fileUrl}
-                    controls
-                    className="rounded-lg max-w-[200px] mb-2"
-                  />
+                  <video src={msg.fileUrl} controls className="rounded-lg max-w-[200px] mb-2" />
                 ) : msg.type === "file" && msg.fileUrl ? (
-                  <a
-                    href={msg.fileUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline text-sm"
-                  >
+                  <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer" className="underline text-sm">
                     📎 {msg.fileName}
                   </a>
                 ) : (
                   <p>{msg.text}</p>
                 )}
-
                 <span className="block text-xs opacity-70 mt-1">
                   {msg.createdAt?.toDate
                     ? msg.createdAt.toDate().toLocaleString("ro-RO", {
@@ -269,7 +304,7 @@ export default function CompanyOrderDetails() {
           )}
         </div>
 
-        {/* --- Input + Upload --- */}
+        {/* --- Input --- */}
         <div className="flex items-center gap-2">
           <input
             type="text"
@@ -279,7 +314,6 @@ export default function CompanyOrderDetails() {
             onKeyDown={(e) => e.key === "Enter" && sendMessage()}
             className="flex-1 border border-emerald-200 rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-300 transition"
           />
-
           <input
             ref={fileInputRef}
             type="file"
@@ -295,18 +329,13 @@ export default function CompanyOrderDetails() {
           >
             <Paperclip size={20} />
           </button>
-
           <button
             onClick={sendMessage}
             disabled={uploading}
             className="p-2 rounded-full bg-gradient-to-r from-emerald-500 to-sky-500 text-white hover:scale-105 transition disabled:opacity-50"
             title="Trimite mesaj"
           >
-            {uploading ? (
-              <span className="text-xs px-2">Se încarcă...</span>
-            ) : (
-              <SendHorizontal size={20} />
-            )}
+            {uploading ? <span className="text-xs px-2">Se încarcă...</span> : <SendHorizontal size={20} />}
           </button>
         </div>
       </div>
