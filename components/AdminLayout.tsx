@@ -15,6 +15,15 @@ import {
   X,
   Shield,
   MessageSquare,
+  CreditCard,
+  BarChart3,
+  Settings,
+  FileCheck,
+  FileText,
+  Star,
+  Activity,
+  Globe,
+  Sparkles,
 } from "lucide-react";
 
 type AdminLayoutProps = {
@@ -28,6 +37,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const [pendingCompanies, setPendingCompanies] = useState<number>(0);
   const [newRequests, setNewRequests] = useState<number>(0);
 
+  // Fetch badge counters (pending companies, new requests)
   useEffect(() => {
     const fetchCounts = async () => {
       try {
@@ -50,22 +60,49 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         console.error("❌ Eroare la încărcarea badge-urilor admin:", err);
       }
     };
-
     fetchCounts();
   }, []);
-
-  const menu = [
-    { name: "Dashboard", path: "/admin/dashboard", icon: <LayoutDashboard size={20} /> },
-    { name: "Companii", path: "/admin/companies", icon: <Building2 size={20} />, badge: pendingCompanies },
-    { name: "Clienți", path: "/admin/clients", icon: <Users size={20} /> },
-    { name: "Cererile", path: "/admin/requests", icon: <ClipboardList size={20} />, badge: newRequests },
-    { name: "Mesaje", path: "/admin/messages", icon: <MessageSquare size={20} /> },
-  ];
 
   const handleLogout = async () => {
     await logout();
     router.push("/company/auth");
   };
+
+  // === Sidebar menu ===
+  const sections = [
+    {
+      title: "General",
+      items: [
+        { name: "Dashboard", path: "/admin/dashboard", icon: LayoutDashboard },
+        { name: "Cererile", path: "/admin/requests", icon: ClipboardList, badge: newRequests },
+        { name: "Mesaje", path: "/admin/messages", icon: MessageSquare },
+      ],
+    },
+    {
+      title: "Gestionare",
+      items: [
+        { name: "Companii", path: "/admin/companies", icon: Building2, badge: pendingCompanies },
+        { name: "Clienți", path: "/admin/clients", icon: Users },
+        { name: "Verificări", path: "/admin/verify", icon: FileCheck },
+      ],
+    },
+    {
+      title: "Finanțe",
+      items: [
+        { name: "Plăți / Lead-uri", path: "/admin/payments", icon: CreditCard },
+        { name: "Tarife & Promoții", path: "/admin/pricing", icon: Sparkles },
+        { name: "Statistici", path: "/admin/stats", icon: BarChart3 },
+      ],
+    },
+    {
+      title: "Suport & Setări",
+      items: [
+        { name: "Feedback & Recenzii", path: "/admin/reviews", icon: Star },
+        { name: "Audit & Loguri", path: "/admin/logs", icon: Activity },
+        { name: "Setări platformă", path: "/admin/settings", icon: Settings },
+      ],
+    },
+  ];
 
   return (
     <div className="min-h-screen flex bg-gradient-to-br from-emerald-50 to-sky-50 text-gray-800">
@@ -75,9 +112,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         }`}
       >
-        <div>
+        <div className="flex flex-col h-full overflow-y-auto scrollbar-thin scrollbar-thumb-emerald-200 scrollbar-track-transparent">
           {/* Header / Logo */}
-          <div className="p-6 pb-4 text-2xl font-bold text-emerald-700 flex items-center justify-between border-b border-emerald-100">
+          <div className="p-6 pb-4 text-2xl font-bold text-emerald-700 flex items-center justify-between border-b border-emerald-100 sticky top-0 bg-white/80 backdrop-blur-md z-20">
             <div className="flex items-center gap-2">
               <Shield className="text-emerald-600" size={26} />
               <span>Admin Panel</span>
@@ -91,33 +128,43 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             </button>
           </div>
 
-          {/* Navigation */}
-          <nav className="mt-4 space-y-1 px-3">
-            {menu.map((item) => {
-              const active = pathname === item.path;
-              return (
-                <Link
-                  key={item.path}
-                  href={item.path}
-                  className={`flex items-center justify-between py-3 px-4 rounded-xl transition-all duration-200 ${
-                    active
-                      ? "bg-gradient-to-r from-emerald-100 to-sky-100 text-emerald-700 font-semibold shadow-sm"
-                      : "hover:bg-emerald-50 text-gray-700"
-                  }`}
-                  onClick={() => setIsOpen(false)}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-emerald-600">{item.icon}</span>
-                    {item.name}
-                  </div>
-                  {item.badge && item.badge > 0 && (
-                    <span className="ml-2 bg-emerald-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
-                      {item.badge}
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
+          {/* Navigation sections */}
+          <nav className="mt-4 space-y-6 px-4">
+            {sections.map((section) => (
+              <div key={section.title}>
+                <h3 className="text-xs uppercase tracking-wide text-gray-400 font-semibold px-2 mb-2">
+                  {section.title}
+                </h3>
+                <div className="space-y-1">
+                  {section.items.map((item) => {
+                    const active = pathname === item.path;
+                    const Icon = item.icon;
+                    return (
+                      <Link
+                        key={item.path}
+                        href={item.path}
+                        className={`flex items-center justify-between py-2.5 px-4 rounded-xl transition-all duration-200 ${
+                          active
+                            ? "bg-gradient-to-r from-emerald-100 to-sky-100 text-emerald-700 font-semibold shadow-sm"
+                            : "hover:bg-emerald-50 text-gray-700"
+                        }`}
+                        onClick={() => setIsOpen(false)}
+                      >
+                        <div className="flex items-center gap-3">
+                          <Icon size={18} className="text-emerald-600" />
+                          <span>{item.name}</span>
+                        </div>
+                        {item.badge && item.badge > 0 && (
+                          <span className="ml-2 bg-emerald-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                            {item.badge}
+                          </span>
+                        )}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
           </nav>
         </div>
 
@@ -155,6 +202,20 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               ? "📦 Cereri clienți"
               : pathname === "/admin/messages"
               ? "💬 Mesaje"
+              : pathname === "/admin/payments"
+              ? "💰 Plăți și lead-uri"
+              : pathname === "/admin/pricing"
+              ? "🏷️ Tarife & Promoții"
+              : pathname === "/admin/stats"
+              ? "📈 Statistici"
+              : pathname === "/admin/verify"
+              ? "🧾 Verificări companii"
+              : pathname === "/admin/reviews"
+              ? "⭐ Feedback & Recenzii"
+              : pathname === "/admin/logs"
+              ? "🧩 Audit & Loguri"
+              : pathname === "/admin/settings"
+              ? "⚙️ Setări platformă"
               : "Admin Panel"}
           </h2>
         </div>
