@@ -1,7 +1,15 @@
 "use client";
 import { useEffect, useState } from "react";
 import { db, onAuthChange } from "../../utils/firebase";
-import { collection, getDocs, getDoc, doc } from "firebase/firestore";
+import {
+  collection,
+  getDocs,
+  getDoc,
+  doc,
+  query,
+  orderBy,
+  limit,
+} from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import {
   PieChart,
@@ -13,6 +21,7 @@ import {
   XAxis,
   YAxis,
   ResponsiveContainer,
+  CartesianGrid,
 } from "recharts";
 import {
   Building2,
@@ -20,20 +29,24 @@ import {
   Users,
   ShieldCheck,
   Clock,
-  ActivitySquare,
+  Activity,
+  Coins,
+  Star,
+  MessageSquare,
+  Settings,
+  FileText,
+  FileDown,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import AdminLayout from "../../components/AdminLayout";
 
-// ✅ Data Interfaces
+// Data interfaces
 interface CompanyData {
   id: string;
   verified?: boolean;
   submittedForVerification?: boolean;
-  suspended?: boolean;
-  county?: string;
 }
 
 interface UserData {
@@ -43,11 +56,21 @@ interface UserData {
 
 interface RequestData {
   id: string;
-  customerName?: string;
-  pickupCity?: string;
-  deliveryCity?: string;
   pickupCounty?: string;
-  status?: "noua" | "in_interes" | "finalizata" | "anulata";
+  status?: string;
+}
+
+interface PaymentData {
+  id: string;
+  amount?: number;
+  createdAt?: any;
+}
+
+interface LogData {
+  id: string;
+  description?: string;
+  type?: string;
+  createdAt?: any;
 }
 
 export default function AdminDashboardOverview() {
@@ -56,6 +79,8 @@ export default function AdminDashboardOverview() {
   const [companies, setCompanies] = useState<CompanyData[]>([]);
   const [users, setUsers] = useState<UserData[]>([]);
   const [requests, setRequests] = useState<RequestData[]>([]);
+  const [payments, setPayments] = useState<PaymentData[]>([]);
+  const [logs, setLogs] = useState<LogData[]>([]);
 
   useEffect(() => {
     const unsub = onAuthChange(async (u) => {
@@ -65,37 +90,33 @@ export default function AdminDashboardOverview() {
       }
 
       const snap = await getDoc(doc(db, "users", u.uid));
-      const isAdmin = snap.exists() && snap.data().role === "admin";
-
-      if (!isAdmin) {
+      if (!snap.exists() || snap.data().role !== "admin") {
         toast.error("⛔ Acces interzis!");
         router.push("/");
         return;
       }
 
       try {
-        // Load all data in parallel
-        const [companiesSnap, usersSnap, requestsSnap] = await Promise.all([
+        const [compSnap, userSnap, reqSnap, paySnap, logSnap] = await Promise.all([
           getDocs(collection(db, "companies")),
           getDocs(collection(db, "users")),
           getDocs(collection(db, "requests")),
+          getDocs(collection(db, "payments")),
+          getDocs(query(collection(db, "activityLogs"), orderBy("createdAt", "desc"), limit(5))),
         ]);
 
-        setCompanies(
-          companiesSnap.docs.map((d) => ({ ...d.data(), id: d.id } as CompanyData))
-        );
-        setUsers(usersSnap.docs.map((d) => ({ ...d.data(), id: d.id } as UserData)));
-        setRequests(
-          requestsSnap.docs.map((d) => ({ ...d.data(), id: d.id } as RequestData))
-        );
+        setCompanies(compSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setUsers(userSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setRequests(reqSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setPayments(paySnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setLogs(logSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
       } catch (err) {
-        console.error("❌ Eroare la încărcarea datelor:", err);
-        toast.error("Eroare la încărcarea datelor.");
+        console.error(err);
+        toast.error("Eroare la încărcarea dashboardului!");
       } finally {
         setLoading(false);
       }
     });
-
     return () => unsub();
   }, [router]);
 
@@ -108,39 +129,53 @@ export default function AdminDashboardOverview() {
       </AdminLayout>
     );
 
-  // --- Statistics ---
+  // KPI Stats
   const verifiedCompanies = companies.filter((c) => c.verified).length;
-  const pendingCompanies = companies.filter(
-    (c) => c.submittedForVerification && !c.verified
-  ).length;
+  const pendingCompanies = companies.filter((c) => c.submittedForVerification && !c.verified).length;
+  const totalClients = users.filter((u) => u.role === "customer").length;
   const totalRequests = requests.length;
-  const totalUsers = users.filter((u) => u.role === "customer").length;
+  const totalRevenue = payments.reduce((sum, p) => sum + (parseFloat(p.amount || 0)), 0);
 
-  // ✅ Request statuses
-  const newRequests = requests.filter((r) => r.status === "noua").length;
-  const interestRequests = requests.filter((r) => r.status === "in_interes").length;
-  const completedRequests = requests.filter((r) => r.status === "finalizata").length;
-  const canceledRequests = requests.filter((r) => r.status === "anulata").length;
+  // Requests by status
+  const statusGroups = ["noua", "in_interes", "finalizata", "anulata"];
+  const pieData = statusGroups.map((s) => ({
+    name: s,
+    value: requests.filter((r) => r.status === s).length,
+    color:
+      s === "noua"
+        ? "#facc15"
+        : s === "in_interes"
+        ? "#3b82f6"
+        : s === "finalizata"
+        ? "#10b981"
+        : "#ef4444",
+  }));
 
-  const pieData = [
-    { name: "Nouă", value: newRequests, color: "#facc15" },
-    { name: "În interes", value: interestRequests, color: "#3b82f6" },
-    { name: "Finalizată", value: completedRequests, color: "#10b981" },
-    { name: "Anulată", value: canceledRequests, color: "#ef4444" },
-  ];
-
-  // --- Top counties ---
-  const countiesCount: Record<string, number> = {};
+  // Top counties
+  const countyCount: Record<string, number> = {};
   requests.forEach((r) => {
     if (r.pickupCounty) {
-      countiesCount[r.pickupCounty] = (countiesCount[r.pickupCounty] || 0) + 1;
+      countyCount[r.pickupCounty] = (countyCount[r.pickupCounty] || 0) + 1;
     }
   });
-
-  const topCounties = Object.entries(countiesCount)
+  const topCounties = Object.entries(countyCount)
     .map(([county, count]) => ({ county, count }))
     .sort((a, b) => b.count - a.count)
     .slice(0, 5);
+
+  // Latest payments chart
+  const monthlyRevenue: Record<string, number> = {};
+  payments.forEach((p) => {
+    if (p.createdAt?.seconds) {
+      const d = new Date(p.createdAt.seconds * 1000);
+      const key = `${d.getFullYear()}-${d.getMonth() + 1}`;
+      monthlyRevenue[key] = (monthlyRevenue[key] || 0) + (parseFloat(p.amount || 0));
+    }
+  });
+  const revenueData = Object.entries(monthlyRevenue).map(([month, revenue]) => ({
+    month,
+    revenue,
+  }));
 
   return (
     <AdminLayout>
@@ -151,111 +186,79 @@ export default function AdminDashboardOverview() {
         className="max-w-7xl mx-auto p-8 bg-white rounded-3xl shadow-md mt-6 mb-20"
       >
         <h1 className="text-3xl font-bold text-center text-emerald-700 mb-10">
-          🧭 Panou Administrativ – Prezentare generală
+          🧭 Dashboard Administrativ
         </h1>
 
-        {/* --- Summary Cards --- */}
-        <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-6 mb-12">
-          <StatCard
-            title="Companii verificate"
-            value={verifiedCompanies}
-            color="from-green-400 to-emerald-600"
-            icon={<ShieldCheck size={26} />}
-          />
-          <StatCard
-            title="În așteptare"
-            value={pendingCompanies}
-            color="from-yellow-400 to-orange-500"
-            icon={<Clock size={26} />}
-          />
-          <StatCard
-            title="Clienți activi"
-            value={totalUsers}
-            color="from-sky-400 to-blue-600"
-            icon={<Users size={26} />}
-          />
-          <StatCard
-            title="Cererile totale"
-            value={totalRequests}
-            color="from-emerald-400 to-green-600"
-            icon={<ClipboardList size={26} />}
-          />
+        {/* KPI Cards */}
+        <div className="grid sm:grid-cols-2 md:grid-cols-5 gap-6 mb-12">
+          <StatCard title="Companii verificate" value={verifiedCompanies} icon={<ShieldCheck />} color="from-green-400 to-emerald-600" />
+          <StatCard title="În verificare" value={pendingCompanies} icon={<Clock />} color="from-yellow-400 to-orange-500" />
+          <StatCard title="Clienți activi" value={totalClients} icon={<Users />} color="from-sky-400 to-blue-600" />
+          <StatCard title="Total cereri" value={totalRequests} icon={<ClipboardList />} color="from-emerald-400 to-green-600" />
+          <StatCard title="Venit total (RON)" value={totalRevenue.toFixed(2)} icon={<Coins />} color="from-emerald-500 to-sky-600" />
         </div>
 
-        {/* --- Charts --- */}
-        <div className="grid md:grid-cols-2 gap-8 mb-12">
-          {/* Cereri per status */}
-          <div className="bg-white/80 border border-emerald-100 rounded-2xl shadow-lg p-6">
-            <h2 className="text-lg font-semibold text-emerald-700 mb-4">
-              Distribuția cererilor
-            </h2>
-            <ResponsiveContainer width="100%" height={300}>
+        {/* Charts */}
+        <div className="grid md:grid-cols-3 gap-8 mb-12">
+          {/* Requests Distribution */}
+          <ChartCard title="Distribuția cererilor" icon={<ClipboardList size={18} />}>
+            <ResponsiveContainer width="100%" height={220}>
               <PieChart>
-                <Pie
-                  data={pieData}
-                  dataKey="value"
-                  nameKey="name"
-                  cx="50%"
-                  cy="50%"
-                  outerRadius={100}
-                  label
-                >
-                  {pieData.map((entry, index) => (
-                    <Cell key={index} fill={entry.color} />
+                <Pie data={pieData} dataKey="value" nameKey="name" outerRadius={80} label>
+                  {pieData.map((d, i) => (
+                    <Cell key={i} fill={d.color} />
                   ))}
                 </Pie>
                 <Tooltip />
               </PieChart>
             </ResponsiveContainer>
-          </div>
+          </ChartCard>
 
-          {/* Top județe */}
-          <div className="bg-white/80 border border-emerald-100 rounded-2xl shadow-lg p-6">
-            <h2 className="text-lg font-semibold text-emerald-700 mb-4">
-              Top județe cu cele mai multe cereri
-            </h2>
-            <ResponsiveContainer width="100%" height={300}>
+          {/* Top Counties */}
+          <ChartCard title="Top Județe" icon={<Building2 size={18} />}>
+            <ResponsiveContainer width="100%" height={220}>
               <BarChart data={topCounties}>
+                <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="county" />
                 <YAxis />
                 <Tooltip />
                 <Bar dataKey="count" fill="#10b981" />
               </BarChart>
             </ResponsiveContainer>
-          </div>
+          </ChartCard>
+
+          {/* Monthly Revenue */}
+          <ChartCard title="Venit Lunar" icon={<Coins size={18} />}>
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={revenueData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="month" />
+                <YAxis />
+                <Tooltip />
+                <Bar dataKey="revenue" fill="#38BDF8" />
+              </BarChart>
+            </ResponsiveContainer>
+          </ChartCard>
         </div>
 
-        {/* --- Latest Activity --- */}
+        {/* Activity Feed */}
         <div className="bg-white/80 border border-emerald-100 rounded-2xl shadow-lg p-6 mb-10">
           <h2 className="text-lg font-semibold text-emerald-700 mb-4 flex items-center gap-2">
-            <ActivitySquare size={20} /> Ultimele cereri primite
+            <Activity size={20} /> Ultima activitate
           </h2>
-          {requests.length === 0 ? (
-            <p className="text-gray-500">Nu există cereri recente.</p>
+          {logs.length === 0 ? (
+            <p className="text-gray-500">Nicio activitate recentă.</p>
           ) : (
             <ul className="divide-y divide-gray-100">
-              {requests.slice(-5).reverse().map((r) => (
-                <li
-                  key={r.id}
-                  className="py-2 flex justify-between items-center text-sm text-gray-700"
-                >
+              {logs.map((log) => (
+                <li key={log.id} className="py-2 flex justify-between items-center text-sm text-gray-700">
                   <span>
-                    📦 <strong>{r.customerName || "Client"}</strong> din{" "}
-                    <em>{r.pickupCity || "-"}</em> →{" "}
-                    <em>{r.deliveryCity || "-"}</em>
+                    🗂️ <strong>{log.type}</strong> — {log.description}
                   </span>
-                  <span
-                    className={`text-xs px-3 py-1 rounded-full ${
-                      r.status === "finalizata"
-                        ? "bg-green-100 text-green-700"
-                        : r.status === "in_interes"
-                        ? "bg-blue-100 text-blue-700"
-                        : r.status === "anulata"
-                        ? "bg-red-100 text-red-700"
-                        : "bg-yellow-100 text-yellow-700"
-                    }`}
-                  >
-                    {r.status || "nouă"}
+                  <span className="text-xs text-gray-400">
+                    {log.createdAt?.seconds
+                      ? new Date(log.createdAt.seconds * 1000).toLocaleString("ro-RO")
+                      : ""}
                   </span>
                 </li>
               ))}
@@ -263,26 +266,16 @@ export default function AdminDashboardOverview() {
           )}
         </div>
 
-        {/* --- Quick Links --- */}
-        <div className="grid sm:grid-cols-3 gap-6 mt-10">
-          <QuickLink
-            title="Gestionează Companiile"
-            path="/admin/companies"
-            icon={<Building2 size={28} />}
-            color="from-green-400 to-emerald-600"
-          />
-          <QuickLink
-            title="Gestionează Clienții"
-            path="/admin/clients"
-            icon={<Users size={28} />}
-            color="from-sky-400 to-blue-600"
-          />
-          <QuickLink
-            title="Gestionează Cererile"
-            path="/admin/requests"
-            icon={<ClipboardList size={28} />}
-            color="from-yellow-400 to-orange-500"
-          />
+        {/* Quick Links */}
+        <div className="grid sm:grid-cols-3 md:grid-cols-4 gap-6 mt-10">
+          <QuickLink title="Companii" path="/admin/companies" icon={<Building2 />} color="from-green-400 to-emerald-600" />
+          <QuickLink title="Cererile" path="/admin/requests" icon={<ClipboardList />} color="from-yellow-400 to-orange-500" />
+          <QuickLink title="Plăți" path="/admin/payments" icon={<Coins />} color="from-emerald-500 to-sky-500" />
+          <QuickLink title="Statistici" path="/admin/stats" icon={<FileDown />} color="from-blue-400 to-sky-500" />
+          <QuickLink title="Recenzii" path="/admin/reviews" icon={<Star />} color="from-amber-400 to-orange-500" />
+          <QuickLink title="Suport" path="/admin/support" icon={<MessageSquare />} color="from-sky-400 to-blue-600" />
+          <QuickLink title="Setări" path="/admin/settings" icon={<Settings />} color="from-gray-400 to-gray-600" />
+          <QuickLink title="Jurnal Activitate" path="/admin/logs" icon={<Activity />} color="from-emerald-400 to-green-600" />
         </div>
       </motion.div>
     </AdminLayout>
@@ -290,49 +283,36 @@ export default function AdminDashboardOverview() {
 }
 
 /* ---------- Reusable Components ---------- */
-
-function StatCard({
-  title,
-  value,
-  color,
-  icon,
-}: {
-  title: string;
-  value: number;
-  color: string;
-  icon: React.ReactNode;
-}) {
+function StatCard({ title, value, icon, color }: any) {
   return (
-    <motion.div
-      whileHover={{ scale: 1.04 }}
-      className={`bg-gradient-to-br ${color} text-white rounded-2xl shadow-lg p-6 flex flex-col items-center justify-center`}
-    >
-      <div className="mb-3">{icon}</div>
-      <p className="text-3xl font-bold">{value}</p>
+    <motion.div whileHover={{ scale: 1.04 }} className={`bg-gradient-to-br ${color} text-white rounded-2xl shadow-lg p-5 flex flex-col items-center justify-center`}>
+      <div className="mb-2">{icon}</div>
+      <p className="text-2xl font-bold">{value}</p>
       <p className="text-sm mt-1">{title}</p>
     </motion.div>
   );
 }
 
-function QuickLink({
-  title,
-  path,
-  icon,
-  color,
-}: {
-  title: string;
-  path: string;
-  icon: React.ReactNode;
-  color: string;
-}) {
+function ChartCard({ title, icon, children }: any) {
+  return (
+    <div className="bg-white/80 border border-emerald-100 rounded-2xl shadow-lg p-5">
+      <h2 className="text-md font-semibold text-emerald-700 mb-3 flex items-center gap-2">
+        {icon} {title}
+      </h2>
+      {children}
+    </div>
+  );
+}
+
+function QuickLink({ title, path, icon, color }: any) {
   return (
     <Link href={path}>
       <motion.div
         whileHover={{ scale: 1.05 }}
-        className={`cursor-pointer bg-gradient-to-r ${color} text-white p-6 rounded-2xl shadow-lg flex flex-col items-center justify-center transition`}
+        className={`cursor-pointer bg-gradient-to-r ${color} text-white p-5 rounded-2xl shadow-lg flex flex-col items-center justify-center transition`}
       >
         {icon}
-        <p className="mt-3 font-semibold text-center">{title}</p>
+        <p className="mt-2 font-semibold text-center text-sm">{title}</p>
       </motion.div>
     </Link>
   );
