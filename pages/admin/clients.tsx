@@ -1,13 +1,32 @@
 "use client";
 import { useEffect, useState } from "react";
 import { db, onAuthChange } from "../../utils/firebase";
-import { collection, getDocs, getDoc, doc, deleteDoc, updateDoc } from "firebase/firestore";
+import {
+  collection,
+  getDocs,
+  getDoc,
+  doc,
+  deleteDoc,
+  updateDoc,
+} from "firebase/firestore";
 import { useRouter } from "next/navigation";
-import { User, Loader2, Trash2, Eye, Ban, CheckCircle, Search, X } from "lucide-react";
+import {
+  User,
+  Loader2,
+  Trash2,
+  Eye,
+  Ban,
+  CheckCircle2,
+  Search,
+  X,
+  Mail,
+  Users,
+} from "lucide-react";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
 import AdminLayout from "../../components/AdminLayout";
 import AdminProtectedRoute from "../../components/AdminProtectedRoute";
+import { logActivity } from "../../utils/logActivity";
 
 interface UserData {
   id: string;
@@ -17,7 +36,6 @@ interface UserData {
   role?: string;
   suspended?: boolean;
 }
-
 interface RequestData {
   id: string;
   userId?: string;
@@ -35,24 +53,21 @@ export default function AdminClientsPage() {
   const [selectedClient, setSelectedClient] = useState<UserData | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [tab, setTab] = useState<"all" | "active" | "suspended">("all");
 
+  // 🔹 Load clients + requests
   useEffect(() => {
     const unsub = onAuthChange(async (u) => {
-      if (!u) {
-        router.push("/company/auth");
-        return;
-      }
+      if (!u) return router.push("/company/auth");
 
       const snap = await getDoc(doc(db, "users", u.uid));
       const isAdmin = snap.exists() && snap.data().role === "admin";
-
       if (!isAdmin) {
         toast.error("⛔ Acces interzis!");
         router.push("/");
         return;
       }
 
-      // Load clients + requests
       const [usersSnap, requestsSnap] = await Promise.all([
         getDocs(collection(db, "users")),
         getDocs(collection(db, "requests")),
@@ -60,17 +75,14 @@ export default function AdminClientsPage() {
 
       setClients(
         usersSnap.docs
-          .map((d) => ({ ...(d.data() as UserData), id: d.id })) // ✅ fix overwrite warning
+          .map((d) => ({ id: d.id, ...(d.data() as UserData) }))
           .filter((u) => u.role === "customer")
       );
-
       setRequests(
-        requestsSnap.docs.map((d) => ({ ...(d.data() as RequestData), id: d.id }))
+        requestsSnap.docs.map((d) => ({ id: d.id, ...(d.data() as RequestData) }))
       );
-
       setLoading(false);
     });
-
     return () => unsub();
   }, [router]);
 
@@ -78,29 +90,31 @@ export default function AdminClientsPage() {
     return (
       <AdminLayout>
         <div className="flex justify-center items-center h-[70vh] text-emerald-600 text-lg">
-          Se încarcă lista clienților...
+          <Loader2 className="animate-spin mr-2" /> Se încarcă lista clienților...
         </div>
       </AdminLayout>
     );
 
-  // 🔍 Filtrare clienți
-  const filteredClients = clients.filter((c) =>
-    `${c.name || ""} ${c.email || ""}`.toLowerCase().includes(search.toLowerCase())
-  );
+  // 🔍 Filtering
+  const filteredClients = clients.filter((c) => {
+    const matchSearch = `${c.name || ""} ${c.email || ""}`
+      .toLowerCase()
+      .includes(search.toLowerCase());
+    if (tab === "active") return !c.suspended && matchSearch;
+    if (tab === "suspended") return c.suspended && matchSearch;
+    return matchSearch;
+  });
 
-  // 🧩 Funcții de administrare
-  const handleDeleteClient = async (id: string) => {
-    if (!confirm("Sigur vrei să ștergi acest client?")) return;
-    setProcessingId(id);
-    await deleteDoc(doc(db, "users", id));
-    setClients((prev) => prev.filter((c) => c.id !== id));
-    setProcessingId(null);
-    toast.success("🗑️ Clientul a fost șters!");
-  };
-
+  // 🧩 Suspend / Reactivate
   const handleSuspendClient = async (client: UserData, suspended: boolean) => {
     setProcessingId(client.id);
     await updateDoc(doc(db, "users", client.id), { suspended });
+    await logActivity(
+      "client_status",
+      `${suspended ? "⛔ Suspendare" : "✅ Reactivare"} cont client ${client.name}`,
+      client,
+      client.id
+    );
     setClients((prev) =>
       prev.map((c) => (c.id === client.id ? { ...c, suspended } : c))
     );
@@ -112,37 +126,76 @@ export default function AdminClientsPage() {
     setProcessingId(null);
   };
 
+  // 🗑️ Delete client
+  const handleDeleteClient = async (id: string, name?: string) => {
+    if (!confirm(`Ștergi definitiv clientul ${name || "necunoscut"}?`)) return;
+    setProcessingId(id);
+    await deleteDoc(doc(db, "users", id));
+    await logActivity("client_delete", `Clientul ${name} a fost șters.`, { name }, id);
+    setClients((prev) => prev.filter((c) => c.id !== id));
+    setProcessingId(null);
+    toast.success("🗑️ Clientul a fost șters!");
+  };
+
+  // ✉️ Send message (placeholder)
+  const handleMessage = async (client: UserData) => {
+    toast.success(`💬 Mesaj trimis către ${client.name}`);
+    await logActivity(
+      "client_message",
+      `Adminul a trimis un mesaj către clientul ${client.name}`,
+      client,
+      client.id
+    );
+  };
+
   return (
     <AdminProtectedRoute>
       <AdminLayout>
-        <div className="max-w-7xl mx-auto p-8 bg-white rounded-3xl shadow-md mt-8 mb-20">
-          <h1 className="text-3xl font-bold text-center text-emerald-700 mb-10">
-            👥 Gestionare Clienți
-          </h1>
-
-          {/* --- Search bar --- */}
-          <div className="flex justify-between items-center mb-6">
-            <div className="relative w-full max-w-sm">
-              <Search
-                className="absolute left-3 top-2.5 text-gray-400"
-                size={18}
-                aria-hidden="true"
-              />
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5 }}
+          className="max-w-7xl mx-auto p-8 bg-white/80 rounded-3xl shadow-md mt-8 mb-20 border border-emerald-100"
+        >
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-3">
+            <h1 className="text-3xl font-bold text-emerald-700 flex items-center gap-2">
+              <Users size={26} /> Gestionare Clienți
+            </h1>
+            <div className="flex items-center gap-2">
+              <Search size={18} className="text-gray-400 absolute ml-3" />
               <input
-                aria-label="Caută client"
                 type="text"
-                placeholder="Caută după nume sau email..."
+                placeholder="Caută client..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-emerald-400"
+                className="pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-400"
               />
             </div>
-            <p className="text-gray-600 text-sm">
-              Total clienți: <strong>{clients.length}</strong>
-            </p>
           </div>
 
-          {/* --- Clients Table --- */}
+          {/* Tabs */}
+          <div className="flex justify-center gap-3 mb-6 flex-wrap">
+            {["all", "active", "suspended"].map((t) => (
+              <button
+                key={t}
+                onClick={() => setTab(t as any)}
+                className={`px-5 py-2 rounded-full font-medium text-sm transition-all ${
+                  tab === t
+                    ? "bg-gradient-to-r from-emerald-500 to-sky-500 text-white shadow-md"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                {t === "all"
+                  ? "👥 Toți"
+                  : t === "active"
+                  ? "🟢 Activ"
+                  : "⛔ Suspendați"}
+              </button>
+            ))}
+          </div>
+
+          {/* Table */}
           <div className="overflow-x-auto border border-gray-200 rounded-2xl shadow">
             <table className="w-full text-sm">
               <thead className="bg-emerald-50 text-left">
@@ -150,9 +203,8 @@ export default function AdminClientsPage() {
                   <th className="p-3 border-b">Nume</th>
                   <th className="p-3 border-b">Email</th>
                   <th className="p-3 border-b">Telefon</th>
-                  <th className="p-3 border-b text-center">Rol</th>
-                  <th className="p-3 border-b text-center">Status cont</th>
-                  <th className="p-3 border-b text-center">Cererile făcute</th>
+                  <th className="p-3 border-b text-center">Status</th>
+                  <th className="p-3 border-b text-center">Cererile</th>
                   <th className="p-3 border-b text-center">Acțiuni</th>
                 </tr>
               </thead>
@@ -160,28 +212,26 @@ export default function AdminClientsPage() {
                 {filteredClients.map((c) => {
                   const clientRequests = requests.filter((r) => r.userId === c.id);
                   return (
-                    <tr key={c.id} className="hover:bg-emerald-50 transition">
-                      <td className="p-3 border-b font-medium">{c.name || "-"}</td>
+                    <tr
+                      key={c.id}
+                      className={`transition ${
+                        c.suspended ? "bg-red-50" : "hover:bg-emerald-50"
+                      }`}
+                    >
+                      <td className="p-3 border-b font-medium text-emerald-800">
+                        {c.name || "-"}
+                      </td>
                       <td className="p-3 border-b">{c.email || "-"}</td>
                       <td className="p-3 border-b">{c.phone || "-"}</td>
                       <td className="p-3 border-b text-center">
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                            c.role === "company"
-                              ? "bg-blue-100 text-blue-700"
-                              : c.role === "admin"
-                              ? "bg-red-100 text-red-700"
-                              : "bg-green-100 text-green-700"
-                          }`}
-                        >
-                          {c.role}
-                        </span>
-                      </td>
-                      <td className="p-3 border-b text-center">
                         {c.suspended ? (
-                          <span className="text-red-600 font-semibold">Suspendat</span>
+                          <span className="inline-flex items-center gap-1 px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold">
+                            <Ban size={13} /> Suspendat
+                          </span>
                         ) : (
-                          <span className="text-green-600 font-semibold">Activ</span>
+                          <span className="inline-flex items-center gap-1 px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
+                            <CheckCircle2 size={13} /> Activ
+                          </span>
                         )}
                       </td>
                       <td className="p-3 border-b text-center">
@@ -192,44 +242,41 @@ export default function AdminClientsPage() {
                           <Loader2
                             className="inline animate-spin text-emerald-600"
                             size={16}
-                            aria-hidden="true"
                           />
                         ) : (
                           <>
                             <button
-                              title="Vezi detalii client"
-                              aria-label="Vezi detalii client"
                               onClick={() => setSelectedClient(c)}
-                              className="text-emerald-600 hover:underline font-medium"
+                              className="text-emerald-600 hover:underline text-sm font-medium"
                             >
-                              <Eye size={14} className="inline" /> Vezi
+                              <Eye size={14} className="inline mr-1" /> Vezi
                             </button>
-                            {c.suspended ? (
-                              <button
-                                title="Reactivează clientul"
-                                aria-label="Reactivează clientul"
-                                onClick={() => handleSuspendClient(c, false)}
-                                className="text-blue-600 hover:underline font-medium"
-                              >
-                                <CheckCircle size={14} className="inline" /> Reactivează
-                              </button>
-                            ) : (
-                              <button
-                                title="Suspendă clientul"
-                                aria-label="Suspendă clientul"
-                                onClick={() => handleSuspendClient(c, true)}
-                                className="text-yellow-600 hover:underline font-medium"
-                              >
-                                <Ban size={14} className="inline" /> Suspendă
-                              </button>
-                            )}
                             <button
-                              title="Șterge clientul"
-                              aria-label="Șterge clientul"
-                              onClick={() => handleDeleteClient(c.id)}
-                              className="text-red-600 hover:underline font-medium"
+                              onClick={() =>
+                                handleSuspendClient(c, !c.suspended)
+                              }
+                              className={`text-sm font-medium ${
+                                c.suspended
+                                  ? "text-gray-600 hover:text-green-600"
+                                  : "text-yellow-600 hover:text-yellow-700"
+                              }`}
                             >
-                              <Trash2 size={14} className="inline" /> Șterge
+                              <Ban size={14} className="inline mr-1" />
+                              {c.suspended ? "Activează" : "Suspendă"}
+                            </button>
+                            <button
+                              onClick={() => handleMessage(c)}
+                              className="text-sky-600 hover:underline text-sm font-medium"
+                            >
+                              <Mail size={13} className="inline mr-1" /> Mesaj
+                            </button>
+                            <button
+                              onClick={() =>
+                                handleDeleteClient(c.id, c.name)
+                              }
+                              className="text-red-600 hover:underline text-sm font-medium"
+                            >
+                              <Trash2 size={13} className="inline mr-1" /> Șterge
                             </button>
                           </>
                         )}
@@ -241,23 +288,17 @@ export default function AdminClientsPage() {
             </table>
           </div>
 
-          {/* --- Modal Detalii Client --- */}
+          {/* Modal */}
           {selectedClient && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
             >
-              <div
-                role="dialog"
-                aria-modal="true"
-                className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8 relative border border-emerald-100"
-              >
+              <div className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-8 relative border border-emerald-100">
                 <button
-                  title="Închide detalii client"
-                  aria-label="Închide detalii client"
-                  className="absolute top-3 right-5 text-gray-500 hover:text-emerald-700"
                   onClick={() => setSelectedClient(null)}
+                  className="absolute top-3 right-5 text-gray-500 hover:text-emerald-700"
                 >
                   <X size={20} />
                 </button>
@@ -270,7 +311,7 @@ export default function AdminClientsPage() {
                   <p><strong>Nume:</strong> {selectedClient.name}</p>
                   <p><strong>Email:</strong> {selectedClient.email}</p>
                   <p><strong>Telefon:</strong> {selectedClient.phone}</p>
-                  <p><strong>Rol:</strong> {selectedClient.role}</p>
+                  <p><strong>Status:</strong> {selectedClient.suspended ? "Suspendat" : "Activ"}</p>
                 </div>
 
                 <div className="mt-6">
@@ -290,7 +331,7 @@ export default function AdminClientsPage() {
               </div>
             </motion.div>
           )}
-        </div>
+        </motion.div>
       </AdminLayout>
     </AdminProtectedRoute>
   );

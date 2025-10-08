@@ -34,43 +34,44 @@ import {
   Star,
   MessageSquare,
   Settings,
-  FileText,
   FileDown,
+  MessageCircle,
+  AlertTriangle,
+  Mail,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import AdminLayout from "../../components/AdminLayout";
 
-// Data interfaces
 interface CompanyData {
   id: string;
   verified?: boolean;
   submittedForVerification?: boolean;
 }
-
 interface UserData {
   id: string;
   role?: string;
 }
-
 interface RequestData {
   id: string;
   pickupCounty?: string;
   status?: string;
 }
-
 interface PaymentData {
   id: string;
   amount?: number;
   createdAt?: any;
 }
-
 interface LogData {
   id: string;
   description?: string;
   type?: string;
   createdAt?: any;
+}
+interface MessageData {
+  id: string;
+  status?: string;
 }
 
 export default function AdminDashboardOverview() {
@@ -81,14 +82,11 @@ export default function AdminDashboardOverview() {
   const [requests, setRequests] = useState<RequestData[]>([]);
   const [payments, setPayments] = useState<PaymentData[]>([]);
   const [logs, setLogs] = useState<LogData[]>([]);
+  const [messages, setMessages] = useState<MessageData[]>([]);
 
   useEffect(() => {
     const unsub = onAuthChange(async (u) => {
-      if (!u) {
-        router.push("/company/auth");
-        return;
-      }
-
+      if (!u) return router.push("/company/auth");
       const snap = await getDoc(doc(db, "users", u.uid));
       if (!snap.exists() || snap.data().role !== "admin") {
         toast.error("⛔ Acces interzis!");
@@ -97,12 +95,13 @@ export default function AdminDashboardOverview() {
       }
 
       try {
-        const [compSnap, userSnap, reqSnap, paySnap, logSnap] = await Promise.all([
+        const [compSnap, userSnap, reqSnap, paySnap, logSnap, msgSnap] = await Promise.all([
           getDocs(collection(db, "companies")),
           getDocs(collection(db, "users")),
           getDocs(collection(db, "requests")),
           getDocs(collection(db, "payments")),
-          getDocs(query(collection(db, "activityLogs"), orderBy("createdAt", "desc"), limit(5))),
+          getDocs(query(collection(db, "activityLogs"), orderBy("createdAt", "desc"), limit(6))),
+          getDocs(collection(db, "messages")),
         ]);
 
         setCompanies(compSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
@@ -110,6 +109,7 @@ export default function AdminDashboardOverview() {
         setRequests(reqSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
         setPayments(paySnap.docs.map((d) => ({ id: d.id, ...d.data() })));
         setLogs(logSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setMessages(msgSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
       } catch (err) {
         console.error(err);
         toast.error("Eroare la încărcarea dashboardului!");
@@ -135,6 +135,9 @@ export default function AdminDashboardOverview() {
   const totalClients = users.filter((u) => u.role === "customer").length;
   const totalRequests = requests.length;
   const totalRevenue = payments.reduce((sum, p) => sum + (parseFloat(p.amount || 0)), 0);
+  const totalMessages = messages.length;
+  const reportedMessages = messages.filter((m) => m.status === "reported").length;
+  const unreadMessages = messages.filter((m) => m.status === "unread").length;
 
   // Requests by status
   const statusGroups = ["noua", "in_interes", "finalizata", "anulata"];
@@ -190,17 +193,17 @@ export default function AdminDashboardOverview() {
         </h1>
 
         {/* KPI Cards */}
-        <div className="grid sm:grid-cols-2 md:grid-cols-5 gap-6 mb-12">
+        <div className="grid sm:grid-cols-2 md:grid-cols-6 gap-6 mb-12">
           <StatCard title="Companii verificate" value={verifiedCompanies} icon={<ShieldCheck />} color="from-green-400 to-emerald-600" />
           <StatCard title="În verificare" value={pendingCompanies} icon={<Clock />} color="from-yellow-400 to-orange-500" />
           <StatCard title="Clienți activi" value={totalClients} icon={<Users />} color="from-sky-400 to-blue-600" />
-          <StatCard title="Total cereri" value={totalRequests} icon={<ClipboardList />} color="from-emerald-400 to-green-600" />
+          <StatCard title="Cererile totale" value={totalRequests} icon={<ClipboardList />} color="from-emerald-400 to-green-600" />
           <StatCard title="Venit total (RON)" value={totalRevenue.toFixed(2)} icon={<Coins />} color="from-emerald-500 to-sky-600" />
+          <StatCard title="Conversații active" value={totalMessages} icon={<MessageCircle />} color="from-indigo-400 to-purple-600" />
         </div>
 
         {/* Charts */}
         <div className="grid md:grid-cols-3 gap-8 mb-12">
-          {/* Requests Distribution */}
           <ChartCard title="Distribuția cererilor" icon={<ClipboardList size={18} />}>
             <ResponsiveContainer width="100%" height={220}>
               <PieChart>
@@ -214,7 +217,6 @@ export default function AdminDashboardOverview() {
             </ResponsiveContainer>
           </ChartCard>
 
-          {/* Top Counties */}
           <ChartCard title="Top Județe" icon={<Building2 size={18} />}>
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={topCounties}>
@@ -227,7 +229,6 @@ export default function AdminDashboardOverview() {
             </ResponsiveContainer>
           </ChartCard>
 
-          {/* Monthly Revenue */}
           <ChartCard title="Venit Lunar" icon={<Coins size={18} />}>
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={revenueData}>
@@ -250,18 +251,28 @@ export default function AdminDashboardOverview() {
             <p className="text-gray-500">Nicio activitate recentă.</p>
           ) : (
             <ul className="divide-y divide-gray-100">
-              {logs.map((log) => (
-                <li key={log.id} className="py-2 flex justify-between items-center text-sm text-gray-700">
-                  <span>
-                    🗂️ <strong>{log.type}</strong> — {log.description}
-                  </span>
-                  <span className="text-xs text-gray-400">
-                    {log.createdAt?.seconds
-                      ? new Date(log.createdAt.seconds * 1000).toLocaleString("ro-RO")
-                      : ""}
-                  </span>
-                </li>
-              ))}
+              {logs.map((log) => {
+                const icon =
+                  log.type === "message"
+                    ? "💬"
+                    : log.type === "unlock"
+                    ? "🔓"
+                    : log.type === "payment"
+                    ? "💸"
+                    : "📦";
+                return (
+                  <li key={log.id} className="py-2 flex justify-between items-center text-sm text-gray-700">
+                    <span>
+                      {icon} <strong>{log.type}</strong> — {log.description}
+                    </span>
+                    <span className="text-xs text-gray-400">
+                      {log.createdAt?.seconds
+                        ? new Date(log.createdAt.seconds * 1000).toLocaleString("ro-RO")
+                        : ""}
+                    </span>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
@@ -270,10 +281,11 @@ export default function AdminDashboardOverview() {
         <div className="grid sm:grid-cols-3 md:grid-cols-4 gap-6 mt-10">
           <QuickLink title="Companii" path="/admin/companies" icon={<Building2 />} color="from-green-400 to-emerald-600" />
           <QuickLink title="Cererile" path="/admin/requests" icon={<ClipboardList />} color="from-yellow-400 to-orange-500" />
+          <QuickLink title="Mesaje" path="/admin/messages" icon={<MessageSquare />} color="from-indigo-400 to-purple-600" />
           <QuickLink title="Plăți" path="/admin/payments" icon={<Coins />} color="from-emerald-500 to-sky-500" />
           <QuickLink title="Statistici" path="/admin/stats" icon={<FileDown />} color="from-blue-400 to-sky-500" />
           <QuickLink title="Recenzii" path="/admin/reviews" icon={<Star />} color="from-amber-400 to-orange-500" />
-          <QuickLink title="Suport" path="/admin/support" icon={<MessageSquare />} color="from-sky-400 to-blue-600" />
+          <QuickLink title="Suport" path="/admin/support" icon={<Mail />} color="from-sky-400 to-blue-600" />
           <QuickLink title="Setări" path="/admin/settings" icon={<Settings />} color="from-gray-400 to-gray-600" />
           <QuickLink title="Jurnal Activitate" path="/admin/logs" icon={<Activity />} color="from-emerald-400 to-green-600" />
         </div>
