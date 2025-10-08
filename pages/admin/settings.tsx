@@ -18,11 +18,28 @@ import {
   ShieldCheck,
 } from "lucide-react";
 
+interface PlatformSettings {
+  platformName: string;
+  contactEmail: string;
+  contactPhone: string;
+  logoUrl: string;
+  defaultCommission: number;
+  verificationRequired: boolean;
+  notifications: {
+    newRequest: boolean;
+    newReview: boolean;
+    newPayment: boolean;
+  };
+  templates: Record<string, string>;
+  policies: Record<string, string>;
+}
+
 export default function AdminSettingsPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [settings, setSettings] = useState<any>({
+
+  const [settings, setSettings] = useState<PlatformSettings>({
     platformName: "oferemutare.ro",
     contactEmail: "",
     contactPhone: "",
@@ -35,7 +52,8 @@ export default function AdminSettingsPage() {
       newPayment: true,
     },
     templates: {
-      deposit: "Mulțumim pentru plata avansului de 30%. Echipa noastră vă va contacta.",
+      deposit:
+        "Mulțumim pentru plata avansului de 30%. Echipa noastră vă va contacta.",
       quoteFollowUp: "Bună ziua, revenim cu oferta pentru mutarea dvs...",
       paymentReminder: "Aceasta este o reamintire pentru plata facturii restante...",
     },
@@ -46,12 +64,12 @@ export default function AdminSettingsPage() {
     },
   });
 
-  // Load current settings
+  // 🔹 Load current settings
   useEffect(() => {
     const unsub = onAuthChange(async (u) => {
       if (!u) return router.push("/company/auth");
       const snap = await getDoc(doc(db, "admin", "settings"));
-      if (snap.exists()) setSettings(snap.data());
+      if (snap.exists()) setSettings(snap.data() as PlatformSettings);
       setLoading(false);
     });
     return () => unsub();
@@ -204,24 +222,29 @@ export default function AdminSettingsPage() {
             <h2 className="text-xl font-semibold text-emerald-700 mb-4 flex items-center gap-2">
               <Mail size={20} /> Template-uri Email
             </h2>
-            {Object.entries(settings.templates).map(([key, val]) => (
-              <div key={key} className="mb-4">
-                <p className="capitalize text-gray-700 font-medium mb-1">
-                  {key.replace(/([A-Z])/g, " $1")}
-                </p>
-                <textarea
-                  value={val}
-                  onChange={(e) =>
-                    setSettings({
-                      ...settings,
-                      templates: { ...settings.templates, [key]: e.target.value },
-                    })
-                  }
-                  className="w-full border rounded-lg p-3 focus:ring-2 focus:ring-emerald-400"
-                  rows={3}
-                />
-              </div>
-            ))}
+            {(Object.entries(settings.templates) as [string, string][]).map(
+              ([key, val]) => (
+                <div key={key} className="mb-4">
+                  <p className="capitalize text-gray-700 font-medium mb-1">
+                    {key.replace(/([A-Z])/g, " $1")}
+                  </p>
+                  <textarea
+                    value={val}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        templates: {
+                          ...settings.templates,
+                          [key]: e.target.value,
+                        },
+                      })
+                    }
+                    className="w-full border rounded-lg p-3 focus:ring-2 focus:ring-emerald-400"
+                    rows={3}
+                  />
+                </div>
+              )
+            )}
           </section>
 
           {/* Notifications */}
@@ -230,28 +253,33 @@ export default function AdminSettingsPage() {
               <Bell size={20} /> Notificări
             </h2>
             <div className="flex flex-col sm:flex-row gap-4">
-              {Object.entries(settings.notifications).map(([key, val]) => (
-                <label key={key} className="flex items-center gap-2 text-gray-700">
-                  <input
-                    type="checkbox"
-                    checked={val}
-                    onChange={(e) =>
-                      setSettings({
-                        ...settings,
-                        notifications: {
-                          ...settings.notifications,
-                          [key]: e.target.checked,
-                        },
-                      })
-                    }
-                  />
-                  {key === "newRequest"
-                    ? "Nouă cerere client"
-                    : key === "newReview"
-                    ? "Recenzie nouă"
-                    : "Plată nouă"}
-                </label>
-              ))}
+              {(Object.entries(settings.notifications) as [string, boolean][]).map(
+                ([key, val]) => (
+                  <label
+                    key={key}
+                    className="flex items-center gap-2 text-gray-700"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={val}
+                      onChange={(e) =>
+                        setSettings({
+                          ...settings,
+                          notifications: {
+                            ...settings.notifications,
+                            [key]: e.target.checked,
+                          },
+                        })
+                      }
+                    />
+                    {key === "newRequest"
+                      ? "Nouă cerere client"
+                      : key === "newReview"
+                      ? "Recenzie nouă"
+                      : "Plată nouă"}
+                  </label>
+                )
+              )}
             </div>
           </section>
 
@@ -260,24 +288,29 @@ export default function AdminSettingsPage() {
             <h2 className="text-xl font-semibold text-emerald-700 mb-4 flex items-center gap-2">
               <FileText size={20} /> Termeni & Politici
             </h2>
-            {Object.entries(settings.policies).map(([key, val]) => (
-              <div key={key} className="mb-4">
-                <p className="capitalize text-gray-700 font-medium mb-1">
-                  {key}
-                </p>
-                <textarea
-                  value={val}
-                  onChange={(e) =>
-                    setSettings({
-                      ...settings,
-                      policies: { ...settings.policies, [key]: e.target.value },
-                    })
-                  }
-                  className="w-full border rounded-lg p-3 focus:ring-2 focus:ring-emerald-400"
-                  rows={3}
-                />
-              </div>
-            ))}
+            {(Object.entries(settings.policies) as [string, string][]).map(
+              ([key, val]) => (
+                <div key={key} className="mb-4">
+                  <p className="capitalize text-gray-700 font-medium mb-1">
+                    {key}
+                  </p>
+                  <textarea
+                    value={val}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        policies: {
+                          ...settings.policies,
+                          [key]: e.target.value,
+                        },
+                      })
+                    }
+                    className="w-full border rounded-lg p-3 focus:ring-2 focus:ring-emerald-400"
+                    rows={3}
+                  />
+                </div>
+              )
+            )}
           </section>
         </motion.div>
       </AdminLayout>

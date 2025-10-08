@@ -19,35 +19,51 @@ import {
   CheckCircle,
   XCircle,
   Loader2,
-  Edit3,
   Search,
   Building2,
   FileDown,
   MessageCircle,
-  ThumbsDown,
 } from "lucide-react";
+
+interface ReviewData {
+  id: string;
+  companyName?: string;
+  clientName?: string;
+  rating?: number;
+  text?: string;
+  status?: string;
+  createdAt?: { seconds?: number };
+  adminReply?: string;
+}
 
 export default function AdminReviewsPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [reviews, setReviews] = useState<any[]>([]);
+  const [reviews, setReviews] = useState<ReviewData[]>([]);
   const [filter, setFilter] = useState("");
   const [search, setSearch] = useState("");
   const [replyText, setReplyText] = useState("");
-  const [selectedReview, setSelectedReview] = useState<any | null>(null);
+  const [selectedReview, setSelectedReview] = useState<ReviewData | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
 
-  // Load reviews
+  // 🔹 Load reviews
   useEffect(() => {
     const unsub = onAuthChange(async (u) => {
       if (!u) return router.push("/company/auth");
 
       try {
         const snap = await getDocs(collection(db, "reviews"));
-        const allReviews = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+        // ✅ Explicitly type data to include createdAt
+        const allReviews: ReviewData[] = snap.docs.map((d) => ({
+          id: d.id,
+          ...(d.data() as Omit<ReviewData, "id">),
+        }));
+
         allReviews.sort(
           (a, b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)
         );
+
         setReviews(allReviews);
       } catch (err) {
         console.error(err);
@@ -59,7 +75,7 @@ export default function AdminReviewsPage() {
     return () => unsub();
   }, [router]);
 
-  // Update review status
+  // 🔹 Update review status
   const updateStatus = async (id: string, status: string) => {
     setProcessingId(id);
     try {
@@ -79,29 +95,40 @@ export default function AdminReviewsPage() {
     }
   };
 
-  // Delete review
+  // 🔹 Delete review
   const handleDelete = async (id: string) => {
     if (!confirm("Sigur vrei să ștergi această recenzie?")) return;
     setProcessingId(id);
-    await deleteDoc(doc(db, "reviews", id));
-    setReviews((prev) => prev.filter((r) => r.id !== id));
-    setProcessingId(null);
-    toast.success("🗑️ Recenzie ștearsă!");
+    try {
+      await deleteDoc(doc(db, "reviews", id));
+      setReviews((prev) => prev.filter((r) => r.id !== id));
+      toast.success("🗑️ Recenzie ștearsă!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Eroare la ștergere!");
+    } finally {
+      setProcessingId(null);
+    }
   };
 
-  // Reply to review
+  // 🔹 Reply to review
   const handleReply = async (id: string) => {
     if (!replyText.trim()) return toast.error("Scrie un răspuns înainte!");
-    await updateDoc(doc(db, "reviews", id), { adminReply: replyText });
-    setReviews((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, adminReply: replyText } : r))
-    );
-    toast.success("💬 Răspuns trimis!");
-    setReplyText("");
-    setSelectedReview(null);
+    try {
+      await updateDoc(doc(db, "reviews", id), { adminReply: replyText });
+      setReviews((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, adminReply: replyText } : r))
+      );
+      toast.success("💬 Răspuns trimis!");
+      setReplyText("");
+      setSelectedReview(null);
+    } catch (err) {
+      console.error(err);
+      toast.error("Eroare la trimiterea răspunsului!");
+    }
   };
 
-  // Export CSV
+  // 🔹 Export CSV
   const exportCSV = () => {
     const header = "Company,Client,Rating,Review,Status,Date\n";
     const rows = reviews
@@ -116,6 +143,7 @@ export default function AdminReviewsPage() {
           }`
       )
       .join("\n");
+
     const blob = new Blob([header + rows], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -133,7 +161,7 @@ export default function AdminReviewsPage() {
       </AdminLayout>
     );
 
-  // Filters
+  // 🔹 Filters
   const filtered = reviews.filter((r) => {
     const matchesFilter = filter ? r.status === filter : true;
     const matchesSearch =
@@ -145,8 +173,10 @@ export default function AdminReviewsPage() {
 
   const averageRating =
     filtered.length > 0
-      ? (filtered.reduce((sum, r) => sum + (r.rating || 0), 0) /
-          filtered.length).toFixed(1)
+      ? (
+          filtered.reduce((sum, r) => sum + (r.rating || 0), 0) /
+          filtered.length
+        ).toFixed(1)
       : "0.0";
 
   return (
@@ -173,28 +203,18 @@ export default function AdminReviewsPage() {
 
           {/* Overview */}
           <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-6 mb-10">
-            <div className="bg-gradient-to-r from-emerald-50 to-sky-50 p-5 rounded-2xl border border-emerald-100 shadow-sm">
-              <p className="text-gray-600 text-sm">Total Recenzii</p>
-              <h2 className="text-2xl font-bold text-emerald-700">
-                {reviews.length}
-              </h2>
-            </div>
-            <div className="bg-gradient-to-r from-yellow-50 to-amber-50 p-5 rounded-2xl border border-amber-100 shadow-sm">
-              <p className="text-gray-600 text-sm">În așteptare</p>
-              <h2 className="text-2xl font-bold text-amber-700">
-                {reviews.filter((r) => r.status === "pending").length}
-              </h2>
-            </div>
-            <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-5 rounded-2xl border border-green-100 shadow-sm">
-              <p className="text-gray-600 text-sm">Aprobate</p>
-              <h2 className="text-2xl font-bold text-emerald-700">
-                {reviews.filter((r) => r.status === "approved").length}
-              </h2>
-            </div>
-            <div className="bg-gradient-to-r from-red-50 to-rose-50 p-5 rounded-2xl border border-red-100 shadow-sm">
-              <p className="text-gray-600 text-sm">Scor Mediu</p>
-              <h2 className="text-2xl font-bold text-red-600">{averageRating}</h2>
-            </div>
+            <Stat label="Total Recenzii" value={reviews.length} color="emerald" />
+            <Stat
+              label="În așteptare"
+              value={reviews.filter((r) => r.status === "pending").length}
+              color="amber"
+            />
+            <Stat
+              label="Aprobate"
+              value={reviews.filter((r) => r.status === "approved").length}
+              color="green"
+            />
+            <Stat label="Scor Mediu" value={averageRating} color="red" />
           </div>
 
           {/* Filters */}
@@ -242,10 +262,7 @@ export default function AdminReviewsPage() {
               </thead>
               <tbody>
                 {filtered.map((r) => (
-                  <tr
-                    key={r.id}
-                    className="hover:bg-emerald-50 transition"
-                  >
+                  <tr key={r.id} className="hover:bg-emerald-50 transition">
                     <td className="p-3 border-b font-medium">
                       {r.companyName || "-"}
                     </td>
@@ -261,7 +278,10 @@ export default function AdminReviewsPage() {
                     </td>
                     <td className="p-3 border-b text-center space-x-2">
                       {processingId === r.id ? (
-                        <Loader2 className="animate-spin inline text-emerald-600" size={16} />
+                        <Loader2
+                          className="animate-spin inline text-emerald-600"
+                          size={16}
+                        />
                       ) : (
                         <>
                           {r.status !== "approved" && (
@@ -336,5 +356,25 @@ export default function AdminReviewsPage() {
         </motion.div>
       </AdminLayout>
     </AdminProtectedRoute>
+  );
+}
+
+/* ---------- Small Stat Box ---------- */
+function Stat({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: string | number;
+  color: string;
+}) {
+  return (
+    <div
+      className={`bg-gradient-to-r from-${color}-50 to-${color}-100 p-5 rounded-2xl border border-${color}-200 shadow-sm`}
+    >
+      <p className="text-gray-600 text-sm">{label}</p>
+      <h2 className="text-2xl font-bold text-emerald-700">{value}</h2>
+    </div>
   );
 }

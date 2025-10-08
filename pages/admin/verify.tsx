@@ -12,27 +12,41 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
 import {
-  Building2,
-  Eye,
-  FileText,
-  CheckCircle2,
-  XCircle,
-  Loader2,
   ShieldCheck,
-  FileCheck2,
-  MessageSquare,
+  Loader2,
+  Ban,
+  CheckCircle2,
+  FileText,
+  Eye,
 } from "lucide-react";
 import AdminLayout from "../../components/AdminLayout";
 import AdminProtectedRoute from "../../components/AdminProtectedRoute";
 import { logActivity } from "../../utils/logActivity";
 
+interface CompanyData {
+  id: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+  counties?: string[];
+  submittedForVerification?: boolean;
+  verified?: boolean;
+  rejected?: boolean;
+  rejectReason?: string;
+  documents?: {
+    insurance?: string;
+    certificate?: string;
+    id?: string;
+  };
+}
+
 export default function AdminVerifyPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [companies, setCompanies] = useState<any[]>([]);
+  const [companies, setCompanies] = useState<CompanyData[]>([]);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [processingId, setProcessingId] = useState<string | null>(null);
-  const [rejectReason, setRejectReason] = useState<string>("");
+  const [rejectReason, setRejectReason] = useState("");
 
   // 🔹 Load only pending companies
   useEffect(() => {
@@ -50,8 +64,11 @@ export default function AdminVerifyPage() {
       }
 
       const snap = await getDocs(collection(db, "companies"));
-      const pending = snap.docs
-        .map((d) => ({ id: d.id, ...d.data() }))
+      const pending: CompanyData[] = snap.docs
+        .map((d) => ({
+          id: d.id,
+          ...(d.data() as Omit<CompanyData, "id">),
+        }))
         .filter((c) => c.submittedForVerification && !c.verified);
 
       setCompanies(pending);
@@ -217,13 +234,13 @@ export default function AdminVerifyPage() {
                                 onClick={() =>
                                   rejectCompany(c.id, c.name)
                                 }
-                                className="bg-red-500 text-white text-xs px-3 py-1 rounded-lg hover:bg-red-600"
+                                className="bg-red-500 text-white px-3 py-1 rounded-lg text-xs"
                               >
-                                Trimite
+                                Confirmă
                               </button>
                               <button
                                 onClick={() => setRejectingId(null)}
-                                className="text-gray-500 text-xs hover:text-emerald-600"
+                                className="bg-gray-200 text-gray-700 px-3 py-1 rounded-lg text-xs"
                               >
                                 Anulează
                               </button>
@@ -232,48 +249,27 @@ export default function AdminVerifyPage() {
                         ) : (
                           <>
                             <button
-                              onClick={() =>
-                                approveCompany(c.id, c.name)
-                              }
-                              className="text-green-600 hover:underline font-medium text-sm"
+                              onClick={() => approveCompany(c.id, c.name)}
+                              className="text-green-600 hover:underline text-sm font-medium"
                             >
-                              <CheckCircle2
-                                size={14}
-                                className="inline mr-1"
-                              />{" "}
-                              Aprobare
+                              <CheckCircle2 size={14} className="inline mr-1" />
+                              Aprobă
                             </button>
                             <button
                               onClick={() => setRejectingId(c.id)}
-                              className="text-red-600 hover:underline font-medium text-sm"
+                              className="text-red-600 hover:underline text-sm font-medium"
                             >
-                              <XCircle
-                                size={14}
-                                className="inline mr-1"
-                              />{" "}
+                              <Ban size={14} className="inline mr-1" />
                               Respinge
                             </button>
                             <button
                               onClick={() =>
-                                router.push(`/admin/companies/${c.id}`)
+                                window.open(`/company/${c.id}`, "_blank")
                               }
                               className="text-sky-600 hover:underline text-sm font-medium"
                             >
-                              <Eye size={14} className="inline mr-1" /> Profil
-                            </button>
-                            <button
-                              onClick={() =>
-                                toast.success(
-                                  "💬 Reminder trimis companiei!"
-                                )
-                              }
-                              className="text-gray-600 hover:text-emerald-600 text-sm font-medium"
-                            >
-                              <MessageSquare
-                                size={13}
-                                className="inline mr-1"
-                              />{" "}
-                              Mesaj
+                              <Eye size={14} className="inline mr-1" />
+                              Vizualizează
                             </button>
                           </>
                         )}

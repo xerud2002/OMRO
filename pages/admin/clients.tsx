@@ -68,20 +68,33 @@ export default function AdminClientsPage() {
         return;
       }
 
-      const [usersSnap, requestsSnap] = await Promise.all([
-        getDocs(collection(db, "users")),
-        getDocs(collection(db, "requests")),
-      ]);
+      try {
+        const [usersSnap, requestsSnap] = await Promise.all([
+          getDocs(collection(db, "users")),
+          getDocs(collection(db, "requests")),
+        ]);
 
-      setClients(
-        usersSnap.docs
-          .map((d) => ({ id: d.id, ...(d.data() as UserData) }))
-          .filter((u) => u.role === "customer")
-      );
-      setRequests(
-        requestsSnap.docs.map((d) => ({ id: d.id, ...(d.data() as RequestData) }))
-      );
-      setLoading(false);
+        // ✅ Fix: remove duplicate `id` field before spreading
+        const userList = usersSnap.docs
+          .map((d) => {
+            const data = d.data() as Omit<UserData, "id">;
+            return { id: d.id, ...data };
+          })
+          .filter((u) => u.role === "customer");
+
+        const requestList = requestsSnap.docs.map((d) => {
+          const data = d.data() as Omit<RequestData, "id">;
+          return { id: d.id, ...data };
+        });
+
+        setClients(userList);
+        setRequests(requestList);
+      } catch (err) {
+        console.error("❌ Eroare la încărcare clienți:", err);
+        toast.error("Eroare la încărcarea datelor!");
+      } finally {
+        setLoading(false);
+      }
     });
     return () => unsub();
   }, [router]);
@@ -108,33 +121,45 @@ export default function AdminClientsPage() {
   // 🧩 Suspend / Reactivate
   const handleSuspendClient = async (client: UserData, suspended: boolean) => {
     setProcessingId(client.id);
-    await updateDoc(doc(db, "users", client.id), { suspended });
-    await logActivity(
-      "client_status",
-      `${suspended ? "⛔ Suspendare" : "✅ Reactivare"} cont client ${client.name}`,
-      client,
-      client.id
-    );
-    setClients((prev) =>
-      prev.map((c) => (c.id === client.id ? { ...c, suspended } : c))
-    );
-    toast.success(
-      suspended
-        ? "⏸️ Clientul a fost suspendat."
-        : "🟢 Contul clientului a fost reactivat."
-    );
-    setProcessingId(null);
+    try {
+      await updateDoc(doc(db, "users", client.id), { suspended });
+      await logActivity(
+        "client_status",
+        `${suspended ? "⛔ Suspendare" : "✅ Reactivare"} cont client ${client.name}`,
+        client,
+        client.id
+      );
+      setClients((prev) =>
+        prev.map((c) => (c.id === client.id ? { ...c, suspended } : c))
+      );
+      toast.success(
+        suspended
+          ? "⏸️ Clientul a fost suspendat."
+          : "🟢 Contul clientului a fost reactivat."
+      );
+    } catch (err) {
+      console.error(err);
+      toast.error("Eroare la actualizarea statusului!");
+    } finally {
+      setProcessingId(null);
+    }
   };
 
   // 🗑️ Delete client
   const handleDeleteClient = async (id: string, name?: string) => {
     if (!confirm(`Ștergi definitiv clientul ${name || "necunoscut"}?`)) return;
     setProcessingId(id);
-    await deleteDoc(doc(db, "users", id));
-    await logActivity("client_delete", `Clientul ${name} a fost șters.`, { name }, id);
-    setClients((prev) => prev.filter((c) => c.id !== id));
-    setProcessingId(null);
-    toast.success("🗑️ Clientul a fost șters!");
+    try {
+      await deleteDoc(doc(db, "users", id));
+      await logActivity("client_delete", `Clientul ${name} a fost șters.`, { name }, id);
+      setClients((prev) => prev.filter((c) => c.id !== id));
+      toast.success("🗑️ Clientul a fost șters!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Eroare la ștergerea clientului!");
+    } finally {
+      setProcessingId(null);
+    }
   };
 
   // ✉️ Send message (placeholder)
@@ -234,9 +259,7 @@ export default function AdminClientsPage() {
                           </span>
                         )}
                       </td>
-                      <td className="p-3 border-b text-center">
-                        {clientRequests.length}
-                      </td>
+                      <td className="p-3 border-b text-center">{clientRequests.length}</td>
                       <td className="p-3 border-b text-center space-x-2">
                         {processingId === c.id ? (
                           <Loader2
@@ -252,9 +275,7 @@ export default function AdminClientsPage() {
                               <Eye size={14} className="inline mr-1" /> Vezi
                             </button>
                             <button
-                              onClick={() =>
-                                handleSuspendClient(c, !c.suspended)
-                              }
+                              onClick={() => handleSuspendClient(c, !c.suspended)}
                               className={`text-sm font-medium ${
                                 c.suspended
                                   ? "text-gray-600 hover:text-green-600"
@@ -271,9 +292,7 @@ export default function AdminClientsPage() {
                               <Mail size={13} className="inline mr-1" /> Mesaj
                             </button>
                             <button
-                              onClick={() =>
-                                handleDeleteClient(c.id, c.name)
-                              }
+                              onClick={() => handleDeleteClient(c.id, c.name)}
                               className="text-red-600 hover:underline text-sm font-medium"
                             >
                               <Trash2 size={13} className="inline mr-1" /> Șterge
@@ -311,7 +330,10 @@ export default function AdminClientsPage() {
                   <p><strong>Nume:</strong> {selectedClient.name}</p>
                   <p><strong>Email:</strong> {selectedClient.email}</p>
                   <p><strong>Telefon:</strong> {selectedClient.phone}</p>
-                  <p><strong>Status:</strong> {selectedClient.suspended ? "Suspendat" : "Activ"}</p>
+                  <p>
+                    <strong>Status:</strong>{" "}
+                    {selectedClient.suspended ? "Suspendat" : "Activ"}
+                  </p>
                 </div>
 
                 <div className="mt-6">
@@ -323,7 +345,8 @@ export default function AdminClientsPage() {
                       .filter((r) => r.userId === selectedClient.id)
                       .map((r) => (
                         <li key={r.id}>
-                          📦 {r.pickupCity} → {r.deliveryCity} ({r.status || "nouă"})
+                          📦 {r.pickupCity} → {r.deliveryCity} (
+                          {r.status || "nouă"})
                         </li>
                       ))}
                   </ul>
