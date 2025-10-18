@@ -15,6 +15,7 @@ import {
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { motion } from "framer-motion";
 import { SendHorizontal, ArrowLeft, Paperclip } from "lucide-react";
+import toast from "react-hot-toast";
 
 interface Message {
   id: string;
@@ -37,32 +38,34 @@ export default function OrderDetails() {
   const [uploading, setUploading] = useState(false);
   const [userRole, setUserRole] = useState<"client" | "company">("client");
   const [unread, setUnread] = useState(false);
+
   const chatRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // 🔹 Preload subtle notification sound
+  // 🔊 Preload subtle notification sound
   useEffect(() => {
     audioRef.current = new Audio("/sounds/notify.mp3");
     audioRef.current.volume = 0.3;
   }, []);
 
-  // 🔹 Auth check
+  // 🔐 Auth check
   useEffect(() => {
     const unsub = onAuthChange(async (u) => {
       if (!u) router.push("/customer/auth");
-      else setUserRole("client"); // (Later we can detect company automatically)
+      else setUserRole("client"); // (Later we can auto-detect company/admin)
     });
     return () => unsub();
   }, [router]);
 
-  // 🔹 Fetch order + messages realtime
+  // 🔄 Fetch order + realtime messages
   useEffect(() => {
     if (!id) return;
 
     const loadOrder = async () => {
       const snap = await getDoc(doc(db, "requests", id));
       if (snap.exists()) setOrder({ id: snap.id, ...snap.data() });
+      else toast.error("Cererea nu a fost găsită.");
     };
     loadOrder();
 
@@ -71,56 +74,64 @@ export default function OrderDetails() {
       orderBy("createdAt", "asc")
     );
 
-    let previousMessages = 0;
+    let prevCount = 0;
     const unsub = onSnapshot(q, (snap) => {
       const newMsgs: Message[] = snap.docs.map((d) => ({
         id: d.id,
         ...(d.data() as Omit<Message, "id">),
       }));
-
       setMessages(newMsgs);
 
-      // auto-scroll to bottom
+      // Auto-scroll
       setTimeout(() => {
         chatRef.current?.scrollTo({
           top: chatRef.current.scrollHeight,
           behavior: "smooth",
         });
-      }, 150);
+      }, 120);
 
-      // detect new incoming message (from other user)
-      if (newMsgs.length > previousMessages) {
+      // Play sound for new incoming message
+      if (newMsgs.length > prevCount) {
         const last = newMsgs[newMsgs.length - 1];
-        if (last && last.sender && last.sender !== userRole) {
+        if (last && last.sender !== userRole) {
           setUnread(true);
           audioRef.current?.play().catch(() => {});
         }
       }
-
-      previousMessages = newMsgs.length;
+      prevCount = newMsgs.length;
     });
 
     return () => unsub();
   }, [id, userRole]);
 
-  // 🔹 Send text message
+  // ✉️ Send text
   const sendMessage = async () => {
     if (!id || !newMessage.trim()) return;
-    await addDoc(collection(db, "requests", id, "messages"), {
-      sender: userRole,
-      text: newMessage.trim(),
-      type: "text",
-      createdAt: Timestamp.now(),
-    });
-    setNewMessage("");
-    setUnread(false);
+    try {
+      await addDoc(collection(db, "requests", id, "messages"), {
+        sender: userRole,
+        text: newMessage.trim(),
+        type: "text",
+        createdAt: Timestamp.now(),
+      });
+      setNewMessage("");
+      setUnread(false);
+    } catch (err) {
+      console.error("Eroare la trimiterea mesajului:", err);
+      toast.error("Eroare la trimiterea mesajului.");
+    }
   };
 
-  // 🔹 Send file (image / video / pdf)
+  // 📎 Upload file
   const sendFile = async (file: File) => {
     try {
       setUploading(true);
-      const storageRef = ref(storage, `chat/${id}/${Date.now()}-${file.name}`);
+
+      // Clean file name
+      const cleanName = file.name
+        .replace(/\s+/g, "_")
+        .replace(/[^\w.-]/g, "");
+      const storageRef = ref(storage, `chat/${id}/${Date.now()}_${cleanName}`);
       await uploadBytes(storageRef, file);
       const url = await getDownloadURL(storageRef);
 
@@ -135,21 +146,23 @@ export default function OrderDetails() {
         createdAt: Timestamp.now(),
       });
 
-      setUploading(false);
       setUnread(false);
     } catch (err) {
       console.error("Eroare la upload:", err);
+      toast.error("Eroare la trimiterea fișierului.");
+    } finally {
       setUploading(false);
     }
   };
 
-  // 🔹 Handle file input
+  // 🪄 File input handler
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) await sendFile(file);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
+  // 🕓 Loading state
   if (!order)
     return (
       <div className="flex justify-center items-center h-[60vh] text-gray-500 text-lg">
@@ -164,7 +177,7 @@ export default function OrderDetails() {
       transition={{ duration: 0.5 }}
       className="max-w-4xl mx-auto p-6"
     >
-      {/* --- Header --- */}
+      {/* 🔹 Header */}
       <div className="flex items-center gap-3 mb-6">
         <button
           onClick={() => router.back()}
@@ -181,20 +194,33 @@ export default function OrderDetails() {
         </h1>
       </div>
 
-      {/* --- Order Info --- */}
+      {/* 🔹 Order Info */}
       <div className="p-6 rounded-3xl bg-white/80 backdrop-blur-md border border-emerald-100 shadow mb-6">
         <div className="grid sm:grid-cols-2 gap-3 text-sm text-gray-700">
-          <p><strong>Serviciu:</strong> {order.serviceType || "-"}</p>
-          <p><strong>Data:</strong> {order.moveDate || order.moveOption || "-"}</p>
-          <p><strong>Colectare:</strong> {order.pickupCity || "-"}, {order.pickupCounty || "-"}</p>
-          <p><strong>Livrare:</strong> {order.deliveryCity || "-"}, {order.deliveryCounty || "-"}</p>
-          <p><strong>Status:</strong>{" "}
-            <span className="text-emerald-600 font-medium">{order.status || "Nouă"}</span>
+          <p>
+            <strong>Serviciu:</strong> {order.serviceType || "-"}
+          </p>
+          <p>
+            <strong>Data:</strong> {order.moveDate || order.moveOption || "-"}
+          </p>
+          <p>
+            <strong>Colectare:</strong> {order.pickupCity || "-"},{" "}
+            {order.pickupCounty || "-"}
+          </p>
+          <p>
+            <strong>Livrare:</strong> {order.deliveryCity || "-"},{" "}
+            {order.deliveryCounty || "-"}
+          </p>
+          <p>
+            <strong>Status:</strong>{" "}
+            <span className="text-emerald-600 font-medium">
+              {order.status || "Nouă"}
+            </span>
           </p>
         </div>
       </div>
 
-      {/* --- Chat --- */}
+      {/* 🔹 Chat */}
       <div className="rounded-3xl bg-white/80 backdrop-blur-md border border-emerald-100 shadow-lg p-6 flex flex-col h-[60vh]">
         <h2 className="text-lg font-semibold text-emerald-700 mb-3 flex items-center gap-2">
           💬 Mesaje
@@ -205,7 +231,7 @@ export default function OrderDetails() {
           )}
         </h2>
 
-        {/* --- Messages --- */}
+        {/* 🔸 Messages */}
         <div
           ref={chatRef}
           className="flex-1 overflow-y-auto space-y-3 mb-4 pr-2 scrollbar-thin scrollbar-thumb-emerald-200"
@@ -267,7 +293,7 @@ export default function OrderDetails() {
           )}
         </div>
 
-        {/* --- Input + Upload --- */}
+        {/* 🔸 Input + Upload */}
         <div className="flex items-center gap-2">
           <input
             type="text"
@@ -285,6 +311,7 @@ export default function OrderDetails() {
             onChange={handleFileChange}
             hidden
           />
+
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
