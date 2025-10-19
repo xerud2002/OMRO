@@ -39,27 +39,58 @@ export default function AdminMessagesPage() {
     const unsub = onAuthChange(async (u) => {
       if (!u) return router.push("/company/auth");
 
-      const snap = await getDoc(doc(db, "users", u.uid));
-      if (!snap.exists() || snap.data().role !== "admin") {
+      const userSnap = await getDoc(doc(db, "users", u.uid));
+      const role = userSnap.exists() ? userSnap.data().role : null;
+      if (role !== "admin") {
         toast.error("⛔ Acces interzis!");
         router.push("/");
         return;
       }
 
+      setLoading(true);
       try {
-        const q = query(collection(db, "messages"), orderBy("lastMessageAt", "desc"));
-        const snap = await getDocs(q);
-        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-        setMessages(list);
+        // 1️⃣ Get all requests
+        const reqSnap = await getDocs(collection(db, "requests"));
+        const reqs = reqSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+        // 2️⃣ Parallel fetch all messages
+        const threads = await Promise.all(
+          reqs.map(async (r) => {
+            const msgsSnap = await getDocs(
+              query(collection(db, "requests", r.id, "messages"), orderBy("createdAt", "desc"))
+            );
+            if (msgsSnap.empty) return null;
+            const msgs = msgsSnap.docs.map((m) => m.data());
+            const last = msgs[0];
+            return {
+              id: r.id,
+              requestId: r.id,
+              customerName: r.name || "-",
+              companyName: r.companyName || "-",
+              lastMessage: last.text || last.fileName || "(fără conținut)",
+              lastMessageAt: last.createdAt,
+              messages: msgs,
+            };
+          })
+        );
+
+        // 3️⃣ Keep only threads that have messages
+        const valid = threads.filter(Boolean);
+        valid.sort(
+          (a, b) =>
+            (b.lastMessageAt?.seconds || 0) - (a.lastMessageAt?.seconds || 0)
+        );
+        setMessages(valid);
       } catch (err) {
-        console.error("❌ Eroare la încărcare mesaje:", err);
-        toast.error("Eroare la încărcarea mesajelor!");
+        console.error("❌ Eroare la încărcare conversații:", err);
+        toast.error("Eroare la încărcare conversații!");
       } finally {
         setLoading(false);
       }
     });
     return () => unsub();
   }, [router]);
+
 
   if (loading)
     return (
