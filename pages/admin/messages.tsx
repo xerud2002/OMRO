@@ -18,13 +18,33 @@ import {
   Loader2,
   MessageSquare,
   SearchCheck,
-  Mail,
   User,
   Building2,
   Ban,
   FileDown,
   Filter,
 } from "lucide-react";
+
+// ✅ Define the request and message types
+interface Message {
+  sender: string;
+  text?: string;
+  fileName?: string;
+  fileUrl?: string;
+  createdAt?: any;
+}
+
+interface RequestData {
+  id: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+  companyName?: string;
+  serviceType?: string;
+  status?: string;
+  createdAt?: any;
+  [key: string]: any;
+}
 
 export default function AdminMessagesPage() {
   const router = useRouter();
@@ -51,24 +71,35 @@ export default function AdminMessagesPage() {
       try {
         // 1️⃣ Get all requests
         const reqSnap = await getDocs(collection(db, "requests"));
-        const reqs = reqSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const reqs: RequestData[] = reqSnap.docs.map((d) => ({
+          id: d.id,
+          ...d.data(),
+        })) as RequestData[];
 
         // 2️⃣ Parallel fetch all messages
         const threads = await Promise.all(
           reqs.map(async (r) => {
             const msgsSnap = await getDocs(
-              query(collection(db, "requests", r.id, "messages"), orderBy("createdAt", "desc"))
+              query(
+                collection(db, "requests", r.id, "messages"),
+                orderBy("createdAt", "desc")
+              )
             );
             if (msgsSnap.empty) return null;
-            const msgs = msgsSnap.docs.map((m) => m.data());
+            const msgs: Message[] = msgsSnap.docs.map((m) => m.data() as Message);
             const last = msgs[0];
+
+            // ✅ Safely handle missing fields
             return {
               id: r.id,
               requestId: r.id,
-              customerName: r.name || "-",
-              companyName: r.companyName || "-",
-              lastMessage: last.text || last.fileName || "(fără conținut)",
+              customerName:
+                r.name || r.contactName || r.fullName || r.email || "-",
+              companyName: r.companyName || r.assignedCompany || "-",
+              lastMessage:
+                last.text || last.fileName || "(fără conținut)",
               lastMessageAt: last.createdAt,
+              status: r.status || "active",
               messages: msgs,
             };
           })
@@ -77,8 +108,9 @@ export default function AdminMessagesPage() {
         // 3️⃣ Keep only threads that have messages
         const valid = threads.filter(Boolean);
         valid.sort(
-          (a, b) =>
-            (b.lastMessageAt?.seconds || 0) - (a.lastMessageAt?.seconds || 0)
+          (a: any, b: any) =>
+            (b.lastMessageAt?.seconds || 0) -
+            (a.lastMessageAt?.seconds || 0)
         );
         setMessages(valid);
       } catch (err) {
@@ -90,7 +122,6 @@ export default function AdminMessagesPage() {
     });
     return () => unsub();
   }, [router]);
-
 
   if (loading)
     return (
@@ -193,7 +224,7 @@ export default function AdminMessagesPage() {
                 <tr>
                   <th className="p-3 border-b">Client</th>
                   <th className="p-3 border-b">Companie</th>
-                  <th className="p-3 border-b">Cereră</th>
+                  <th className="p-3 border-b">Cerere</th>
                   <th className="p-3 border-b">Ultimul mesaj</th>
                   <th className="p-3 border-b">Status</th>
                   <th className="p-3 border-b text-center">Acțiuni</th>
@@ -210,7 +241,9 @@ export default function AdminMessagesPage() {
                       <Building2 size={14} className="text-sky-600" />
                       {m.companyName || "-"}
                     </td>
-                    <td className="p-3 border-b text-gray-600">{m.requestId || "-"}</td>
+                    <td className="p-3 border-b text-gray-600">
+                      {m.requestId || "-"}
+                    </td>
                     <td className="p-3 border-b text-gray-500 truncate max-w-[250px]">
                       {m.lastMessage || "-"}
                     </td>
@@ -251,27 +284,37 @@ export default function AdminMessagesPage() {
                   <MessageSquare size={18} /> Conversație
                 </h3>
                 <div className="text-sm text-gray-700 space-y-3">
-                  <p><strong>Client:</strong> {selectedThread.customerName}</p>
-                  <p><strong>Companie:</strong> {selectedThread.companyName}</p>
-                  <p><strong>Status:</strong> {selectedThread.status}</p>
-                  <p className="mt-2 font-semibold text-emerald-700">Mesaje:</p>
+                  <p>
+                    <strong>Client:</strong> {selectedThread.customerName}
+                  </p>
+                  <p>
+                    <strong>Companie:</strong> {selectedThread.companyName}
+                  </p>
+                  <p>
+                    <strong>Status:</strong> {selectedThread.status}
+                  </p>
+                  <p className="mt-2 font-semibold text-emerald-700">
+                    Mesaje:
+                  </p>
                   <div className="border border-gray-200 rounded-xl p-3 bg-gray-50 max-h-[300px] overflow-y-auto">
                     {selectedThread.messages?.map((msg: any, idx: number) => (
                       <div
                         key={idx}
                         className={`mb-2 ${
-                          msg.from === "company"
+                          msg.sender === "company"
                             ? "text-right text-sky-700"
                             : "text-left text-gray-700"
                         }`}
                       >
                         <p className="text-xs text-gray-400">
-                          {msg.timestamp?.seconds
-                            ? new Date(msg.timestamp.seconds * 1000).toLocaleString("ro-RO")
+                          {msg.createdAt?.seconds
+                            ? new Date(
+                                msg.createdAt.seconds * 1000
+                              ).toLocaleString("ro-RO")
                             : ""}
                         </p>
                         <p className="bg-white shadow-sm inline-block px-3 py-1 rounded-xl">
-                          {msg.text}
+                          {msg.text || msg.fileName}
                         </p>
                       </div>
                     ))}
