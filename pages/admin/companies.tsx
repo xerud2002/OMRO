@@ -101,40 +101,45 @@ export default function AdminCompaniesPage() {
 
   // ✅ Suspend / Reinstate
   const toggleSuspension = async (id: string, company: any) => {
-    const confirmAction = confirm(
-      company.suspended
-        ? "Activezi din nou această companie?"
-        : "Sigur vrei să suspendezi această companie?"
+  setProcessingId(id);
+  try {
+    const newStatus = !company.suspended;
+
+    toast.loading(
+      newStatus
+        ? "⏳ Se suspendă compania..."
+        : "⏳ Se reactivează compania..."
     );
-    if (!confirmAction) return;
 
-    setProcessingId(id);
-    try {
-      await updateDoc(doc(db, "companies", id), { suspended: !company.suspended });
-      await logActivity(
-        "suspension",
-        `${company.suspended ? "♻️ Reactivare" : "🚫 Suspendare"} companie: ${company.name}`,
-        { email: company.email, name: "Admin" },
-        id
-      );
+    await updateDoc(doc(db, "companies", id), { suspended: newStatus });
+    await logActivity(
+      "suspension",
+      `${newStatus ? "🚫 Suspendare" : "♻️ Reactivare"} pentru ${company.name}`,
+      { email: company.email, name: "Admin" },
+      id
+    );
 
-      setCompanies((prev) =>
-        prev.map((c) =>
-          c.id === id ? { ...c, suspended: !company.suspended } : c
-        )
-      );
-      toast.success(
-        company.suspended
-          ? "✅ Compania a fost reactivată!"
-          : "🚫 Compania a fost suspendată!"
-      );
-    } catch (err) {
-      console.error("❌ Eroare la suspendare:", err);
-      toast.error("Eroare la actualizare!");
-    } finally {
-      setProcessingId(null);
-    }
+    setCompanies((prev) =>
+      prev.map((c) =>
+        c.id === id ? { ...c, suspended: newStatus } : c
+      )
+    );
+
+    toast.dismiss();
+    toast.success(
+      newStatus
+        ? "🚫 Compania a fost suspendată!"
+        : "✅ Compania a fost reactivată!"
+    );
+  } catch (err) {
+    console.error("Eroare la suspendare:", err);
+    toast.dismiss();
+    toast.error("❌ Eroare la actualizare statut!");
+  } finally {
+    setProcessingId(null);
+  }
   };
+
 
   // ✅ Send reminder
   const sendReminder = async (company: any) => {

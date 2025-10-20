@@ -89,31 +89,40 @@ export default function AdminCompanyProfile() {
   };
 
   // 🔹 Toggle suspension
-  const toggleSuspension = async () => {
-    const confirmAction = confirm(
-      company.suspended
-        ? "Activezi din nou această companie?"
-        : "Sigur vrei să suspendezi această companie?"
+
+
+const toggleSuspension = async () => {
+  try {
+    const newStatus = !company.suspended;
+
+    // Show temporary status message
+    toast.loading(
+      newStatus
+        ? "⏳ Se suspendă compania..."
+        : "⏳ Se reactivează compania..."
     );
-    if (!confirmAction) return;
-    try {
-      const newStatus = !company.suspended;
-      await updateDoc(doc(db, "companies", companyId), { suspended: newStatus });
-      await logActivity(
-        "suspension",
-        `${newStatus ? "🚫 Suspendare" : "♻️ Reactivare"} pentru ${company.name}`,
-        { email: "admin@panel" },
-        companyId
-      );
-      setCompany((p: any) => ({ ...p, suspended: newStatus }));
-      toast.success(
-        newStatus ? "Compania a fost suspendată!" : "Compania a fost reactivată!"
-      );
-    } catch (err) {
-      console.error("Eroare la suspendare:", err);
-      toast.error("Eroare la suspendare!");
-    }
-  };
+
+    await updateDoc(doc(db, "companies", companyId), { suspended: newStatus });
+    await logActivity(
+      "suspension",
+      `${newStatus ? "🚫 Suspendare" : "♻️ Reactivare"} pentru ${company.name}`,
+      { email: "admin@panel" },
+      companyId
+    );
+
+    setCompany((p: any) => ({ ...p, suspended: newStatus }));
+
+    toast.dismiss(); // clear loading
+    toast.success(
+      newStatus ? "🚫 Compania a fost suspendată!" : "✅ Compania a fost reactivată!"
+    );
+  } catch (err) {
+    console.error("Eroare la suspendare:", err);
+    toast.dismiss();
+    toast.error("❌ Eroare la actualizare statut!");
+  }
+};
+
 
   if (loading)
     return (
