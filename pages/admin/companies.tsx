@@ -6,6 +6,7 @@ import {
   getDocs,
   updateDoc,
   doc,
+  getDoc,
 } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import AdminLayout from "../../components/AdminLayout";
@@ -33,17 +34,14 @@ export default function AdminCompaniesPage() {
   const [search, setSearch] = useState("");
   const [processingId, setProcessingId] = useState<string | null>(null);
 
-  // ✅ Load all companies after admin auth check
+  // ✅ Verify admin and load companies
   useEffect(() => {
     const unsub = onAuthChange(async (u) => {
       if (!u) return router.push("/company/auth");
 
       try {
-        const usersSnap = await getDocs(collection(db, "users"));
-        const currentUser = usersSnap.docs.find(
-          (d) => d.id === u.uid && d.data().role === "admin"
-        );
-        if (!currentUser) {
+        const userSnap = await getDoc(doc(db, "users", u.uid));
+        if (!userSnap.exists() || userSnap.data().role !== "admin") {
           toast.error("⛔ Acces interzis!");
           router.push("/");
           return;
@@ -51,8 +49,8 @@ export default function AdminCompaniesPage() {
 
         await fetchCompanies();
       } catch (err) {
-        console.error("Eroare la încărcarea companiilor:", err);
-        toast.error("Eroare la încărcare companii!");
+        console.error("❌ Eroare la verificare utilizator:", err);
+        toast.error("Eroare la autentificare!");
       } finally {
         setLoading(false);
       }
@@ -60,21 +58,26 @@ export default function AdminCompaniesPage() {
     return () => unsub();
   }, [router]);
 
-  // ✅ Get all companies
+  // ✅ Load all companies
   const fetchCompanies = async () => {
-    const snap = await getDocs(collection(db, "companies"));
-    const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    setCompanies(list);
+    try {
+      const snap = await getDocs(collection(db, "companies"));
+      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      setCompanies(list);
+    } catch (err) {
+      console.error("❌ Eroare la încărcare companii:", err);
+      toast.error("Eroare la încărcare companii!");
+    }
   };
 
-  // ✅ Toggle verification
+  // ✅ Toggle verification status
   const toggleVerification = async (id: string, currentStatus: boolean, company: any) => {
     setProcessingId(id);
     try {
       await updateDoc(doc(db, "companies", id), { verified: !currentStatus });
       await logActivity(
         "verification",
-        `${!currentStatus ? "✅ Verificare" : "❌ Revocare"} pentru compania ${company.name}`,
+        `${!currentStatus ? "✅ Verificare" : "❌ Revocare"} companie: ${company.name}`,
         { email: company.email, name: "Admin" },
         id
       );
@@ -85,18 +88,18 @@ export default function AdminCompaniesPage() {
 
       toast.success(
         !currentStatus
-          ? "✅ Compania a fost verificată cu succes!"
-          : "Compania a fost trecută ca ne-verificată."
+          ? "✅ Compania a fost verificată!"
+          : "Verificarea a fost revocată!"
       );
     } catch (err) {
-      console.error("Eroare la actualizare:", err);
-      toast.error("Eroare la actualizare!");
+      console.error("❌ Eroare la actualizare:", err);
+      toast.error("Eroare la actualizare statut!");
     } finally {
       setProcessingId(null);
     }
   };
 
-  // ✅ Suspend / Reinstate company
+  // ✅ Suspend / Reinstate
   const toggleSuspension = async (id: string, company: any) => {
     const confirmAction = confirm(
       company.suspended
@@ -110,7 +113,7 @@ export default function AdminCompaniesPage() {
       await updateDoc(doc(db, "companies", id), { suspended: !company.suspended });
       await logActivity(
         "suspension",
-        `${company.suspended ? "♻️ Reactivare" : "🚫 Suspendare"} pentru compania ${company.name}`,
+        `${company.suspended ? "♻️ Reactivare" : "🚫 Suspendare"} companie: ${company.name}`,
         { email: company.email, name: "Admin" },
         id
       );
@@ -122,12 +125,12 @@ export default function AdminCompaniesPage() {
       );
       toast.success(
         company.suspended
-          ? "✅ Contul companiei a fost reactivat!"
-          : "🚫 Contul companiei a fost suspendat!"
+          ? "✅ Compania a fost reactivată!"
+          : "🚫 Compania a fost suspendată!"
       );
     } catch (err) {
-      console.error("Eroare la suspendare:", err);
-      toast.error("Eroare la suspendare!");
+      console.error("❌ Eroare la suspendare:", err);
+      toast.error("Eroare la actualizare!");
     } finally {
       setProcessingId(null);
     }
@@ -142,14 +145,14 @@ export default function AdminCompaniesPage() {
         { email: company.email, name: "Admin" },
         company.id
       );
-      toast.success(`💬 Reminder trimis companiei ${company.name}`);
+      toast.success(`💬 Reminder trimis către ${company.name}`);
     } catch (err) {
-      console.error("Eroare la reminder:", err);
+      console.error("❌ Eroare reminder:", err);
       toast.error("Eroare la trimiterea reminderului!");
     }
   };
 
-  // ✅ Filtering companies
+  // ✅ Filtering
   const filteredCompanies = companies.filter((c) => {
     const matchesTab =
       tab === "verified"
@@ -157,10 +160,12 @@ export default function AdminCompaniesPage() {
         : tab === "pending"
         ? !c.verified && !c.suspended
         : c.suspended;
+
     const matchesSearch =
       c.name?.toLowerCase().includes(search) ||
       c.email?.toLowerCase().includes(search) ||
       c.counties?.join(",")?.toLowerCase().includes(search);
+
     return matchesTab && (!search || matchesSearch);
   });
 
@@ -204,7 +209,7 @@ export default function AdminCompaniesPage() {
             </div>
           </div>
 
-          {/* KPI */}
+          {/* KPI Cards */}
           <div className="grid sm:grid-cols-3 gap-6 mb-10">
             <KPI title="Verificate" value={companies.filter((c) => c.verified).length} color="green" icon={<CheckCircle2 />} />
             <KPI title="În așteptare" value={companies.filter((c) => !c.verified && !c.suspended).length} color="yellow" icon={<XCircle />} />
@@ -232,7 +237,7 @@ export default function AdminCompaniesPage() {
             ))}
           </div>
 
-          {/* Table */}
+          {/* Companies Table */}
           <div className="overflow-x-auto border border-gray-200 rounded-2xl shadow">
             <table className="w-full text-sm">
               <thead className="bg-emerald-50 text-gray-800">
@@ -327,7 +332,7 @@ export default function AdminCompaniesPage() {
   );
 }
 
-/* Small KPI badge */
+/* Small KPI badge component */
 function KPI({ title, value, color, icon }: any) {
   const colorMap: Record<string, string> = {
     green: "text-green-600 bg-green-50",
