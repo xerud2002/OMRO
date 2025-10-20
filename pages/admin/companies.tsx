@@ -88,11 +88,11 @@ export default function AdminCompaniesPage() {
 
       toast.success(
         !currentStatus
-          ? "✅ Compania a fost verificată!"
+          ? "Compania a fost verificată!"
           : "Verificarea a fost revocată!"
       );
     } catch (err) {
-      console.error("❌ Eroare la actualizare:", err);
+      console.error(" Eroare la actualizare:", err);
       toast.error("Eroare la actualizare statut!");
     } finally {
       setProcessingId(null);
@@ -128,8 +128,8 @@ export default function AdminCompaniesPage() {
     toast.dismiss();
     toast.success(
       newStatus
-        ? "🚫 Compania a fost suspendată!"
-        : "✅ Compania a fost reactivată!"
+        ? " Compania a fost suspendată!"
+        : " Compania a fost reactivată!"
     );
   } catch (err) {
     console.error("Eroare la suspendare:", err);
@@ -152,7 +152,7 @@ export default function AdminCompaniesPage() {
       );
       toast.success(`💬 Reminder trimis către ${company.name}`);
     } catch (err) {
-      console.error("❌ Eroare reminder:", err);
+      console.error("Eroare reminder:", err);
       toast.error("Eroare la trimiterea reminderului!");
     }
   };
