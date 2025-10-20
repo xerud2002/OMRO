@@ -1,31 +1,26 @@
-// utils/logActivity.ts
-import { collection, addDoc, Timestamp } from "firebase/firestore";
+import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { db } from "./firebase";
 
 /**
- * Logs any admin-visible action into /activityLogs for transparency
- * @param type - "message", "payment", "verification", etc.
- * @param description - A readable description of the event
- * @param user - The current user (auth object or null)
- * @param entityId - Optional related entity (e.g. requestId)
+ * Logs important admin actions (verification, suspension, reminder, etc.)
+ * into the 'activity' collection.
  */
 export async function logActivity(
   type: string,
-  description: string,
-  user?: any,
-  entityId?: string
+  message: string,
+  actor: any,
+  targetId: string
 ) {
   try {
-    await addDoc(collection(db, "activityLogs"), {
+    await addDoc(collection(db, "activity"), {
       type,
-      description,
-      entityId: entityId || null,
-      userName: user?.displayName || user?.name || user?.email || "Anonim",
-      email: user?.email || "-",
-      createdAt: Timestamp.now(),
-      reviewed: false,
+      message,
+      actor, // {email, name}
+      targetId,
+      createdAt: serverTimestamp(),
     });
+    console.log("✅ Activity logged:", message);
   } catch (err) {
-    console.error("❌ Eroare la logare activitate:", err);
+    console.error("⚠️ Eroare la logActivity:", err);
   }
 }

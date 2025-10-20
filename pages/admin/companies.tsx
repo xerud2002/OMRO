@@ -6,8 +6,6 @@ import {
   getDocs,
   updateDoc,
   doc,
-  query,
-  where,
 } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import AdminLayout from "../../components/AdminLayout";
@@ -23,8 +21,6 @@ import {
   Mail,
   Loader2,
   ShieldCheck,
-  Users,
-  Search,
   RefreshCw,
 } from "lucide-react";
 import { logActivity } from "../../utils/logActivity";
@@ -37,27 +33,34 @@ export default function AdminCompaniesPage() {
   const [search, setSearch] = useState("");
   const [processingId, setProcessingId] = useState<string | null>(null);
 
-  // ✅ Load all companies
+  // ✅ Load all companies after admin auth check
   useEffect(() => {
     const unsub = onAuthChange(async (u) => {
       if (!u) return router.push("/company/auth");
 
-      const usersSnap = await getDocs(collection(db, "users"));
-      const currentUser = usersSnap.docs.find(
-        (d) => d.id === u.uid && d.data().role === "admin"
-      );
-      if (!currentUser) {
-        toast.error("⛔ Acces interzis!");
-        router.push("/");
-        return;
-      }
+      try {
+        const usersSnap = await getDocs(collection(db, "users"));
+        const currentUser = usersSnap.docs.find(
+          (d) => d.id === u.uid && d.data().role === "admin"
+        );
+        if (!currentUser) {
+          toast.error("⛔ Acces interzis!");
+          router.push("/");
+          return;
+        }
 
-      await fetchCompanies();
-      setLoading(false);
+        await fetchCompanies();
+      } catch (err) {
+        console.error("Eroare la încărcarea companiilor:", err);
+        toast.error("Eroare la încărcare companii!");
+      } finally {
+        setLoading(false);
+      }
     });
     return () => unsub();
   }, [router]);
 
+  // ✅ Get all companies
   const fetchCompanies = async () => {
     const snap = await getDocs(collection(db, "companies"));
     const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
@@ -72,7 +75,7 @@ export default function AdminCompaniesPage() {
       await logActivity(
         "verification",
         `${!currentStatus ? "✅ Verificare" : "❌ Revocare"} pentru compania ${company.name}`,
-        { email: company.email, name: company.name },
+        { email: company.email, name: "Admin" },
         id
       );
 
@@ -86,13 +89,14 @@ export default function AdminCompaniesPage() {
           : "Compania a fost trecută ca ne-verificată."
       );
     } catch (err) {
+      console.error("Eroare la actualizare:", err);
       toast.error("Eroare la actualizare!");
     } finally {
       setProcessingId(null);
     }
   };
 
-  // ✅ Suspend / Reinstate account
+  // ✅ Suspend / Reinstate company
   const toggleSuspension = async (id: string, company: any) => {
     const confirmAction = confirm(
       company.suspended
@@ -106,10 +110,11 @@ export default function AdminCompaniesPage() {
       await updateDoc(doc(db, "companies", id), { suspended: !company.suspended });
       await logActivity(
         "suspension",
-        `${company.suspended ? "♻️ Reactivare" : "🚫 Suspendare"} pentru ${company.name}`,
-        { email: company.email, name: company.name },
+        `${company.suspended ? "♻️ Reactivare" : "🚫 Suspendare"} pentru compania ${company.name}`,
+        { email: company.email, name: "Admin" },
         id
       );
+
       setCompanies((prev) =>
         prev.map((c) =>
           c.id === id ? { ...c, suspended: !company.suspended } : c
@@ -120,7 +125,8 @@ export default function AdminCompaniesPage() {
           ? "✅ Contul companiei a fost reactivat!"
           : "🚫 Contul companiei a fost suspendat!"
       );
-    } catch {
+    } catch (err) {
+      console.error("Eroare la suspendare:", err);
       toast.error("Eroare la suspendare!");
     } finally {
       setProcessingId(null);
@@ -129,16 +135,21 @@ export default function AdminCompaniesPage() {
 
   // ✅ Send reminder
   const sendReminder = async (company: any) => {
-    toast.success(`💬 Reminder trimis companiei ${company.name}`);
-    await logActivity(
-      "reminder",
-      `Adminul a trimis un reminder companiei ${company.name}`,
-      { email: company.email, name: "Admin" },
-      company.id
-    );
+    try {
+      await logActivity(
+        "reminder",
+        `📩 Reminder trimis companiei ${company.name}`,
+        { email: company.email, name: "Admin" },
+        company.id
+      );
+      toast.success(`💬 Reminder trimis companiei ${company.name}`);
+    } catch (err) {
+      console.error("Eroare la reminder:", err);
+      toast.error("Eroare la trimiterea reminderului!");
+    }
   };
 
-  // ✅ Filter
+  // ✅ Filtering companies
   const filteredCompanies = companies.filter((c) => {
     const matchesTab =
       tab === "verified"
@@ -327,7 +338,10 @@ function KPI({ title, value, color, icon }: any) {
     <div
       className={`rounded-2xl border p-4 flex flex-col items-center justify-center ${colorMap[color]} border-gray-100 shadow-sm`}
     >
-      <div className="flex items-center gap-2 mb-1">{icon}<h3 className="font-semibold">{title}</h3></div>
+      <div className="flex items-center gap-2 mb-1">
+        {icon}
+        <h3 className="font-semibold">{title}</h3>
+      </div>
       <p className="text-2xl font-bold">{value}</p>
     </div>
   );
