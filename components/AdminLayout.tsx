@@ -19,10 +19,8 @@ import {
   BarChart3,
   Settings,
   FileCheck,
-  FileText,
   Star,
   Activity,
-  Globe,
   Sparkles,
 } from "lucide-react";
 
@@ -37,7 +35,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const [pendingCompanies, setPendingCompanies] = useState<number>(0);
   const [newRequests, setNewRequests] = useState<number>(0);
 
-  // Fetch badge counters (pending companies, new requests)
+  // 🔹 Fetch badge counters (run once)
   useEffect(() => {
     const fetchCounts = async () => {
       try {
@@ -60,16 +58,18 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         console.error("❌ Eroare la încărcarea badge-urilor admin:", err);
       }
     };
+
     fetchCounts();
   }, []);
 
+  // 🔹 Logout safely
   const handleLogout = async () => {
     await logout();
-    router.push("/company/auth");
+    router.replace("/company/auth");
   };
 
-    // === Sidebar menu ===
-    const sections = [
+  // === Sidebar Menu ===
+  const sections = [
     {
       title: "General",
       items: [
@@ -95,16 +95,6 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       ],
     },
     {
-      title: "Instrumente",
-      items: [
-        {
-          name: "Generator date fictive",
-          path: "/admin/generator",
-          icon: Sparkles,
-        },
-      ],
-    },
-    {
       title: "Suport & Setări",
       items: [
         { name: "Feedback & Recenzii", path: "/admin/reviews", icon: Star },
@@ -114,6 +104,25 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     },
   ];
 
+  // 🔹 Dynamic route matching helper
+  const isActive = (path: string) => pathname.startsWith(path);
+
+  // 🔹 Header title resolver
+  const getHeaderTitle = () => {
+    if (pathname.startsWith("/admin/dashboard")) return "📊 Panou general";
+    if (pathname.startsWith("/admin/companies")) return "🏢 Gestionare companii";
+    if (pathname.startsWith("/admin/clients")) return "👥 Gestionare clienți";
+    if (pathname.startsWith("/admin/requests")) return "📦 Cereri clienți";
+    if (pathname.startsWith("/admin/messages")) return "💬 Mesaje";
+    if (pathname.startsWith("/admin/payments")) return "💰 Plăți și lead-uri";
+    if (pathname.startsWith("/admin/pricing")) return "🏷️ Tarife & Promoții";
+    if (pathname.startsWith("/admin/stats")) return "📈 Statistici";
+    if (pathname.startsWith("/admin/verify")) return "🧾 Verificări companii";
+    if (pathname.startsWith("/admin/reviews")) return "⭐ Feedback & Recenzii";
+    if (pathname.startsWith("/admin/logs")) return "🧩 Audit & Loguri";
+    if (pathname.startsWith("/admin/settings")) return "⚙️ Setări platformă";
+    return "Admin Panel";
+  };
 
   return (
     <div className="min-h-screen flex bg-gradient-to-br from-emerald-50 to-sky-50 text-gray-800">
@@ -139,7 +148,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             </button>
           </div>
 
-          {/* Navigation sections */}
+          {/* Navigation */}
           <nav className="mt-4 space-y-6 px-4">
             {sections.map((section) => (
               <div key={section.title}>
@@ -148,7 +157,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
                 </h3>
                 <div className="space-y-1">
                   {section.items.map((item) => {
-                    const active = pathname === item.path;
+                    const active = isActive(item.path);
                     const Icon = item.icon;
                     return (
                       <Link
@@ -200,34 +209,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
 
       {/* === MAIN CONTENT === */}
       <main className="flex-1 min-h-screen p-6 md:p-10 md:ml-4 overflow-auto">
-        {/* Header bar */}
+        {/* Header */}
         <div className="sticky top-0 z-10 mb-8 bg-white/70 backdrop-blur-sm rounded-2xl shadow-sm border border-emerald-100 px-8 py-4 flex items-center justify-between">
           <h2 className="text-2xl font-bold text-emerald-700 tracking-tight">
-            {pathname === "/admin/dashboard"
-              ? "📊 Panou general"
-              : pathname === "/admin/companies"
-              ? "🏢 Gestionare companii"
-              : pathname === "/admin/clients"
-              ? "👥 Gestionare clienți"
-              : pathname === "/admin/requests"
-              ? "📦 Cereri clienți"
-              : pathname === "/admin/messages"
-              ? "💬 Mesaje"
-              : pathname === "/admin/payments"
-              ? "💰 Plăți și lead-uri"
-              : pathname === "/admin/pricing"
-              ? "🏷️ Tarife & Promoții"
-              : pathname === "/admin/stats"
-              ? "📈 Statistici"
-              : pathname === "/admin/verify"
-              ? "🧾 Verificări companii"
-              : pathname === "/admin/reviews"
-              ? "⭐ Feedback & Recenzii"
-              : pathname === "/admin/logs"
-              ? "🧩 Audit & Loguri"
-              : pathname === "/admin/settings"
-              ? "⚙️ Setări platformă"
-              : "Admin Panel"}
+            {getHeaderTitle()}
           </h2>
         </div>
 

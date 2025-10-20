@@ -15,21 +15,18 @@ import AdminProtectedRoute from "../../components/AdminProtectedRoute";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
 import {
-  Clock,
   Filter,
   Loader2,
   FileDown,
-  ShieldAlert,
-  Eye,
   CheckCircle2,
   XCircle,
-  Trash2,
   User,
   Building2,
   MessageSquare,
   Coins,
   ClipboardList,
   Star,
+  ShieldAlert,
   Activity,
 } from "lucide-react";
 
@@ -39,20 +36,19 @@ export default function AdminLogsPage() {
   const [logs, setLogs] = useState<any[]>([]);
   const [filter, setFilter] = useState("");
   const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState<any | null>(null);
 
+  // 🔹 Load all activity logs
   useEffect(() => {
     const unsub = onAuthChange(async (u) => {
       if (!u) return router.push("/company/auth");
+
       try {
-        // Load all logs
-        const snap = await getDocs(
-          query(collection(db, "activityLogs"), orderBy("createdAt", "desc"))
-        );
+        const q = query(collection(db, "activity"), orderBy("createdAt", "desc"));
+        const snap = await getDocs(q);
         const data = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         setLogs(data);
       } catch (err) {
-        console.error(err);
+        console.error("Eroare la încărcarea jurnalului:", err);
         toast.error("Eroare la încărcarea jurnalului de activitate!");
       } finally {
         setLoading(false);
@@ -61,38 +57,50 @@ export default function AdminLogsPage() {
     return () => unsub();
   }, [router]);
 
-  // Filter + search
+  // 🔹 Filter & search
   const filtered = logs.filter((log) => {
     const matchesFilter = filter ? log.type === filter : true;
     const matchesSearch =
-      log.userName?.toLowerCase().includes(search) ||
-      log.email?.toLowerCase().includes(search) ||
-      log.entityId?.toLowerCase().includes(search) ||
-      log.description?.toLowerCase().includes(search);
+      log.message?.toLowerCase().includes(search) ||
+      log.actor?.email?.toLowerCase().includes(search) ||
+      log.actor?.name?.toLowerCase().includes(search) ||
+      log.targetId?.toLowerCase().includes(search);
     return matchesFilter && (!search || matchesSearch);
   });
 
+  // 🔹 Toggle reviewed flag
   const handleMarkReviewed = async (id: string, reviewed: boolean) => {
-    await updateDoc(doc(db, "activityLogs", id), { reviewed });
-    setLogs((prev) =>
-      prev.map((l) => (l.id === id ? { ...l, reviewed } : l))
-    );
-    toast.success(reviewed ? "Marcat ca revizuit" : "Marcat ca nerevizuit");
+    try {
+      await updateDoc(doc(db, "activity", id), { reviewed });
+      setLogs((prev) =>
+        prev.map((l) => (l.id === id ? { ...l, reviewed } : l))
+      );
+      toast.success(reviewed ? "Marcat ca revizuit" : "Marcat ca nerevizuit");
+    } catch (err) {
+      console.error(err);
+      toast.error("Eroare la actualizarea stării!");
+    }
   };
 
+  // 🔹 Export CSV
   const exportCSV = () => {
-    const header = "Date,User,Type,Description,Entity,Reviewed\n";
+    const header = "Data,Tip,Mesaj,Email,Nume,Entitate,Revizuit\n";
     const rows = logs
-      .map(
-        (l) =>
-          `${l.createdAt?.seconds
+      .map((l) =>
+        [
+          l.createdAt?.seconds
             ? new Date(l.createdAt.seconds * 1000).toLocaleString("ro-RO")
-            : "-"
-          },${l.userName || "-"},${l.type || "-"},${l.description || ""},${
-            l.entityId || "-"
-          },${l.reviewed ? "Da" : "Nu"}`
+            : "-",
+          l.type || "-",
+          `"${l.message || ""}"`,
+          l.actor?.email || "-",
+          l.actor?.name || "-",
+          l.targetId || "-",
+          l.reviewed ? "Da" : "Nu",
+        ].join(",")
       )
       .join("\n");
+
     const blob = new Blob([header + rows], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -153,16 +161,13 @@ export default function AdminLogsPage() {
                 className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-400"
               >
                 <option value="">Toate</option>
-                <option value="user">User</option>
-                <option value="company">Companie</option>
-                <option value="request">Cerere</option>
-                <option value="payment">Plată</option>
-                <option value="message">Mesaj</option>
-                <option value="review">Recenzie</option>
+                <option value="verification">Verificare</option>
+                <option value="suspension">Suspendare</option>
+                <option value="reminder">Reminder</option>
                 <option value="admin">Admin</option>
               </select>
               <input
-                placeholder="Caută nume, email, ID..."
+                placeholder="Caută text, email, ID..."
                 onChange={(e) => setSearch(e.target.value.toLowerCase())}
                 className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-400"
               />
@@ -174,10 +179,11 @@ export default function AdminLogsPage() {
             <table className="w-full text-sm">
               <thead className="bg-emerald-50 text-gray-800">
                 <tr>
-                  <th className="p-3 border-b">Dată</th>
-                  <th className="p-3 border-b">Utilizator</th>
+                  <th className="p-3 border-b">Data</th>
                   <th className="p-3 border-b">Tip</th>
-                  <th className="p-3 border-b">Descriere</th>
+                  <th className="p-3 border-b">Mesaj</th>
+                  <th className="p-3 border-b">Email</th>
+                  <th className="p-3 border-b">Nume</th>
                   <th className="p-3 border-b text-center">Entitate</th>
                   <th className="p-3 border-b text-center">Revizuit</th>
                   <th className="p-3 border-b text-center">Acțiuni</th>
@@ -200,10 +206,6 @@ export default function AdminLogsPage() {
                             ).toLocaleString("ro-RO")
                           : "-"}
                       </td>
-                      <td className="p-3 border-b font-medium flex items-center gap-2">
-                        <User size={14} className="text-emerald-600" />
-                        {log.userName || "-"}
-                      </td>
                       <td className="p-3 border-b text-center text-gray-700">
                         <div className="inline-flex items-center gap-1">
                           <Icon size={14} className="text-emerald-600" />
@@ -211,10 +213,16 @@ export default function AdminLogsPage() {
                         </div>
                       </td>
                       <td className="p-3 border-b truncate max-w-[300px]">
-                        {log.description || "-"}
+                        {log.message || "-"}
+                      </td>
+                      <td className="p-3 border-b text-gray-700">
+                        {log.actor?.email || "-"}
+                      </td>
+                      <td className="p-3 border-b text-gray-700">
+                        {log.actor?.name || "-"}
                       </td>
                       <td className="p-3 border-b text-center text-gray-500">
-                        {log.entityId || "-"}
+                        {log.targetId || "-"}
                       </td>
                       <td className="p-3 border-b text-center">
                         {log.reviewed ? (
@@ -223,28 +231,22 @@ export default function AdminLogsPage() {
                             className="text-green-600 inline"
                           />
                         ) : (
-                          <XCircle
-                            size={16}
-                            className="text-red-500 inline"
-                          />
+                          <XCircle size={16} className="text-red-500 inline" />
                         )}
                       </td>
                       <td className="p-3 border-b text-center">
-                        {log.reviewed ? (
-                          <button
-                            onClick={() => handleMarkReviewed(log.id, false)}
-                            className="text-gray-500 hover:text-red-500"
-                          >
-                            <XCircle size={14} />
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => handleMarkReviewed(log.id, true)}
-                            className="text-emerald-600 hover:text-green-700"
-                          >
-                            <CheckCircle2 size={14} />
-                          </button>
-                        )}
+                        <button
+                          onClick={() =>
+                            handleMarkReviewed(log.id, !log.reviewed)
+                          }
+                          className={`text-sm font-medium ${
+                            log.reviewed
+                              ? "text-red-500 hover:text-red-700"
+                              : "text-emerald-600 hover:text-emerald-700"
+                          }`}
+                        >
+                          {log.reviewed ? "Anulează" : "Marchează"}
+                        </button>
                       </td>
                     </tr>
                   );

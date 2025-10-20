@@ -99,28 +99,31 @@ export default function AdminDashboardOverview() {
       }
 
       try {
-        const [compSnap, userSnap, reqSnap, paySnap, logSnap, msgSnap] =
-          await Promise.all([
-            getDocs(collection(db, "companies")),
-            getDocs(collection(db, "users")),
-            getDocs(collection(db, "requests")),
-            getDocs(collection(db, "payments")),
-            getDocs(
-              query(
-                collection(db, "activityLogs"),
-                orderBy("createdAt", "desc"),
-                limit(6)
-              )
-            ),
-            getDocs(collection(db, "messages")),
-          ]);
+        const [compSnap, userSnap, reqSnap, paySnap, logSnap, msgSnap] = await Promise.allSettled([
+          getDocs(collection(db, "companies")),
+          getDocs(collection(db, "users")),
+          getDocs(collection(db, "requests")),
+          getDocs(collection(db, "payments")),
+          getDocs(
+            query(
+              collection(db, "activity"),
+              orderBy("createdAt", "desc"),
+              limit(6)
+            )
+          ),
+          getDocs(collection(db, "messages")),
+        ]);
 
-        setCompanies(compSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-        setUsers(userSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-        setRequests(reqSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-        setPayments(paySnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-        setLogs(logSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-        setMessages(msgSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        // ✅ safely extract results (ignore failed ones)
+        const extract = (res: any) =>
+          res.status === "fulfilled" ? res.value.docs.map((d: any) => ({ id: d.id, ...d.data() })) : [];
+
+        setCompanies(extract(compSnap));
+        setUsers(extract(userSnap));
+        setRequests(extract(reqSnap));
+        setPayments(extract(paySnap));
+        setLogs(extract(logSnap));
+        setMessages(extract(msgSnap));
       } catch (err) {
         console.error(err);
         toast.error("Eroare la încărcarea dashboardului!");
