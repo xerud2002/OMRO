@@ -3,54 +3,63 @@ import { db } from "./firebase";
 import { User } from "firebase/auth";
 
 /**
- * Checks Firestore "users" collection for the given user
- * and redirects them based on their role.
- *
- * @param user - Firebase authenticated user
- * @param router - Next.js router instance (from useRouter())
+ * Handles redirecting users based on Firestore role or email overrides.
+ * Ensures admin accounts are always recognized and prevents duplicates.
  */
 export async function handleRoleRedirect(user: User, router: any) {
   try {
-    if (!user?.uid) {
-      console.warn("⚠️ No authenticated user found for role redirect.");
-      router.push("/customer/dashboard");
-      return;
-    }
-
     const userRef = doc(db, "users", user.uid);
     const snap = await getDoc(userRef);
 
-    let role = "customer"; // default
+    // ✅ Step 1: Special hardcoded override for admin email(s)
+    const adminEmails = ["admin@admin.ro", "admin@omro.ro"];
+    if (user.email && adminEmails.includes(user.email.toLowerCase())) {
+      // Ensure Firestore record exists with role "admin"
+      if (!snap.exists()) {
+        await setDoc(userRef, {
+          email: user.email,
+          name: user.displayName || "Administrator",
+          role: "admin",
+          createdAt: new Date(),
+        });
+      } else if (snap.data().role !== "admin") {
+        // Fix wrong role if it was set as customer accidentally
+        await setDoc(userRef, { role: "admin" }, { merge: true });
+      }
 
+      // ✅ Redirect to admin dashboard immediately
+      router.push("/admin/dashboard");
+      return;
+    }
+
+    // ✅ Step 2: Fallback — check Firestore for other users
+    let role = "customer";
     if (snap.exists()) {
       const data = snap.data();
-      role = (data.role as string) || "customer";
+      role = data.role || "customer";
     } else {
-      // 👤 First login — create default Firestore record
+      // Create default record only if not admin
       await setDoc(userRef, {
         email: user.email,
-        name: user.displayName || "",
         role,
         createdAt: new Date(),
       });
     }
 
-    // 🔁 Redirect based on role
+    // ✅ Step 3: Redirect based on Firestore role
     switch (role) {
       case "admin":
         router.push("/admin/dashboard");
         break;
-
       case "company":
         router.push("/company/dashboard");
         break;
-
       default:
         router.push("/customer/dashboard");
         break;
     }
   } catch (error) {
-    console.error("❌ Error in handleRoleRedirect:", error);
-    router.push("/customer/dashboard"); // fallback safe route
+    console.error("Error in handleRoleRedirect:", error);
+    router.push("/"); // fallback home redirect
   }
 }
