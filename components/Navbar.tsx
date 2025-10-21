@@ -4,17 +4,39 @@ import Link from "next/link";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, PhoneCall } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { onAuthChange } from "../utils/firebase";
+import { User } from "firebase/auth";
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
+  const router = useRouter();
 
-  // 🔹 Detect scroll to change background
+  // 🔹 Detect scroll for background transition
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 10);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  // 🔹 Track logged-in user
+  useEffect(() => {
+    const unsub = onAuthChange(setUser);
+    return () => unsub();
+  }, []);
+
+  // 🔹 Redirect logic for “Obține Oferte”
+  const handleGetOffers = () => {
+    if (user) {
+      router.push("/form");
+    } else {
+      localStorage.setItem("redirectAfterLogin", "form");
+      router.push("/customer/auth");
+    }
+    setIsOpen(false); // close mobile menu if open
+  };
 
   // 🔹 Navigation links
   const navLinks = [
@@ -62,13 +84,13 @@ export default function Navbar() {
           ))}
 
           {/* CTA: Obține Oferte */}
-          <Link
-            href="/form"
+          <button
+            onClick={handleGetOffers}
             className="ml-3 inline-flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-sky-500 text-white font-semibold px-5 py-2 rounded-full shadow-md hover:shadow-lg hover:scale-105 transition-all"
           >
             <PhoneCall size={18} />
-            Obține Oferte
-          </Link>
+            Cont Client
+          </button>
         </nav>
 
         {/* === MOBILE MENU BUTTON === */}
@@ -106,14 +128,14 @@ export default function Navbar() {
                 </Link>
               ))}
 
-              <Link
-                href="/form"
-                onClick={() => setIsOpen(false)}
+              {/* CTA Mobile */}
+              <button
+                onClick={handleGetOffers}
                 className="mt-3 inline-flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-500 to-sky-500 text-white font-semibold px-5 py-2 rounded-full shadow-md hover:shadow-lg transition-all"
               >
                 <PhoneCall size={18} />
                 Obține Oferte
-              </Link>
+              </button>
             </div>
           </motion.nav>
         )}

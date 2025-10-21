@@ -66,9 +66,13 @@ export default function HomePage() {
         <p className="text-lg md:text-xl text-white/90 mb-8">
           Compară oferte de la companii verificate și alege varianta ideală pentru mutarea ta.
         </p>
-        <button className="bg-gradient-to-r from-emerald-500 to-sky-500 text-white font-semibold px-8 py-3 rounded-full shadow-lg hover:scale-105 transition-transform">
+        <button
+          onClick={handleGetOffers}
+          className="bg-gradient-to-r from-emerald-500 to-sky-500 text-white font-semibold px-8 py-3 rounded-full shadow-lg hover:scale-105 transition-transform"
+        >
           Obține oferte acum
         </button>
+
       </div>
     </section>
       {/* STEPS SECTION */}
