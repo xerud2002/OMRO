@@ -1,4 +1,7 @@
 "use client";
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -35,7 +38,6 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const [pendingCompanies, setPendingCompanies] = useState<number>(0);
   const [newRequests, setNewRequests] = useState<number>(0);
 
-  // 🔹 Fetch badge counters (run once)
   useEffect(() => {
     const fetchCounts = async () => {
       try {
@@ -62,13 +64,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     fetchCounts();
   }, []);
 
-  // 🔹 Logout safely
   const handleLogout = async () => {
     await logout();
     router.replace("/company/auth");
   };
 
-  // === Sidebar Menu ===
   const sections = [
     {
       title: "General",
@@ -104,11 +104,12 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     },
   ];
 
-  // 🔹 Dynamic route matching helper
-  const isActive = (path: string) => pathname.startsWith(path);
+  // ✅ Safe navigation helper
+  const isActive = (path: string) => pathname?.startsWith(path) ?? false;
 
-  // 🔹 Header title resolver
+  // ✅ Safe title resolver
   const getHeaderTitle = () => {
+    if (!pathname) return "Admin Panel";
     if (pathname.startsWith("/admin/dashboard")) return "📊 Panou general";
     if (pathname.startsWith("/admin/companies")) return "🏢 Gestionare companii";
     if (pathname.startsWith("/admin/clients")) return "👥 Gestionare clienți";

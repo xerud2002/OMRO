@@ -1,4 +1,8 @@
 "use client";
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+export const revalidate = 0;
+
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { doc, getDoc } from "firebase/firestore";
@@ -16,35 +20,38 @@ export default function AdminProtectedRoute({
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
+    // ✅ Protect against running in non-browser environments (SSR build)
+    if (typeof window === "undefined") return;
+
     const unsub = onAuthChange(async (user) => {
-      try {
-        // 🚫 Not logged in
-        if (!user) {
-          toast.error("🔒 Trebuie să te autentifici ca admin.");
+      if (!user) {
+        // ✅ Use setTimeout to avoid router.replace being called before hydration
+        setTimeout(() => {
+          toast.error("Trebuie să te autentifici!");
           router.replace("/company/auth");
-          return;
-        }
+        }, 100);
+        setAuthChecked(true);
+        return;
+      }
 
-        // 🔍 Fetch role once
+      try {
         const userSnap = await getDoc(doc(db, "users", user.uid));
+        const role = userSnap.exists() ? userSnap.data()?.role : null;
 
-        if (!userSnap.exists()) {
-          toast.error("⛔ Contul tău nu există în baza de date.");
-          router.replace("/");
-          return;
-        }
-
-        const role = userSnap.data()?.role;
         if (role === "admin") {
           setIsAdmin(true);
         } else {
-          toast.error("⛔ Acces interzis! Doar adminii pot intra aici.");
-          router.replace("/");
+          setTimeout(() => {
+            toast.error("⛔ Acces interzis! Doar adminii pot intra aici.");
+            router.replace("/");
+          }, 100);
         }
       } catch (err) {
-        console.error("Eroare verificare admin:", err);
-        toast.error("Eroare la verificarea accesului.");
-        router.replace("/");
+        console.error("Eroare la verificarea accesului admin:", err);
+        setTimeout(() => {
+          toast.error("Eroare la verificare acces.");
+          router.replace("/");
+        }, 100);
       } finally {
         setAuthChecked(true);
       }
