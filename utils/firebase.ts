@@ -53,13 +53,16 @@ export const loginWithGoogle = async (roleHint?: "company" | "customer") => {
 
   if (!snap.exists()) {
     await setDoc(userRef, {
+      userId: user.uid,            // 👈 Needed for Firestore rules
       email: user.email,
+      name: user.displayName || "",
       role: roleHint || "customer",
       createdAt: new Date(),
     });
   }
   return result;
 };
+
 
 // Logout
 export const logout = async () => {
