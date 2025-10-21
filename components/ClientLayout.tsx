@@ -1,4 +1,5 @@
 "use client";
+
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
@@ -24,7 +25,7 @@ export default function ClientLayout({
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
 
-  // 🔹 Client navigation menu
+  // 🔹 Client navigation
   const menu = [
     {
       name: "Dashboard",
@@ -43,24 +44,29 @@ export default function ClientLayout({
     },
   ];
 
-  // 🔹 Logout handler
+  // 🔹 Logout with confirmation
   const handleLogout = async () => {
-    await logout();
-    router.push("/customer/auth");
+    if (confirm("Sigur vrei să te deconectezi?")) {
+      await logout();
+      router.push("/customer/auth");
+    }
   };
+
+  // 🔹 Path match helper
+  const isActive = (path: string) => pathname.startsWith(path);
 
   return (
     <div className="min-h-screen flex bg-gradient-to-br from-emerald-50 to-sky-50 text-gray-800">
       {/* === SIDEBAR === */}
       <aside
-        className={`fixed md:static top-0 left-0 h-full w-64 bg-white/80 backdrop-blur-xl shadow-xl flex flex-col justify-between rounded-r-3xl border-r border-emerald-100 transform transition-transform duration-300 ${
+        className={`fixed md:static top-0 left-0 h-full w-64 bg-white/90 backdrop-blur-lg shadow-xl flex flex-col justify-between rounded-r-3xl border-r border-emerald-100 transform transition-transform duration-300 ${
           isOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
         }`}
       >
-        {/* --- Sidebar Top --- */}
+        {/* --- Top Section --- */}
         <div>
-          {/* --- Header / Logo --- */}
-          <div className="p-6 text-2xl font-bold text-emerald-700 flex items-center justify-between">
+          {/* --- Logo --- */}
+          <div className="p-6 pb-4 text-2xl font-bold text-emerald-700 flex items-center justify-between border-b border-emerald-100">
             <div className="flex items-center gap-2">
               <Home className="text-emerald-600" size={26} />
               <span>ofertemutare.ro</span>
@@ -69,28 +75,29 @@ export default function ClientLayout({
               type="button"
               title="Închide meniul"
               aria-label="Închide meniul"
-              className="md:hidden text-gray-600 hover:text-emerald-700"
               onClick={() => setIsOpen(false)}
+              className="md:hidden text-gray-600 hover:text-emerald-700"
             >
               <X size={22} />
             </button>
           </div>
 
-          {/* --- Quick Action: New Request --- */}
-          <div className="px-6 mt-2 mb-6 text-center">
+          {/* --- New Request CTA --- */}
+          <div className="px-6 mt-4 mb-6 text-center">
             <Link
               href="/form"
-              className="inline-flex items-center justify-center gap-2 w-full bg-gradient-to-r from-emerald-500 to-sky-500 text-white px-4 py-2 rounded-2xl shadow-md hover:scale-[1.03] transition-all"
+              onClick={() => setIsOpen(false)}
+              className="inline-flex items-center justify-center gap-2 w-full bg-gradient-to-r from-emerald-500 to-sky-500 text-white px-4 py-2 rounded-2xl shadow-md hover:scale-[1.03] transition-all font-medium"
             >
               <PlusCircle size={18} />
-              <span className="font-medium">Comandă nouă</span>
+              <span>Comandă nouă</span>
             </Link>
           </div>
 
-          {/* --- Navigation --- */}
-          <nav className="mt-4 space-y-1">
+          {/* --- Menu Items --- */}
+          <nav className="mt-2">
             {menu.map((item) => {
-              const active = pathname === item.path;
+              const active = isActive(item.path);
               return (
                 <Link
                   key={item.path}
@@ -137,6 +144,20 @@ export default function ClientLayout({
 
       {/* === MAIN CONTENT === */}
       <main className="flex-1 p-6 md:p-10 w-full overflow-auto">
+        {/* Page Header */}
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold text-emerald-700 tracking-tight">
+            {pathname.startsWith("/customer/dashboard")
+              ? "📦 Panou general"
+              : pathname.startsWith("/customer/profile")
+              ? "👤 Profilul tău"
+              : pathname.startsWith("/customer/messages")
+              ? "💬 Mesajele tale"
+              : "Contul tău"}
+          </h2>
+        </div>
+
+        {/* Animated Page Content */}
         <AnimatePresence mode="wait">
           <motion.div
             key={pathname}

@@ -1,8 +1,16 @@
 "use client";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { auth, db, onAuthChange } from "../../utils/firebase";
-import { collection, query, where, getDocs, doc, getDoc, deleteDoc } from "firebase/firestore";
+import { db, onAuthChange } from "../../utils/firebase";
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  doc,
+  getDoc,
+  deleteDoc,
+} from "firebase/firestore";
 import { User } from "firebase/auth";
 import ClientLayout from "../../components/ClientLayout";
 import { motion } from "framer-motion";
@@ -28,12 +36,12 @@ export default function ClientDashboard() {
   const [tab, setTab] = useState("orders");
 
   const statusColors: Record<string, string> = {
-    "Nouă": "bg-blue-100 text-blue-800",
+    Nouă: "bg-blue-100 text-blue-800",
     "În lucru": "bg-yellow-100 text-yellow-800",
-    "Finalizată": "bg-green-100 text-green-800",
+    Finalizată: "bg-green-100 text-green-800",
   };
 
-  // 🔹 Auth check
+  // ✅ Check authentication
   useEffect(() => {
     const unsub = onAuthChange((u) => {
       if (!u) router.push("/customer/auth");
@@ -42,37 +50,57 @@ export default function ClientDashboard() {
     return () => unsub();
   }, [router]);
 
-  // 🔹 Load profile info
+  // ✅ Load profile info
   useEffect(() => {
     if (!user) return;
     const fetchProfile = async () => {
-      const snap = await getDoc(doc(db, "users", user.uid));
-      if (snap.exists()) setProfile(snap.data());
+      try {
+        const snap = await getDoc(doc(db, "users", user.uid));
+        if (snap.exists()) setProfile(snap.data());
+      } catch (err) {
+        console.error("❌ Eroare profil:", err);
+      }
     };
     fetchProfile();
   }, [user]);
 
-  // 🔹 Load client orders
+  // ✅ Load client orders safely
   useEffect(() => {
     if (!user) return;
     const fetchOrders = async () => {
       setLoading(true);
-      const q = query(collection(db, "requests"), where("userId", "==", user.uid));
-      const snap = await getDocs(q);
-      const list = snap.docs.map((d) => {
-        const data = d.data();
-        return {
-          id: d.id,
-          ...data,
-          createdAt: data.createdAt?.seconds
-            ? new Date(data.createdAt.seconds * 1000)
-            : null,
-        };
-      });
-      list.sort((a, b) => (b.createdAt?.getTime?.() || 0) - (a.createdAt?.getTime?.() || 0));
-      setOrders(list);
-      setLoading(false);
+      try {
+        const q = query(collection(db, "requests"), where("userId", "==", user.uid));
+        const snap = await getDocs(q);
+
+        const list = snap.docs.map((d) => {
+          const data = d.data();
+          return {
+            id: d.id,
+            ...data,
+            createdAt: data.createdAt?.seconds
+              ? new Date(data.createdAt.seconds * 1000)
+              : null,
+          };
+        });
+
+        list.sort(
+          (a, b) =>
+            (b.createdAt?.getTime?.() || 0) - (a.createdAt?.getTime?.() || 0)
+        );
+
+        setOrders(list);
+      } catch (err: any) {
+        console.warn("⚠️ Eroare la citirea comenzilor:", err);
+        // If permission denied, fallback to empty list instead of crash
+        if (err.code === "permission-denied") {
+          setOrders([]);
+        }
+      } finally {
+        setLoading(false);
+      }
     };
+
     fetchOrders();
   }, [user]);
 
@@ -127,9 +155,17 @@ export default function ClientDashboard() {
                 <Loader2 className="animate-spin mr-2" /> Se încarcă comenzile...
               </div>
             ) : orders.length === 0 ? (
-              <p className="text-center text-gray-500">
-                Nu ai trimis nicio cerere de mutare încă.
-              </p>
+              <div className="text-center py-10 text-gray-500">
+                <p className="text-lg">Nu ai trimis nicio cerere de mutare încă.</p>
+                <p className="text-sm mt-1">
+                  <button
+                    onClick={() => router.push("/form")}
+                    className="text-emerald-600 font-medium hover:underline"
+                  >
+                    Trimite o cerere nouă acum →
+                  </button>
+                </p>
+              </div>
             ) : (
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8 items-stretch">
                 {orders.map((order) => (
@@ -144,10 +180,13 @@ export default function ClientDashboard() {
                     {/* Header */}
                     <div className="flex justify-between mb-2">
                       <h3 className="text-emerald-700 font-semibold">
-                        {order.serviceType || "Mutare"} — {order.pickupCity} → {order.deliveryCity}
+                        {order.serviceType || "Mutare"} — {order.pickupCity} →{" "}
+                        {order.deliveryCity}
                       </h3>
                       <span className="text-xs text-gray-400">
-                        {order.createdAt ? order.createdAt.toLocaleDateString() : "-"}
+                        {order.createdAt
+                          ? order.createdAt.toLocaleDateString()
+                          : "-"}
                       </span>
                     </div>
 
@@ -155,7 +194,8 @@ export default function ClientDashboard() {
                     <div className="text-sm text-gray-700 space-y-1 mb-3">
                       <p className="flex items-center gap-1">
                         <CalendarDays size={14} className="text-emerald-500" />
-                        <strong>Data mutării:</strong> {order.moveDate || order.moveOption || "-"}
+                        <strong>Data mutării:</strong>{" "}
+                        {order.moveDate || order.moveOption || "-"}
                       </p>
                       <p className="flex items-center gap-1">
                         <Building2 size={14} className="text-emerald-500" />
@@ -198,7 +238,9 @@ export default function ClientDashboard() {
                         onClick={async () => {
                           if (confirm("Sigur vrei să ștergi această cerere?")) {
                             await deleteDoc(doc(db, "requests", order.id));
-                            setOrders((p) => p.filter((o) => o.id !== order.id));
+                            setOrders((p) =>
+                              p.filter((o) => o.id !== order.id)
+                            );
                           }
                         }}
                         className="flex-1 inline-flex items-center justify-center gap-1 bg-gradient-to-r from-red-500 to-red-600 text-white py-2 rounded-xl font-medium shadow hover:scale-[1.02] transition-all"
@@ -224,9 +266,15 @@ export default function ClientDashboard() {
             <h2 className="text-xl font-semibold text-emerald-700 mb-4 flex justify-center items-center gap-2">
               <UserIcon size={20} /> Detalii profil
             </h2>
-            <p><strong>Email:</strong> {profile?.email || user.email}</p>
-            <p><strong>Nume:</strong> {profile?.name || user.displayName || "-"}</p>
-            <p><strong>Telefon:</strong> {profile?.phone || "-"}</p>
+            <p>
+              <strong>Email:</strong> {profile?.email || user.email}
+            </p>
+            <p>
+              <strong>Nume:</strong> {profile?.name || user.displayName || "-"}
+            </p>
+            <p>
+              <strong>Telefon:</strong> {profile?.phone || "-"}
+            </p>
           </motion.div>
         )}
 
@@ -242,7 +290,8 @@ export default function ClientDashboard() {
               <MessageSquare size={20} /> Mesaje
             </h2>
             <p className="text-gray-600">
-              📩 Aici vor apărea mesajele companiilor de mutări care răspund la cererile tale.
+              📩 Aici vor apărea mesajele companiilor de mutări care răspund la
+              cererile tale.
             </p>
             <p className="text-sm text-gray-500 mt-2">
               Sugestie: poți adăuga un mini-chat pentru fiecare comandă.
