@@ -131,7 +131,7 @@ export default function AdminCompaniesPage() {
 
       toast.dismiss();
       toast.success(
-        newStatus ? "🚫 Compania a fost suspendată!" : "✅ Compania a fost reactivată!"
+        newStatus ? " Compania a fost suspendată!" : " Compania a fost reactivată!"
       );
     } catch (err) {
       console.error("Eroare la suspendare:", err);
