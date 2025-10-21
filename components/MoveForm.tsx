@@ -82,8 +82,17 @@ export default function MoveForm() {
 
   // ✅ Restore from localStorage
   useEffect(() => {
+    // If user navigated from "Comandă nouă", clear any old progress
+    const referrer = document.referrer || "";
+    if (referrer.includes("/customer")) {
+      localStorage.removeItem("moveFormStep");
+      localStorage.removeItem("moveFormData");
+    }
+
+    // Try restoring (only if not cleared)
     const savedStep = localStorage.getItem("moveFormStep");
     const savedData = localStorage.getItem("moveFormData");
+
     if (savedStep) setStep(Number(savedStep));
     if (savedData) {
       try {
@@ -92,8 +101,10 @@ export default function MoveForm() {
         console.warn("⚠️ Invalid saved data, resetting form");
       }
     }
+
     setHydrated(true);
   }, []);
+
 
   // ✅ Persist progress
   useEffect(() => {
