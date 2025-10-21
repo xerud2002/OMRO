@@ -1,5 +1,7 @@
 "use client";
 export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+export const revalidate = 0;
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
@@ -129,6 +131,11 @@ export default function AdminCompanyProfile() {
 
   if (!company) return null;
 
+  const documents =
+    company.documents && Array.isArray(company.documents)
+      ? company.documents
+      : [];
+
   return (
     <AdminProtectedRoute>
       <AdminLayout>
@@ -210,13 +217,13 @@ export default function AdminCompanyProfile() {
           )}
 
           {/* Documents */}
-          {Array.isArray(company.documents) && company.documents.length > 0 && (
+          {documents.length > 0 && (
             <div className="mt-10">
               <h2 className="font-semibold text-emerald-700 mb-3 flex items-center gap-2">
                 <FileText size={16} /> Documente încărcate
               </h2>
               <ul className="list-disc list-inside text-sm text-gray-700">
-                {company.documents.map((url: string, i: number) => (
+                {documents.map((url: string, i: number) => (
                   <li key={i}>
                     <a
                       href={url}

@@ -1,4 +1,8 @@
 "use client";
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+export const revalidate = 0;
+
 import { useEffect, useState } from "react";
 import { db, onAuthChange } from "../../utils/firebase";
 import {
@@ -38,7 +42,7 @@ import {
   MessageCircle,
   Mail,
   Factory,
-  Gift, // 🎁 nou
+  Gift,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import Link from "next/link";
@@ -86,46 +90,51 @@ export default function AdminDashboardOverview() {
   const [logs, setLogs] = useState<LogData[]>([]);
   const [messages, setMessages] = useState<MessageData[]>([]);
 
-  // 🔹 Load data
+  // 🔹 Load all admin data
   useEffect(() => {
     const unsub = onAuthChange(async (u) => {
-      if (!u) return router.push("/company/auth");
+      if (!u) {
+        router.push("/company/auth");
+        return;
+      }
 
-      const snap = await getDoc(doc(db, "users", u.uid));
-      if (!snap.exists() || snap.data().role !== "admin") {
+      const userSnap = await getDoc(doc(db, "users", u.uid));
+      if (!userSnap.exists() || userSnap.data().role !== "admin") {
         toast.error("⛔ Acces interzis!");
         router.push("/");
         return;
       }
 
       try {
-        const [compSnap, userSnap, reqSnap, paySnap, logSnap, msgSnap] = await Promise.allSettled([
-          getDocs(collection(db, "companies")),
-          getDocs(collection(db, "users")),
-          getDocs(collection(db, "requests")),
-          getDocs(collection(db, "payments")),
-          getDocs(
-            query(
-              collection(db, "activity"),
-              orderBy("createdAt", "desc"),
-              limit(6)
-            )
-          ),
-          getDocs(collection(db, "messages")),
-        ]);
+        const [compSnap, userSnap2, reqSnap, paySnap, logSnap, msgSnap] =
+          await Promise.allSettled([
+            getDocs(collection(db, "companies")),
+            getDocs(collection(db, "users")),
+            getDocs(collection(db, "requests")),
+            getDocs(collection(db, "payments")),
+            getDocs(
+              query(
+                collection(db, "activity"),
+                orderBy("createdAt", "desc"),
+                limit(6)
+              )
+            ),
+            getDocs(collection(db, "messages")),
+          ]);
 
-        // ✅ safely extract results (ignore failed ones)
-        const extract = (res: any) =>
-          res.status === "fulfilled" ? res.value.docs.map((d: any) => ({ id: d.id, ...d.data() })) : [];
+        const safeMap = (res: any) =>
+          res.status === "fulfilled"
+            ? res.value.docs.map((d: any) => ({ id: d.id, ...d.data() }))
+            : [];
 
-        setCompanies(extract(compSnap));
-        setUsers(extract(userSnap));
-        setRequests(extract(reqSnap));
-        setPayments(extract(paySnap));
-        setLogs(extract(logSnap));
-        setMessages(extract(msgSnap));
+        setCompanies(safeMap(compSnap));
+        setUsers(safeMap(userSnap2));
+        setRequests(safeMap(reqSnap));
+        setPayments(safeMap(paySnap));
+        setLogs(safeMap(logSnap));
+        setMessages(safeMap(msgSnap));
       } catch (err) {
-        console.error(err);
+        console.error("Eroare dashboard:", err);
         toast.error("Eroare la încărcarea dashboardului!");
       } finally {
         setLoading(false);
@@ -152,7 +161,6 @@ export default function AdminDashboardOverview() {
   const totalClients = users.filter((u) => u.role === "customer").length;
   const totalRequests = requests.length;
 
-  // ✅ FIXED totalRevenue
   const totalRevenue = payments.reduce((sum, p) => {
     if (typeof p.amount === "number") return sum + p.amount;
     if (typeof p.amount === "string") return sum + parseFloat(p.amount);
@@ -160,8 +168,6 @@ export default function AdminDashboardOverview() {
   }, 0);
 
   const totalMessages = messages.length;
-
-  // 🔹 NEW — Free Leads Stats
   const activeFreeCompanies = companies.filter((c) => (c.freeLeads ?? 0) > 0).length;
   const totalFreeLeads = companies.reduce((sum, c) => sum + (c.freeLeads ?? 0), 0);
 
@@ -198,9 +204,7 @@ export default function AdminDashboardOverview() {
       const d = new Date(p.createdAt.seconds * 1000);
       const key = `${d.getFullYear()}-${d.getMonth() + 1}`;
       const amount =
-        typeof p.amount === "number"
-          ? p.amount
-          : parseFloat(p.amount ?? "0");
+        typeof p.amount === "number" ? p.amount : parseFloat(p.amount ?? "0");
       monthlyRevenue[key] = (monthlyRevenue[key] || 0) + amount;
     }
   });
@@ -231,29 +235,15 @@ export default function AdminDashboardOverview() {
           <StatCard title="Cererile totale" value={totalRequests} icon={<ClipboardList />} color="from-emerald-400 to-green-600" />
           <StatCard title="Venit total (RON)" value={totalRevenue.toFixed(2)} icon={<Coins />} color="from-emerald-500 to-sky-600" />
           <StatCard title="Lead-uri gratuite active" value={`${activeFreeCompanies}/${totalFreeLeads}`} icon={<Gift />} color="from-pink-400 to-rose-600" />
-          <StatCard title="Conversații active" value={messages.length} icon={<MessageCircle />} color="from-indigo-400 to-purple-600" />
+          <StatCard title="Conversații active" value={totalMessages} icon={<MessageCircle />} color="from-indigo-400 to-purple-600" />
         </div>
-
-        {/* restul codului rămâne identic */}
-        {/* Charts, Activity Feed, Quick Links */}
-        {/* ... (nu modificăm nimic mai jos) */}
-
 
         {/* Charts */}
         <div className="grid md:grid-cols-3 gap-8 mb-12">
-          <ChartCard
-            title="Distribuția cererilor"
-            icon={<ClipboardList size={18} />}
-          >
+          <ChartCard title="Distribuția cererilor" icon={<ClipboardList size={18} />}>
             <ResponsiveContainer width="100%" height={220}>
               <PieChart>
-                <Pie
-                  data={pieData}
-                  dataKey="value"
-                  nameKey="name"
-                  outerRadius={80}
-                  label
-                >
+                <Pie data={pieData} dataKey="value" nameKey="name" outerRadius={80} label>
                   {pieData.map((d, i) => (
                     <Cell key={i} fill={d.color} />
                   ))}
@@ -316,9 +306,7 @@ export default function AdminDashboardOverview() {
                     </span>
                     <span className="text-xs text-gray-400">
                       {log.createdAt?.seconds
-                        ? new Date(
-                            log.createdAt.seconds * 1000
-                          ).toLocaleString("ro-RO")
+                        ? new Date(log.createdAt.seconds * 1000).toLocaleString("ro-RO")
                         : ""}
                     </span>
                   </li>
@@ -330,66 +318,16 @@ export default function AdminDashboardOverview() {
 
         {/* Quick Links */}
         <div className="grid sm:grid-cols-3 md:grid-cols-4 gap-6 mt-10">
-          <QuickLink
-            title="Companii"
-            path="/admin/companies"
-            icon={<Building2 />}
-            color="from-green-400 to-emerald-600"
-          />
-          <QuickLink
-            title="Cererile"
-            path="/admin/requests"
-            icon={<ClipboardList />}
-            color="from-yellow-400 to-orange-500"
-          />
-          <QuickLink
-            title="Mesaje"
-            path="/admin/messages"
-            icon={<MessageSquare />}
-            color="from-indigo-400 to-purple-600"
-          />
-          <QuickLink
-            title="Plăți"
-            path="/admin/payments"
-            icon={<Coins />}
-            color="from-emerald-500 to-sky-500"
-          />
-          <QuickLink
-            title="Statistici"
-            path="/admin/stats"
-            icon={<FileDown />}
-            color="from-blue-400 to-sky-500"
-          />
-          <QuickLink
-            title="Recenzii"
-            path="/admin/reviews"
-            icon={<Star />}
-            color="from-amber-400 to-orange-500"
-          />
-          <QuickLink
-            title="Suport"
-            path="/admin/support"
-            icon={<Mail />}
-            color="from-sky-400 to-blue-600"
-          />
-          <QuickLink
-            title="Setări"
-            path="/admin/settings"
-            icon={<Settings />}
-            color="from-gray-400 to-gray-600"
-          />
-          <QuickLink
-            title="Generator"
-            path="/admin/generator"
-            icon={<Factory />}
-            color="from-sky-400 to-indigo-600"
-          />
-          <QuickLink
-            title="Jurnal Activitate"
-            path="/admin/logs"
-            icon={<Activity />}
-            color="from-emerald-400 to-green-600"
-          />
+          <QuickLink title="Companii" path="/admin/companies" icon={<Building2 />} color="from-green-400 to-emerald-600" />
+          <QuickLink title="Cererile" path="/admin/requests" icon={<ClipboardList />} color="from-yellow-400 to-orange-500" />
+          <QuickLink title="Mesaje" path="/admin/messages" icon={<MessageSquare />} color="from-indigo-400 to-purple-600" />
+          <QuickLink title="Plăți" path="/admin/payments" icon={<Coins />} color="from-emerald-500 to-sky-500" />
+          <QuickLink title="Statistici" path="/admin/stats" icon={<FileDown />} color="from-blue-400 to-sky-500" />
+          <QuickLink title="Recenzii" path="/admin/reviews" icon={<Star />} color="from-amber-400 to-orange-500" />
+          <QuickLink title="Suport" path="/admin/support" icon={<Mail />} color="from-sky-400 to-blue-600" />
+          <QuickLink title="Setări" path="/admin/settings" icon={<Settings />} color="from-gray-400 to-gray-600" />
+          <QuickLink title="Generator" path="/admin/generator" icon={<Factory />} color="from-sky-400 to-indigo-600" />
+          <QuickLink title="Jurnal Activitate" path="/admin/logs" icon={<Activity />} color="from-emerald-400 to-green-600" />
         </div>
       </motion.div>
     </AdminLayout>

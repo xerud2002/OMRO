@@ -1,4 +1,8 @@
 "use client";
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+export const revalidate = 0;
+
 import { useEffect, useState } from "react";
 import { db, onAuthChange } from "../../utils/firebase";
 import {
@@ -34,10 +38,13 @@ export default function AdminCompaniesPage() {
   const [search, setSearch] = useState("");
   const [processingId, setProcessingId] = useState<string | null>(null);
 
-  // ✅ Verify admin and load companies
+  // 🔹 Verify admin and load companies
   useEffect(() => {
     const unsub = onAuthChange(async (u) => {
-      if (!u) return router.push("/company/auth");
+      if (!u) {
+        router.push("/company/auth");
+        return;
+      }
 
       try {
         const userSnap = await getDoc(doc(db, "users", u.uid));
@@ -55,10 +62,11 @@ export default function AdminCompaniesPage() {
         setLoading(false);
       }
     });
+
     return () => unsub();
   }, [router]);
 
-  // ✅ Load all companies
+  // 🔹 Load all companies
   const fetchCompanies = async () => {
     try {
       const snap = await getDocs(collection(db, "companies"));
@@ -70,7 +78,7 @@ export default function AdminCompaniesPage() {
     }
   };
 
-  // ✅ Toggle verification status
+  // 🔹 Toggle verification
   const toggleVerification = async (id: string, currentStatus: boolean, company: any) => {
     setProcessingId(id);
     try {
@@ -78,7 +86,7 @@ export default function AdminCompaniesPage() {
       await logActivity(
         "verification",
         `${!currentStatus ? "✅ Verificare" : "❌ Revocare"} companie: ${company.name}`,
-        { email: company.email, name: "Admin" },
+        { email: "admin@panel", name: "Admin" },
         id
       );
 
@@ -92,62 +100,55 @@ export default function AdminCompaniesPage() {
           : "Verificarea a fost revocată!"
       );
     } catch (err) {
-      console.error(" Eroare la actualizare:", err);
+      console.error("Eroare la actualizare:", err);
       toast.error("Eroare la actualizare statut!");
     } finally {
       setProcessingId(null);
     }
   };
 
-  // ✅ Suspend / Reinstate
+  // 🔹 Suspend / Reactivate
   const toggleSuspension = async (id: string, company: any) => {
-  setProcessingId(id);
-  try {
-    const newStatus = !company.suspended;
+    setProcessingId(id);
+    try {
+      const newStatus = !company.suspended;
 
-    toast.loading(
-      newStatus
-        ? "⏳ Se suspendă compania..."
-        : "⏳ Se reactivează compania..."
-    );
+      toast.loading(
+        newStatus ? "⏳ Se suspendă compania..." : "⏳ Se reactivează compania..."
+      );
 
-    await updateDoc(doc(db, "companies", id), { suspended: newStatus });
-    await logActivity(
-      "suspension",
-      `${newStatus ? "🚫 Suspendare" : "♻️ Reactivare"} pentru ${company.name}`,
-      { email: company.email, name: "Admin" },
-      id
-    );
+      await updateDoc(doc(db, "companies", id), { suspended: newStatus });
+      await logActivity(
+        "suspension",
+        `${newStatus ? "🚫 Suspendare" : "♻️ Reactivare"} pentru ${company.name}`,
+        { email: "admin@panel", name: "Admin" },
+        id
+      );
 
-    setCompanies((prev) =>
-      prev.map((c) =>
-        c.id === id ? { ...c, suspended: newStatus } : c
-      )
-    );
+      setCompanies((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, suspended: newStatus } : c))
+      );
 
-    toast.dismiss();
-    toast.success(
-      newStatus
-        ? " Compania a fost suspendată!"
-        : " Compania a fost reactivată!"
-    );
-  } catch (err) {
-    console.error("Eroare la suspendare:", err);
-    toast.dismiss();
-    toast.error("❌ Eroare la actualizare statut!");
-  } finally {
-    setProcessingId(null);
-  }
+      toast.dismiss();
+      toast.success(
+        newStatus ? "🚫 Compania a fost suspendată!" : "✅ Compania a fost reactivată!"
+      );
+    } catch (err) {
+      console.error("Eroare la suspendare:", err);
+      toast.dismiss();
+      toast.error("❌ Eroare la actualizare statut!");
+    } finally {
+      setProcessingId(null);
+    }
   };
 
-
-  // ✅ Send reminder
+  // 🔹 Send reminder
   const sendReminder = async (company: any) => {
     try {
       await logActivity(
         "reminder",
         `📩 Reminder trimis companiei ${company.name}`,
-        { email: company.email, name: "Admin" },
+        { email: "admin@panel", name: "Admin" },
         company.id
       );
       toast.success(`💬 Reminder trimis către ${company.name}`);
@@ -157,8 +158,9 @@ export default function AdminCompaniesPage() {
     }
   };
 
-  // ✅ Filtering
+  // 🔹 Filtering
   const filteredCompanies = companies.filter((c) => {
+    const lowerSearch = search.toLowerCase().trim();
     const matchesTab =
       tab === "verified"
         ? c.verified && !c.suspended
@@ -167,11 +169,12 @@ export default function AdminCompaniesPage() {
         : c.suspended;
 
     const matchesSearch =
-      c.name?.toLowerCase().includes(search) ||
-      c.email?.toLowerCase().includes(search) ||
-      c.counties?.join(",")?.toLowerCase().includes(search);
+      !lowerSearch ||
+      c.name?.toLowerCase().includes(lowerSearch) ||
+      c.email?.toLowerCase().includes(lowerSearch) ||
+      c.counties?.join(",").toLowerCase().includes(lowerSearch);
 
-    return matchesTab && (!search || matchesSearch);
+    return matchesTab && matchesSearch;
   });
 
   if (loading)
@@ -202,7 +205,7 @@ export default function AdminCompaniesPage() {
               <input
                 type="text"
                 placeholder="Caută companie..."
-                onChange={(e) => setSearch(e.target.value.toLowerCase())}
+                onChange={(e) => setSearch(e.target.value)}
                 className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-400"
               />
               <button
@@ -216,9 +219,24 @@ export default function AdminCompaniesPage() {
 
           {/* KPI Cards */}
           <div className="grid sm:grid-cols-3 gap-6 mb-10">
-            <KPI title="Verificate" value={companies.filter((c) => c.verified).length} color="green" icon={<CheckCircle2 />} />
-            <KPI title="În așteptare" value={companies.filter((c) => !c.verified && !c.suspended).length} color="yellow" icon={<XCircle />} />
-            <KPI title="Suspendate" value={companies.filter((c) => c.suspended).length} color="red" icon={<Ban />} />
+            <KPI
+              title="Verificate"
+              value={companies.filter((c) => c.verified).length}
+              color="green"
+              icon={<CheckCircle2 />}
+            />
+            <KPI
+              title="În așteptare"
+              value={companies.filter((c) => !c.verified && !c.suspended).length}
+              color="yellow"
+              icon={<XCircle />}
+            />
+            <KPI
+              title="Suspendate"
+              value={companies.filter((c) => c.suspended).length}
+              color="red"
+              icon={<Ban />}
+            />
           </div>
 
           {/* Tabs */}
@@ -337,7 +355,7 @@ export default function AdminCompaniesPage() {
   );
 }
 
-/* Small KPI badge component */
+/* ---------- KPI Card ---------- */
 function KPI({ title, value, color, icon }: any) {
   const colorMap: Record<string, string> = {
     green: "text-green-600 bg-green-50",

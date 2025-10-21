@@ -1,4 +1,8 @@
 "use client";
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+export const revalidate = 0;
+
 import { useEffect, useState } from "react";
 import { db, onAuthChange } from "../../utils/firebase";
 import {
@@ -14,7 +18,6 @@ import {
   orderBy,
 } from "firebase/firestore";
 import { useRouter } from "next/navigation";
-import { PieChart, Pie, Cell } from "recharts";
 import {
   Inbox,
   Handshake,
@@ -27,14 +30,11 @@ import {
   ClipboardList,
   Home,
   MapPin,
-  User,
-  ExternalLink,
-  ChevronLeft,
-  ChevronRight,
   Edit3,
   FileText,
   Clock,
-  Building2,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
@@ -52,41 +52,50 @@ export default function AdminRequestsPage() {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [notes, setNotes] = useState<string>("");
   const [timeline, setTimeline] = useState<any[]>([]);
-
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 10;
 
-  // Load everything
+  // 🔹 Load all data
   useEffect(() => {
     const unsub = onAuthChange(async (u) => {
       if (!u) return router.push("/company/auth");
-      const snap = await getDoc(doc(db, "users", u.uid));
-      if (!snap.exists() || snap.data().role !== "admin") {
+
+      const userSnap = await getDoc(doc(db, "users", u.uid));
+      if (!userSnap.exists() || userSnap.data().role !== "admin") {
         toast.error("⛔ Acces interzis!");
-        return router.push("/");
+        router.push("/");
+        return;
       }
 
-      const [reqSnap, compSnap] = await Promise.all([
-        getDocs(collection(db, "requests")),
-        getDocs(query(collection(db, "companies"), where("verified", "==", true))),
-      ]);
+      try {
+        const [reqSnap, compSnap] = await Promise.all([
+          getDocs(collection(db, "requests")),
+          getDocs(query(collection(db, "companies"), where("verified", "==", true))),
+        ]);
 
-      const merged = await Promise.all(
-        reqSnap.docs.map(async (r) => {
-          const data = r.data();
-          let requestId = data.requestId;
-          if (!requestId) {
-            requestId = `REQ-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
-            await updateDoc(doc(db, "requests", r.id), { requestId });
-          }
-          return { id: r.id, requestId, ...data };
-        })
-      );
+        // Generate missing requestId safely
+        const merged = await Promise.all(
+          reqSnap.docs.map(async (r) => {
+            const data = r.data();
+            let requestId = data.requestId;
+            if (!requestId) {
+              requestId = `REQ-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
+              await updateDoc(doc(db, "requests", r.id), { requestId });
+            }
+            return { id: r.id, requestId, ...data };
+          })
+        );
 
-      setRequests(merged);
-      setCompanies(compSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
-      setLoading(false);
+        setRequests(merged);
+        setCompanies(compSnap.docs.map((d) => ({ id: d.id, ...d.data() })));
+      } catch (err) {
+        console.error("Eroare la încărcarea cererilor:", err);
+        toast.error("Eroare la încărcarea datelor!");
+      } finally {
+        setLoading(false);
+      }
     });
+
     return () => unsub();
   }, [router]);
 
@@ -99,7 +108,7 @@ export default function AdminRequestsPage() {
       </AdminLayout>
     );
 
-  const total = requests.length || 1;
+  // ---------- Stats ----------
   const stats = {
     noua: requests.filter((r) => r.status === "noua").length,
     in_interes: requests.filter((r) => r.status === "in_interes").length,
@@ -116,64 +125,87 @@ export default function AdminRequestsPage() {
     { name: "Expirată", value: stats.expirata, color: "#9CA3AF", icon: Clock },
   ];
 
+  // ---------- Filters & Search ----------
+  const lowerSearch = search.trim().toLowerCase();
   const filtered = requests.filter((r) => {
-    const f = filter ? r.status === filter : true;
-    const s =
-      r.customerName?.toLowerCase().includes(search) ||
-      r.email?.toLowerCase().includes(search) ||
-      r.pickupCity?.toLowerCase().includes(search) ||
-      r.deliveryCity?.toLowerCase().includes(search);
-    return f && (!search || s);
+    const matchStatus = filter ? r.status === filter : true;
+    const matchSearch =
+      !lowerSearch ||
+      r.customerName?.toLowerCase().includes(lowerSearch) ||
+      r.email?.toLowerCase().includes(lowerSearch) ||
+      r.pickupCity?.toLowerCase().includes(lowerSearch) ||
+      r.deliveryCity?.toLowerCase().includes(lowerSearch);
+    return matchStatus && matchSearch;
   });
 
-  // Pagination
+  // ---------- Pagination ----------
+  const totalPages = Math.ceil(filtered.length / rowsPerPage);
   const indexOfLast = currentPage * rowsPerPage;
   const indexOfFirst = indexOfLast - rowsPerPage;
   const currentRows = filtered.slice(indexOfFirst, indexOfLast);
-  const totalPages = Math.ceil(filtered.length / rowsPerPage);
 
-  // 🔹 Quick status update
+  // ---------- Status update ----------
   const handleStatusChange = async (id: string, newStatus: string) => {
-    await updateDoc(doc(db, "requests", id), { status: newStatus });
-    await addActivity(id, `Status schimbat la: ${newStatus}`);
-    setRequests((p) => p.map((r) => (r.id === id ? { ...r, status: newStatus } : r)));
-    toast.success(`✅ Status actualizat la "${newStatus}"`);
+    try {
+      await updateDoc(doc(db, "requests", id), { status: newStatus });
+      await addActivity(id, `Status schimbat la: ${newStatus}`);
+      setRequests((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, status: newStatus } : r))
+      );
+      toast.success(`✅ Status actualizat: ${newStatus}`);
+    } catch (err) {
+      console.error("Eroare actualizare:", err);
+      toast.error("Eroare la actualizarea statusului!");
+    }
   };
 
-  // 🔹 Assign company
+  // ---------- Assign company ----------
   const handleAssignCompany = async (id: string, compId: string) => {
     const comp = companies.find((c) => c.id === compId);
     if (!comp) return;
-    await updateDoc(doc(db, "requests", id), {
-      assignedCompany: comp.name,
-      assignedCompanyId: comp.id,
-      status: "in_interes",
-    });
-    await addActivity(id, `Cererea atribuită companiei: ${comp.name}`);
-    setRequests((p) =>
-      p.map((r) =>
-        r.id === id
-          ? { ...r, assignedCompany: comp.name, assignedCompanyId: comp.id, status: "in_interes" }
-          : r
-      )
-    );
-    toast.success(`🏢 Cererea atribuită: ${comp.name}`);
+    try {
+      await updateDoc(doc(db, "requests", id), {
+        assignedCompany: comp.name,
+        assignedCompanyId: comp.id,
+        status: "in_interes",
+      });
+      await addActivity(id, `Cererea atribuită companiei: ${comp.name}`);
+      setRequests((p) =>
+        p.map((r) =>
+          r.id === id
+            ? { ...r, assignedCompany: comp.name, assignedCompanyId: comp.id, status: "in_interes" }
+            : r
+        )
+      );
+      toast.success(`🏢 Cererea atribuită: ${comp.name}`);
+    } catch (err) {
+      console.error("Eroare atribuire:", err);
+      toast.error("Eroare la atribuirea companiei!");
+    }
   };
 
-  // 🔹 Notes modal
+  // ---------- Notes ----------
   const openNotes = async (req: any) => {
     setSelected(req);
-    const q = query(collection(db, "requests", req.id, "history"), orderBy("createdAt", "desc"));
-    const snap = await getDocs(q);
-    setTimeline(snap.docs.map((d) => d.data()));
+    try {
+      const q = query(collection(db, "requests", req.id, "history"), orderBy("createdAt", "desc"));
+      const snap = await getDocs(q);
+      setTimeline(snap.docs.map((d) => d.data()));
+    } catch (err) {
+      toast.error("Eroare la încărcarea notelor!");
+    }
   };
 
   const addNote = async () => {
     if (!notes.trim() || !selected) return;
-    await addActivity(selected.id, notes);
-    setNotes("");
-    toast.success("🗒 Notă adăugată");
-    openNotes(selected);
+    try {
+      await addActivity(selected.id, notes);
+      setNotes("");
+      toast.success("🗒 Notă adăugată");
+      openNotes(selected);
+    } catch (err) {
+      toast.error("Eroare la adăugarea notei!");
+    }
   };
 
   const addActivity = async (reqId: string, text: string) => {
@@ -186,12 +218,18 @@ export default function AdminRequestsPage() {
   const deleteRequest = async (id: string) => {
     if (!confirm("Sigur vrei să ștergi această cerere?")) return;
     setProcessingId(id);
-    await deleteDoc(doc(db, "requests", id));
-    setRequests((p) => p.filter((r) => r.id !== id));
-    setProcessingId(null);
-    toast.success("🗑️ Cererea ștearsă");
+    try {
+      await deleteDoc(doc(db, "requests", id));
+      setRequests((p) => p.filter((r) => r.id !== id));
+      toast.success("🗑️ Cererea ștearsă");
+    } catch (err) {
+      toast.error("Eroare la ștergere!");
+    } finally {
+      setProcessingId(null);
+    }
   };
 
+  // ---------- UI ----------
   return (
     <AdminProtectedRoute>
       <AdminLayout>
@@ -205,7 +243,7 @@ export default function AdminRequestsPage() {
             📦 Panou Admin – Cereri Clienți
           </h1>
 
-          {/* KPI */}
+          {/* KPI Section */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-6 mb-12">
             {chartData.map((c) => {
               const Icon = c.icon;
@@ -225,7 +263,7 @@ export default function AdminRequestsPage() {
             })}
           </div>
 
-          {/* Filter */}
+          {/* Filters */}
           <div className="flex flex-col sm:flex-row justify-between items-center gap-3 mb-5">
             <div className="flex items-center gap-2 text-emerald-700 font-semibold">
               <ClipboardList size={20} /> Cereri înregistrate
@@ -237,7 +275,7 @@ export default function AdminRequestsPage() {
                   type="text"
                   placeholder="Caută client, oraș..."
                   className="pl-9 pr-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-emerald-400"
-                  onChange={(e) => setSearch(e.target.value.toLowerCase())}
+                  onChange={(e) => setSearch(e.target.value)}
                 />
               </div>
               <select
@@ -340,7 +378,10 @@ export default function AdminRequestsPage() {
                       </button>
                       <button
                         onClick={() => deleteRequest(r.id)}
-                        className="text-gray-500 hover:text-red-600"
+                        disabled={processingId === r.id}
+                        className={`text-gray-500 hover:text-red-600 ${
+                          processingId === r.id ? "opacity-50 cursor-not-allowed" : ""
+                        }`}
                       >
                         <Trash2 size={15} />
                       </button>

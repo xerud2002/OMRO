@@ -141,9 +141,12 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             </div>
             <button
               type="button"
+              title="Close menu"
+              aria-label="Close menu"
               className="md:hidden text-gray-600 hover:text-emerald-700"
               onClick={() => setIsOpen(false)}
             >
+              <span className="sr-only">Close menu</span>
               <X size={22} />
             </button>
           </div>
@@ -202,8 +205,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       {/* === MOBILE MENU BUTTON === */}
       <button
         onClick={() => setIsOpen(true)}
+        title="Open menu"
+        aria-label="Open menu"
         className="md:hidden fixed top-4 left-4 bg-gradient-to-r from-emerald-500 to-sky-500 text-white p-2 rounded-lg shadow-lg z-50"
       >
+        <span className="sr-only">Open menu</span>
         <Menu size={22} />
       </button>
 

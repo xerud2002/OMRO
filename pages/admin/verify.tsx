@@ -1,4 +1,8 @@
 "use client";
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+export const revalidate = 0;
+
 import { useEffect, useState } from "react";
 import { db, onAuthChange } from "../../utils/firebase";
 import {
@@ -16,7 +20,6 @@ import {
   Loader2,
   Ban,
   CheckCircle2,
-  FileText,
   Eye,
 } from "lucide-react";
 import AdminLayout from "../../components/AdminLayout";
@@ -48,7 +51,7 @@ export default function AdminVerifyPage() {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
 
-  // 🔹 Load only pending companies
+  // 🔹 Load pending companies for verification
   useEffect(() => {
     const unsub = onAuthChange(async (u) => {
       if (!u) {
@@ -63,17 +66,24 @@ export default function AdminVerifyPage() {
         return;
       }
 
-      const snap = await getDocs(collection(db, "companies"));
-      const pending: CompanyData[] = snap.docs
-        .map((d) => ({
-          id: d.id,
-          ...(d.data() as Omit<CompanyData, "id">),
-        }))
-        .filter((c) => c.submittedForVerification && !c.verified);
+      try {
+        const snap = await getDocs(collection(db, "companies"));
+        const pending: CompanyData[] = snap.docs
+          .map((d) => ({
+            id: d.id,
+            ...(d.data() as Omit<CompanyData, "id">),
+          }))
+          .filter((c) => c.submittedForVerification && !c.verified);
 
-      setCompanies(pending);
-      setLoading(false);
+        setCompanies(pending);
+      } catch (err) {
+        console.error("Eroare la încărcarea companiilor:", err);
+        toast.error("Eroare la încărcarea companiilor!");
+      } finally {
+        setLoading(false);
+      }
     });
+
     return () => unsub();
   }, [router]);
 
@@ -86,12 +96,14 @@ export default function AdminVerifyPage() {
         submittedForVerification: false,
         verifiedAt: new Date(),
       });
+
       await logActivity(
         "verify_approve",
         `Compania ${name || "-"} a fost verificată cu succes.`,
         { name },
         id
       );
+
       setCompanies((prev) => prev.filter((c) => c.id !== id));
       toast.success(`✅ ${name} a fost verificată!`);
     } catch (err) {
@@ -104,7 +116,11 @@ export default function AdminVerifyPage() {
 
   // ❌ Reject company
   const rejectCompany = async (id: string, name?: string) => {
-    if (!rejectReason.trim()) return toast.error("Adaugă un motiv de respingere!");
+    if (!rejectReason.trim()) {
+      toast.error("Adaugă un motiv de respingere!");
+      return;
+    }
+
     setProcessingId(id);
     try {
       await updateDoc(doc(db, "companies", id), {
@@ -112,17 +128,20 @@ export default function AdminVerifyPage() {
         rejectReason,
         submittedForVerification: false,
       });
+
       await logActivity(
         "verify_reject",
         `Compania ${name || "-"} a fost respinsă: ${rejectReason}`,
         { name },
         id
       );
+
       setCompanies((prev) => prev.filter((c) => c.id !== id));
       toast.success(`❌ ${name} a fost respinsă.`);
       setRejectingId(null);
       setRejectReason("");
     } catch (err) {
+      console.error("Eroare la respingere:", err);
       toast.error("Eroare la respingere!");
     } finally {
       setProcessingId(null);
@@ -182,34 +201,37 @@ export default function AdminVerifyPage() {
                           : "-"}
                       </td>
                       <td className="p-3 border-b text-sm space-y-1">
-                        {c.documents?.insurance && (
-                          <a
-                            href={c.documents.insurance}
-                            target="_blank"
-                            className="block text-sky-600 hover:underline"
-                          >
-                            📄 Asigurare
-                          </a>
-                        )}
-                        {c.documents?.certificate && (
-                          <a
-                            href={c.documents.certificate}
-                            target="_blank"
-                            className="block text-sky-600 hover:underline"
-                          >
-                            🧾 Certificat
-                          </a>
-                        )}
-                        {c.documents?.id && (
-                          <a
-                            href={c.documents.id}
-                            target="_blank"
-                            className="block text-sky-600 hover:underline"
-                          >
-                            🪪 ID
-                          </a>
-                        )}
-                        {!c.documents && (
+                        {c.documents ? (
+                          <>
+                            {c.documents.insurance && (
+                              <a
+                                href={c.documents.insurance}
+                                target="_blank"
+                                className="block text-sky-600 hover:underline"
+                              >
+                                📄 Asigurare
+                              </a>
+                            )}
+                            {c.documents.certificate && (
+                              <a
+                                href={c.documents.certificate}
+                                target="_blank"
+                                className="block text-sky-600 hover:underline"
+                              >
+                                🧾 Certificat
+                              </a>
+                            )}
+                            {c.documents.id && (
+                              <a
+                                href={c.documents.id}
+                                target="_blank"
+                                className="block text-sky-600 hover:underline"
+                              >
+                                🪪 ID
+                              </a>
+                            )}
+                          </>
+                        ) : (
                           <span className="text-gray-400">–</span>
                         )}
                       </td>
@@ -224,16 +246,12 @@ export default function AdminVerifyPage() {
                             <textarea
                               placeholder="Motiv respingere..."
                               value={rejectReason}
-                              onChange={(e) =>
-                                setRejectReason(e.target.value)
-                              }
+                              onChange={(e) => setRejectReason(e.target.value)}
                               className="border border-gray-300 rounded-lg px-2 py-1 w-48 text-xs"
                             />
                             <div className="flex gap-2">
                               <button
-                                onClick={() =>
-                                  rejectCompany(c.id, c.name)
-                                }
+                                onClick={() => rejectCompany(c.id, c.name)}
                                 className="bg-red-500 text-white px-3 py-1 rounded-lg text-xs"
                               >
                                 Confirmă

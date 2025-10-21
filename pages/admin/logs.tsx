@@ -1,4 +1,8 @@
 "use client";
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+export const revalidate = 0;
+
 import { useEffect, useState } from "react";
 import { db, onAuthChange } from "../../utils/firebase";
 import {
@@ -43,7 +47,10 @@ export default function AdminLogsPage() {
   // 🔹 Load all activity logs
   useEffect(() => {
     const unsub = onAuthChange(async (u) => {
-      if (!u) return router.push("/company/auth");
+      if (!u) {
+        router.push("/company/auth");
+        return;
+      }
 
       try {
         const q = query(collection(db, "activity"), orderBy("createdAt", "desc"));
@@ -57,18 +64,23 @@ export default function AdminLogsPage() {
         setLoading(false);
       }
     });
+
     return () => unsub();
   }, [router]);
 
   // 🔹 Filter & search
   const filtered = logs.filter((log) => {
     const matchesFilter = filter ? log.type === filter : true;
+    const searchTerm = search.trim().toLowerCase();
+
     const matchesSearch =
-      log.message?.toLowerCase().includes(search) ||
-      log.actor?.email?.toLowerCase().includes(search) ||
-      log.actor?.name?.toLowerCase().includes(search) ||
-      log.targetId?.toLowerCase().includes(search);
-    return matchesFilter && (!search || matchesSearch);
+      !searchTerm ||
+      log.message?.toLowerCase().includes(searchTerm) ||
+      log.actor?.email?.toLowerCase().includes(searchTerm) ||
+      log.actor?.name?.toLowerCase().includes(searchTerm) ||
+      log.targetId?.toLowerCase().includes(searchTerm);
+
+    return matchesFilter && matchesSearch;
   });
 
   // 🔹 Toggle reviewed flag
@@ -80,36 +92,41 @@ export default function AdminLogsPage() {
       );
       toast.success(reviewed ? "Marcat ca revizuit" : "Marcat ca nerevizuit");
     } catch (err) {
-      console.error(err);
+      console.error("Eroare la actualizarea stării:", err);
       toast.error("Eroare la actualizarea stării!");
     }
   };
 
   // 🔹 Export CSV
   const exportCSV = () => {
-    const header = "Data,Tip,Mesaj,Email,Nume,Entitate,Revizuit\n";
-    const rows = logs
-      .map((l) =>
-        [
-          l.createdAt?.seconds
-            ? new Date(l.createdAt.seconds * 1000).toLocaleString("ro-RO")
-            : "-",
-          l.type || "-",
-          `"${l.message || ""}"`,
-          l.actor?.email || "-",
-          l.actor?.name || "-",
-          l.targetId || "-",
-          l.reviewed ? "Da" : "Nu",
-        ].join(",")
-      )
-      .join("\n");
+    try {
+      const header = "Data,Tip,Mesaj,Email,Nume,Entitate,Revizuit\n";
+      const rows = logs
+        .map((l) =>
+          [
+            l.createdAt?.seconds
+              ? new Date(l.createdAt.seconds * 1000).toLocaleString("ro-RO")
+              : "-",
+            l.type || "-",
+            `"${l.message?.replace(/"/g, '""') || ""}"`,
+            l.actor?.email || "-",
+            l.actor?.name || "-",
+            l.targetId || "-",
+            l.reviewed ? "Da" : "Nu",
+          ].join(",")
+        )
+        .join("\n");
 
-    const blob = new Blob([header + rows], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "activity_logs.csv";
-    a.click();
+      const blob = new Blob([header + rows], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "activity_logs.csv";
+      a.click();
+    } catch (err) {
+      console.error("Eroare la export CSV:", err);
+      toast.error("Eroare la export!");
+    }
   };
 
   if (loading)
@@ -189,7 +206,7 @@ export default function AdminLogsPage() {
               </select>
               <input
                 placeholder="Caută text, email, ID..."
-                onChange={(e) => setSearch(e.target.value.toLowerCase())}
+                onChange={(e) => setSearch(e.target.value)}
                 className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-400"
               />
             </div>
@@ -213,8 +230,7 @@ export default function AdminLogsPage() {
               <tbody>
                 {filtered.map((log) => {
                   const Icon = typeIcons[log.type] || Activity;
-                  const color =
-                    typeColors[log.type] || typeColors.default;
+                  const color = typeColors[log.type] || typeColors.default;
 
                   return (
                     <tr
@@ -225,9 +241,7 @@ export default function AdminLogsPage() {
                     >
                       <td className="p-3 border-b text-xs text-gray-500">
                         {log.createdAt?.seconds
-                          ? new Date(
-                              log.createdAt.seconds * 1000
-                            ).toLocaleString("ro-RO")
+                          ? new Date(log.createdAt.seconds * 1000).toLocaleString("ro-RO")
                           : "-"}
                       </td>
                       <td className="p-3 border-b text-left">
@@ -241,30 +255,19 @@ export default function AdminLogsPage() {
                       <td className="p-3 border-b text-gray-700 truncate max-w-[320px]">
                         {log.message || "-"}
                       </td>
-                      <td className="p-3 border-b text-gray-700">
-                        {log.actor?.email || "-"}
-                      </td>
-                      <td className="p-3 border-b text-gray-700">
-                        {log.actor?.name || "-"}
-                      </td>
-                      <td className="p-3 border-b text-center text-gray-500">
-                        {log.targetId || "-"}
-                      </td>
+                      <td className="p-3 border-b text-gray-700">{log.actor?.email || "-"}</td>
+                      <td className="p-3 border-b text-gray-700">{log.actor?.name || "-"}</td>
+                      <td className="p-3 border-b text-center text-gray-500">{log.targetId || "-"}</td>
                       <td className="p-3 border-b text-center">
                         {log.reviewed ? (
-                          <CheckCircle2
-                            size={16}
-                            className="text-green-600 inline"
-                          />
+                          <CheckCircle2 size={16} className="text-green-600 inline" />
                         ) : (
                           <XCircle size={16} className="text-red-500 inline" />
                         )}
                       </td>
                       <td className="p-3 border-b text-center">
                         <button
-                          onClick={() =>
-                            handleMarkReviewed(log.id, !log.reviewed)
-                          }
+                          onClick={() => handleMarkReviewed(log.id, !log.reviewed)}
                           className={`text-sm font-medium ${
                             log.reviewed
                               ? "text-red-500 hover:text-red-700"
