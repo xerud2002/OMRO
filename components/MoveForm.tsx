@@ -21,7 +21,6 @@ import StepDismantling from "../components/formSteps/StepDismantling";
 import StepSurvey from "../components/formSteps/StepSurvey";
 import StepContact from "../components/formSteps/StepContact";
 
-// 🧭 Step titles
 const steps = [
   "Tip serviciu",
   "Dimensiunea mutării",
@@ -40,6 +39,13 @@ export default function MoveForm() {
   const [hydrated, setHydrated] = useState(false);
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [user, setUser] = useState<any>(null);
+
+  // ✅ Watch Firebase Auth user
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((u) => setUser(u));
+    return () => unsubscribe();
+  }, []);
 
   // ✅ Default form data
   const defaultFormData = {
@@ -114,12 +120,10 @@ export default function MoveForm() {
       </div>
     );
 
-  // 🔹 Update field helper
   const handleChange = (field: string, value: any) => {
     setFormData((prev: any) => ({ ...prev, [field]: value }));
   };
 
-  // 🔹 Validation by step
   const validateStep = () => {
     const requiredFields: Record<number, string[]> = {
       0: ["serviceType"],
@@ -140,13 +144,12 @@ export default function MoveForm() {
     return true;
   };
 
-  // 🔹 Navigation
   const nextStep = () => {
     if (validateStep()) setStep((prev) => Math.min(prev + 1, steps.length - 1));
   };
   const prevStep = () => setStep((prev) => Math.max(prev - 1, 0));
 
-  // 🔹 Upload file helper with progress
+  // 🔹 Upload file helper
   const uploadWithProgress = (file: File) =>
     new Promise<string>((resolve, reject) => {
       const storageRef = ref(storage, `uploads/${Date.now()}-${file.name}`);
@@ -162,6 +165,14 @@ export default function MoveForm() {
   // ✅ Submit handler
   const handleSubmit = async () => {
     if (submitting) return;
+
+    // 🔒 Ensure user is logged in
+    if (!auth.currentUser) {
+      toast.error("Trebuie să fii autentificat pentru a trimite o cerere.");
+      router.push("/customer/auth");
+      return;
+    }
+
     setSubmitting(true);
     toast.loading("Se trimite cererea...");
 
@@ -183,30 +194,30 @@ export default function MoveForm() {
         exists = checkDoc.exists();
       } while (exists);
 
-      // 🔹 Save request
+      // 🔹 Save request with userId and timestamp
+      const currentUser = auth.currentUser;
       await setDoc(doc(db, "requests", shortId), {
         ...formData,
         media: mediaUrls,
-        userId: auth.currentUser?.uid || null,
+        userId: currentUser?.uid ?? null,
         createdAt: Timestamp.now(),
         status: "Nouă",
         requestId: shortId,
       });
 
-      // 🔹 Save user contact if logged in
-      if (auth.currentUser) {
-        await setDoc(
-          doc(db, "users", auth.currentUser.uid),
-          {
-            name: formData.name,
-            phone: formData.phone,
-            email: formData.email,
-          },
-          { merge: true }
-        );
-      }
+      // 🔹 Save user contact
+      await setDoc(
+        doc(db, "users", currentUser!.uid),
+        {
+          name: formData.name,
+          phone: formData.phone,
+          email: formData.email,
+          updatedAt: Timestamp.now(),
+        },
+        { merge: true }
+      );
 
-      // 🔹 Send upload link if “media later”
+      // 🔹 Optional EmailJS for upload link
       if (formData.survey === "media_later" && formData.email) {
         const uploadLink = `${window.location.origin}/upload/${shortId}`;
         await emailjs.send(
@@ -223,7 +234,7 @@ export default function MoveForm() {
 
       toast.dismiss();
       toast.success("✅ Cererea ta a fost trimisă cu succes!");
-      setTimeout(() => router.push("/customer/dashboard"), 1800);
+      setTimeout(() => router.push("/customer/dashboard"), 1500);
 
       // 🔹 Reset form
       setFormData(defaultFormData);
@@ -242,28 +253,17 @@ export default function MoveForm() {
   // 🔹 Step renderer
   const renderStep = () => {
     switch (step) {
-      case 0:
-        return <StepService formData={formData} handleChange={handleChange} />;
-      case 1:
-        return <StepProperty formData={formData} handleChange={handleChange} />;
-      case 2:
-        return <StepPickupAddress formData={formData} handleChange={handleChange} />;
-      case 3:
-        return <StepDeliveryProperty formData={formData} handleChange={handleChange} />;
-      case 4:
-        return <StepDeliveryAddress formData={formData} handleChange={handleChange} />;
-      case 5:
-        return <StepMoveDate formData={formData} handleChange={handleChange} />;
-      case 6:
-        return <StepPacking formData={formData} handleChange={handleChange} />;
-      case 7:
-        return <StepDismantling formData={formData} handleChange={handleChange} />;
-      case 8:
-        return <StepSurvey formData={formData} handleChange={handleChange} setFormData={setFormData} />;
-      case 9:
-        return <StepContact formData={formData} handleChange={handleChange} />;
-      default:
-        return null;
+      case 0: return <StepService formData={formData} handleChange={handleChange} />;
+      case 1: return <StepProperty formData={formData} handleChange={handleChange} />;
+      case 2: return <StepPickupAddress formData={formData} handleChange={handleChange} />;
+      case 3: return <StepDeliveryProperty formData={formData} handleChange={handleChange} />;
+      case 4: return <StepDeliveryAddress formData={formData} handleChange={handleChange} />;
+      case 5: return <StepMoveDate formData={formData} handleChange={handleChange} />;
+      case 6: return <StepPacking formData={formData} handleChange={handleChange} />;
+      case 7: return <StepDismantling formData={formData} handleChange={handleChange} />;
+      case 8: return <StepSurvey formData={formData} handleChange={handleChange} setFormData={setFormData} />;
+      case 9: return <StepContact formData={formData} handleChange={handleChange} />;
+      default: return null;
     }
   };
 
