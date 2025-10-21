@@ -78,28 +78,34 @@ export default function AdminCompaniesPage() {
     }
   };
 
-  // 🔹 Toggle verification
+  // ✅ Toggle verification
   const toggleVerification = async (id: string, currentStatus: boolean, company: any) => {
     setProcessingId(id);
     try {
-      await updateDoc(doc(db, "companies", id), { verified: !currentStatus });
+      toast.dismiss(); // Clear any previous message
+
+      const newStatus = !currentStatus;
+      const actionText = newStatus ? "Se verifică compania..." : "Se revocă verificarea...";
+      const toastId = toast.loading(actionText);
+
+      await updateDoc(doc(db, "companies", id), { verified: newStatus });
       await logActivity(
         "verification",
-        `${!currentStatus ? "✅ Verificare" : "❌ Revocare"} companie: ${company.name}`,
+        `${newStatus ? "✅ Verificare" : "❌ Revocare"} companie: ${company.name}`,
         { email: "admin@panel", name: "Admin" },
         id
       );
 
       setCompanies((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, verified: !currentStatus } : c))
+        prev.map((c) => (c.id === id ? { ...c, verified: newStatus } : c))
       );
 
+      toast.dismiss(toastId);
       toast.success(
-        !currentStatus
-          ? "Compania a fost verificată!"
-          : "Verificarea a fost revocată!"
+        newStatus ? "✅ Compania a fost verificată!" : "❌ Verificarea a fost revocată!"
       );
     } catch (err) {
+      toast.dismiss();
       console.error("Eroare la actualizare:", err);
       toast.error("Eroare la actualizare statut!");
     } finally {
@@ -107,15 +113,15 @@ export default function AdminCompaniesPage() {
     }
   };
 
-  // 🔹 Suspend / Reactivate
+  // ✅ Toggle suspension
   const toggleSuspension = async (id: string, company: any) => {
     setProcessingId(id);
     try {
-      const newStatus = !company.suspended;
+      toast.dismiss(); // Clear any previous message
 
-      toast.loading(
-        newStatus ? "⏳ Se suspendă compania..." : "⏳ Se reactivează compania..."
-      );
+      const newStatus = !company.suspended;
+      const actionText = newStatus ? "⏳ Se suspendă compania..." : "♻️ Se reactivează compania...";
+      const toastId = toast.loading(actionText);
 
       await updateDoc(doc(db, "companies", id), { suspended: newStatus });
       await logActivity(
@@ -129,13 +135,13 @@ export default function AdminCompaniesPage() {
         prev.map((c) => (c.id === id ? { ...c, suspended: newStatus } : c))
       );
 
-      toast.dismiss();
+      toast.dismiss(toastId);
       toast.success(
-        newStatus ? " Compania a fost suspendată!" : " Compania a fost reactivată!"
+        newStatus ? "🚫 Compania a fost suspendată!" : "✅ Compania a fost reactivată!"
       );
     } catch (err) {
-      console.error("Eroare la suspendare:", err);
       toast.dismiss();
+      console.error("Eroare la suspendare:", err);
       toast.error("❌ Eroare la actualizare statut!");
     } finally {
       setProcessingId(null);
