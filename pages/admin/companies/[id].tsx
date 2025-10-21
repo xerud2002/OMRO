@@ -36,9 +36,12 @@ export default function AdminCompanyProfile() {
   // 🔹 Load company data
   const loadCompany = useCallback(async () => {
     try {
+      if (!companyId) return;
+
       const snap = await getDoc(doc(db, "companies", companyId));
       if (snap.exists()) {
-        setCompany({ id: companyId, ...snap.data() });
+        const data = snap.data();
+        setCompany({ id: companyId, ...data });
       } else {
         toast.error("Compania nu există!");
         router.push("/admin/companies");
@@ -56,14 +59,19 @@ export default function AdminCompanyProfile() {
     const unsub = onAuthChange(async (u) => {
       if (!u) return router.push("/company/auth");
 
-      const userSnap = await getDoc(doc(db, "users", u.uid));
-      if (!userSnap.exists() || userSnap.data().role !== "admin") {
-        toast.error("⛔ Acces interzis!");
-        router.push("/");
-        return;
-      }
+      try {
+        const userSnap = await getDoc(doc(db, "users", u.uid));
+        if (!userSnap.exists() || userSnap.data().role !== "admin") {
+          toast.error("⛔ Acces interzis!");
+          router.push("/");
+          return;
+        }
 
-      await loadCompany();
+        await loadCompany();
+      } catch (err) {
+        console.error(err);
+        toast.error("Eroare la autentificare!");
+      }
     });
 
     return () => unsub();
@@ -72,15 +80,18 @@ export default function AdminCompanyProfile() {
   // 🔹 Toggle verification
   const toggleVerification = async () => {
     try {
+      if (!company) return;
       const newStatus = !company.verified;
+
       await updateDoc(doc(db, "companies", companyId), { verified: newStatus });
       await logActivity(
         "verification",
-        `${newStatus ? "✅ Verificare" : "❌ Revocare"} manuală pentru ${company.name}`,
+        `${newStatus ? "✅ Verificare" : "❌ Revocare"} manuală pentru ${company.name || "fără nume"}`,
         { email: "admin@panel" },
         companyId
       );
-      setCompany((p: any) => ({ ...p, verified: newStatus }));
+
+      setCompany((prev: any) => ({ ...prev, verified: newStatus }));
       toast.success(
         newStatus ? "Compania a fost verificată!" : "Verificarea a fost revocată!"
       );
@@ -93,6 +104,7 @@ export default function AdminCompanyProfile() {
   // 🔹 Toggle suspension
   const toggleSuspension = async () => {
     try {
+      if (!company) return;
       const newStatus = !company.suspended;
 
       toast.loading(
@@ -102,12 +114,12 @@ export default function AdminCompanyProfile() {
       await updateDoc(doc(db, "companies", companyId), { suspended: newStatus });
       await logActivity(
         "suspension",
-        `${newStatus ? "🚫 Suspendare" : "♻️ Reactivare"} pentru ${company.name}`,
+        `${newStatus ? "🚫 Suspendare" : "♻️ Reactivare"} pentru ${company.name || "fără nume"}`,
         { email: "admin@panel" },
         companyId
       );
 
-      setCompany((p: any) => ({ ...p, suspended: newStatus }));
+      setCompany((prev: any) => ({ ...prev, suspended: newStatus }));
 
       toast.dismiss();
       toast.success(
@@ -147,6 +159,7 @@ export default function AdminCompanyProfile() {
         >
           {/* Back button */}
           <button
+            type="button"
             onClick={() => router.push("/admin/companies")}
             className="mb-4 flex items-center text-emerald-600 hover:text-emerald-800 transition"
           >
@@ -198,7 +211,7 @@ export default function AdminCompanyProfile() {
           </div>
 
           {/* Services */}
-          {company.services?.length > 0 && (
+          {Array.isArray(company.services) && company.services.length > 0 && (
             <div className="mt-10">
               <h2 className="font-semibold text-emerald-700 mb-3 flex items-center gap-2">
                 <FolderOpen size={16} /> Servicii oferite
@@ -217,7 +230,7 @@ export default function AdminCompanyProfile() {
           )}
 
           {/* Documents */}
-          {documents.length > 0 && (
+          {documents.length > 0 ? (
             <div className="mt-10">
               <h2 className="font-semibold text-emerald-700 mb-3 flex items-center gap-2">
                 <FileText size={16} /> Documente încărcate
@@ -226,7 +239,7 @@ export default function AdminCompanyProfile() {
                 {documents.map((url: string, i: number) => (
                   <li key={i}>
                     <a
-                      href={url}
+                      href={url || "#"}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-emerald-600 underline"
@@ -237,11 +250,14 @@ export default function AdminCompanyProfile() {
                 ))}
               </ul>
             </div>
+          ) : (
+            <p className="text-gray-500 mt-6 text-sm">Niciun document încărcat.</p>
           )}
 
           {/* Actions */}
           <div className="mt-10 flex flex-wrap gap-3 justify-center">
             <button
+              type="button"
               onClick={toggleVerification}
               className="inline-flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-emerald-500 to-sky-500 text-white rounded-xl text-sm shadow-md hover:scale-105 transition"
             >
@@ -250,6 +266,7 @@ export default function AdminCompanyProfile() {
             </button>
 
             <button
+              type="button"
               onClick={toggleSuspension}
               className={`inline-flex items-center gap-2 px-5 py-2 rounded-xl text-sm shadow-md hover:scale-105 transition ${
                 company.suspended
