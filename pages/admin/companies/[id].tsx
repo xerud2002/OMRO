@@ -1,5 +1,7 @@
 "use client";
-import { useEffect, useState } from "react";
+export const dynamic = "force-dynamic";
+
+import { useEffect, useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { db, onAuthChange } from "../../../utils/firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
@@ -10,8 +12,6 @@ import toast from "react-hot-toast";
 import {
   Building2,
   Mail,
-  Phone,
-  MapPin,
   Landmark,
   ShieldCheck,
   Ban,
@@ -31,6 +31,24 @@ export default function AdminCompanyProfile() {
   const [loading, setLoading] = useState(true);
   const [company, setCompany] = useState<any>(null);
 
+  // 🔹 Load company data
+  const loadCompany = useCallback(async () => {
+    try {
+      const snap = await getDoc(doc(db, "companies", companyId));
+      if (snap.exists()) {
+        setCompany({ id: companyId, ...snap.data() });
+      } else {
+        toast.error("Compania nu există!");
+        router.push("/admin/companies");
+      }
+    } catch (err) {
+      console.error("Eroare la încărcare companie:", err);
+      toast.error("Eroare la încărcare companie!");
+    } finally {
+      setLoading(false);
+    }
+  }, [companyId, router]);
+
   // 🔹 Verify admin and load company
   useEffect(() => {
     const unsub = onAuthChange(async (u) => {
@@ -47,25 +65,7 @@ export default function AdminCompanyProfile() {
     });
 
     return () => unsub();
-  }, [router, companyId]);
-
-  // 🔹 Load company data
-  const loadCompany = async () => {
-    try {
-      const snap = await getDoc(doc(db, "companies", companyId));
-      if (snap.exists()) {
-        setCompany({ id: companyId, ...snap.data() });
-      } else {
-        toast.error("Compania nu există!");
-        router.push("/admin/companies");
-      }
-    } catch (err) {
-      console.error("Eroare la încărcare companie:", err);
-      toast.error("Eroare la încărcare companie!");
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [router, loadCompany]);
 
   // 🔹 Toggle verification
   const toggleVerification = async () => {
@@ -89,40 +89,34 @@ export default function AdminCompanyProfile() {
   };
 
   // 🔹 Toggle suspension
+  const toggleSuspension = async () => {
+    try {
+      const newStatus = !company.suspended;
 
+      toast.loading(
+        newStatus ? "⏳ Se suspendă compania..." : "⏳ Se reactivează compania..."
+      );
 
-const toggleSuspension = async () => {
-  try {
-    const newStatus = !company.suspended;
+      await updateDoc(doc(db, "companies", companyId), { suspended: newStatus });
+      await logActivity(
+        "suspension",
+        `${newStatus ? "🚫 Suspendare" : "♻️ Reactivare"} pentru ${company.name}`,
+        { email: "admin@panel" },
+        companyId
+      );
 
-    // Show temporary status message
-    toast.loading(
-      newStatus
-        ? "⏳ Se suspendă compania..."
-        : "⏳ Se reactivează compania..."
-    );
+      setCompany((p: any) => ({ ...p, suspended: newStatus }));
 
-    await updateDoc(doc(db, "companies", companyId), { suspended: newStatus });
-    await logActivity(
-      "suspension",
-      `${newStatus ? "🚫 Suspendare" : "♻️ Reactivare"} pentru ${company.name}`,
-      { email: "admin@panel" },
-      companyId
-    );
-
-    setCompany((p: any) => ({ ...p, suspended: newStatus }));
-
-    toast.dismiss(); // clear loading
-    toast.success(
-      newStatus ? "🚫 Compania a fost suspendată!" : "✅ Compania a fost reactivată!"
-    );
-  } catch (err) {
-    console.error("Eroare la suspendare:", err);
-    toast.dismiss();
-    toast.error("❌ Eroare la actualizare statut!");
-  }
-};
-
+      toast.dismiss();
+      toast.success(
+        newStatus ? "🚫 Compania a fost suspendată!" : "✅ Compania a fost reactivată!"
+      );
+    } catch (err) {
+      console.error("Eroare la suspendare:", err);
+      toast.dismiss();
+      toast.error("❌ Eroare la actualizare statut!");
+    }
+  };
 
   if (loading)
     return (
@@ -216,7 +210,7 @@ const toggleSuspension = async () => {
           )}
 
           {/* Documents */}
-          {company.documents?.length > 0 && (
+          {Array.isArray(company.documents) && company.documents.length > 0 && (
             <div className="mt-10">
               <h2 className="font-semibold text-emerald-700 mb-3 flex items-center gap-2">
                 <FileText size={16} /> Documente încărcate

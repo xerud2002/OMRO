@@ -115,7 +115,7 @@ export default function AdminVerifyPage() {
       await logActivity(
         "verify_reject",
         `Compania ${name || "-"} a fost respinsă: ${rejectReason}`,
-        { name, rejectReason },
+        { name },
         id
       );
       setCompanies((prev) => prev.filter((c) => c.id !== id));
