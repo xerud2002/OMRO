@@ -53,15 +53,27 @@ export const loginWithGoogle = async (roleHint?: "company" | "customer") => {
 
   if (!snap.exists()) {
     await setDoc(userRef, {
-      userId: user.uid,            // 👈 Needed for Firestore rules
+      userId: user.uid, // 👈 Required for Firestore rules
       email: user.email,
       name: user.displayName || "",
       role: roleHint || "customer",
       createdAt: new Date(),
     });
+  } else {
+    // ✅ Auto-add userId field if it was missing from old users
+    const data = snap.data();
+    if (!data.userId) {
+      await setDoc(
+        userRef,
+        { userId: user.uid },
+        { merge: true }
+      );
+    }
   }
+
   return result;
 };
+
 
 
 // Logout

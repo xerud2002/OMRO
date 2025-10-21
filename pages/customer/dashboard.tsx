@@ -64,7 +64,9 @@ export default function ClientDashboard() {
         return {
           id: d.id,
           ...data,
-          createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : null,
+          createdAt: data.createdAt?.seconds
+            ? new Date(data.createdAt.seconds * 1000)
+            : null,
         };
       });
       list.sort((a, b) => (b.createdAt?.getTime?.() || 0) - (a.createdAt?.getTime?.() || 0));
