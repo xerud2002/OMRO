@@ -28,6 +28,9 @@ import {
   Star,
   ShieldAlert,
   Activity,
+  ShieldCheck,
+  Ban,
+  Mail,
 } from "lucide-react";
 
 export default function AdminLogsPage() {
@@ -118,14 +121,29 @@ export default function AdminLogsPage() {
       </AdminLayout>
     );
 
-  const typeIcons: any = {
+  // 🔹 Icons per type
+  const typeIcons: Record<string, any> = {
+    verification: ShieldCheck,
+    suspension: Ban,
+    reminder: Mail,
     user: User,
     company: Building2,
     request: ClipboardList,
-    review: Star,
     payment: Coins,
     message: MessageSquare,
+    review: Star,
     admin: ShieldAlert,
+  };
+
+  // 🔹 Colors per type
+  const typeColors: Record<string, string> = {
+    verification: "bg-green-100 text-green-700",
+    suspension: "bg-red-100 text-red-700",
+    reminder: "bg-blue-100 text-blue-700",
+    admin: "bg-gray-100 text-gray-700",
+    message: "bg-indigo-100 text-indigo-700",
+    payment: "bg-emerald-100 text-emerald-700",
+    default: "bg-emerald-50 text-emerald-700",
   };
 
   return (
@@ -157,14 +175,17 @@ export default function AdminLogsPage() {
             </div>
             <div className="flex gap-2">
               <select
+                title="Filtru activitate"
                 onChange={(e) => setFilter(e.target.value)}
                 className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-400"
               >
                 <option value="">Toate</option>
-                <option value="verification">Verificare</option>
-                <option value="suspension">Suspendare</option>
-                <option value="reminder">Reminder</option>
-                <option value="admin">Admin</option>
+                <option value="verification">Verificări</option>
+                <option value="suspension">Suspendări</option>
+                <option value="reminder">Remindere</option>
+                <option value="payment">Plăți</option>
+                <option value="message">Mesaje</option>
+                <option value="admin">Acțiuni admin</option>
               </select>
               <input
                 placeholder="Caută text, email, ID..."
@@ -180,10 +201,10 @@ export default function AdminLogsPage() {
               <thead className="bg-emerald-50 text-gray-800">
                 <tr>
                   <th className="p-3 border-b">Data</th>
-                  <th className="p-3 border-b">Tip</th>
-                  <th className="p-3 border-b">Mesaj</th>
-                  <th className="p-3 border-b">Email</th>
-                  <th className="p-3 border-b">Nume</th>
+                  <th className="p-3 border-b text-left">Tip</th>
+                  <th className="p-3 border-b text-left">Mesaj</th>
+                  <th className="p-3 border-b text-left">Email</th>
+                  <th className="p-3 border-b text-left">Nume</th>
                   <th className="p-3 border-b text-center">Entitate</th>
                   <th className="p-3 border-b text-center">Revizuit</th>
                   <th className="p-3 border-b text-center">Acțiuni</th>
@@ -192,11 +213,14 @@ export default function AdminLogsPage() {
               <tbody>
                 {filtered.map((log) => {
                   const Icon = typeIcons[log.type] || Activity;
+                  const color =
+                    typeColors[log.type] || typeColors.default;
+
                   return (
                     <tr
                       key={log.id}
                       className={`transition hover:bg-emerald-50 ${
-                        log.reviewed ? "opacity-80" : ""
+                        log.reviewed ? "opacity-75" : ""
                       }`}
                     >
                       <td className="p-3 border-b text-xs text-gray-500">
@@ -206,13 +230,15 @@ export default function AdminLogsPage() {
                             ).toLocaleString("ro-RO")
                           : "-"}
                       </td>
-                      <td className="p-3 border-b text-center text-gray-700">
-                        <div className="inline-flex items-center gap-1">
-                          <Icon size={14} className="text-emerald-600" />
+                      <td className="p-3 border-b text-left">
+                        <span
+                          className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold ${color}`}
+                        >
+                          <Icon size={14} />
                           {log.type}
-                        </div>
+                        </span>
                       </td>
-                      <td className="p-3 border-b truncate max-w-[300px]">
+                      <td className="p-3 border-b text-gray-700 truncate max-w-[320px]">
                         {log.message || "-"}
                       </td>
                       <td className="p-3 border-b text-gray-700">
