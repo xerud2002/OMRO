@@ -47,6 +47,7 @@ export default function MoveForm() {
   const [hydrated, setHydrated] = useState(false);
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [hasDraft, setHasDraft] = useState(false);
 
   const defaultFormData = {
     serviceType: "",
@@ -104,6 +105,7 @@ export default function MoveForm() {
         await deleteDoc(draftRef).catch(() => {});
         setStep(0);
         setFormData(defaultFormData);
+        setHasDraft(false);
         setHydrated(true);
         return;
       }
@@ -113,6 +115,9 @@ export default function MoveForm() {
         const draft = draftSnap.data();
         setFormData(draft.formData || defaultFormData);
         setStep(draft.step || 0);
+        setHasDraft(true);
+      } else {
+        setHasDraft(false);
       }
       setHydrated(true);
     };
@@ -162,6 +167,21 @@ export default function MoveForm() {
     return () => clearTimeout(timer);
   }, [formData, step, hydrated, submitting]);
 
+  // ✅ Resetare completă (Începe o cerere nouă)
+  const startNewForm = async () => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) return;
+    try {
+      await deleteDoc(doc(db, "drafts", currentUser.uid));
+      setFormData(defaultFormData);
+      setStep(0);
+      setHasDraft(false);
+      toast.success("🆕 Formular nou început de la zero!");
+    } catch (err) {
+      console.error("Eroare la resetare formular:", err);
+      toast.error("Eroare la resetarea formularului.");
+    }
+  };
 
   if (!hydrated)
     return (
@@ -284,6 +304,7 @@ export default function MoveForm() {
       // Resetare locală
       setFormData(defaultFormData);
       setStep(0);
+      setHasDraft(false);
     } catch (err) {
       console.error("❌ Eroare la salvare:", err);
       toast.dismiss();
@@ -322,7 +343,19 @@ export default function MoveForm() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 to-sky-50 px-4 py-10">
+      <div className="min-h-screen flex flex-col items-center justify-start bg-gradient-to-br from-emerald-50 to-sky-50 px-4 py-10">
+        {hasDraft && (
+          <div className="bg-yellow-100 border border-yellow-300 text-yellow-800 text-sm p-4 text-center mb-6 rounded-xl shadow-sm max-w-2xl w-full">
+            Ai o cerere în desfășurare salvată automat.{" "}
+            <button
+              onClick={startNewForm}
+              className="ml-2 px-3 py-1 bg-gradient-to-r from-emerald-500 to-sky-500 text-white rounded-full text-xs hover:scale-105 transition-all"
+            >
+              Începe o cerere nouă
+            </button>
+          </div>
+        )}
+
         <motion.div
           initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}
