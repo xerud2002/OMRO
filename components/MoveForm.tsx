@@ -125,11 +125,21 @@ export default function MoveForm() {
     return () => unsubscribe();
   }, [searchParams]);
 
-  // ✅ Auto-save Draft to Firestore
+  // ✅ Auto-save Draft to Firestore (ignore File objects)
   useEffect(() => {
     const saveDraft = async () => {
       const currentUser = auth.currentUser;
       if (!currentUser || submitting || !hydrated) return;
+
+      // 🧹 Remove File objects before saving
+      const cleanedFormData = {
+        ...formData,
+        media: Array.isArray(formData.media)
+          ? formData.media.map((file: any) =>
+              typeof file === "string" ? file : file?.name || null
+            )
+          : [],
+      };
 
       const draftRef = doc(db, "drafts", currentUser.uid);
       try {
@@ -137,20 +147,21 @@ export default function MoveForm() {
           draftRef,
           {
             step,
-            formData,
+            formData: cleanedFormData,
             updatedAt: Timestamp.now(),
           },
           { merge: true }
         );
       } catch (err) {
-        console.error("Eroare la salvarea draftului:", err);
+        console.error("⚠️ Eroare la salvarea draftului:", err);
       }
     };
 
-    // delay save 1 sec pentru performanță
+    // small debounce to prevent too many writes
     const timer = setTimeout(saveDraft, 1000);
     return () => clearTimeout(timer);
   }, [formData, step, hydrated, submitting]);
+
 
   if (!hydrated)
     return (
