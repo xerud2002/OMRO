@@ -1,10 +1,16 @@
 "use client";
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { auth, db, storage } from "../utils/firebase";
-import { setDoc, doc, getDoc, Timestamp } from "firebase/firestore";
+import {
+  setDoc,
+  doc,
+  getDoc,
+  Timestamp,
+  deleteDoc,
+} from "firebase/firestore";
 import emailjs from "@emailjs/browser";
 import toast from "react-hot-toast";
 import { ArrowLeft, ArrowRight, Send } from "lucide-react";
@@ -36,6 +42,8 @@ const steps = [
 
 export default function MoveForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
   const [hydrated, setHydrated] = useState(false);
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
@@ -80,41 +88,69 @@ export default function MoveForm() {
 
   const [formData, setFormData] = useState<any>(defaultFormData);
 
-  // ✅ Restore from localStorage
+  // ✅ Load Draft from Firestore
   useEffect(() => {
-    // If user navigated from "Comandă nouă", clear any old progress
-    const referrer = document.referrer || "";
-    if (referrer.includes("/customer")) {
-      localStorage.removeItem("moveFormStep");
-      localStorage.removeItem("moveFormData");
-    }
-
-    // Try restoring (only if not cleared)
-    const savedStep = localStorage.getItem("moveFormStep");
-    const savedData = localStorage.getItem("moveFormData");
-
-    if (savedStep) setStep(Number(savedStep));
-    if (savedData) {
-      try {
-        setFormData(JSON.parse(savedData));
-      } catch {
-        console.warn("⚠️ Invalid saved data, resetting form");
+    const loadDraft = async () => {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        setHydrated(true);
+        return;
       }
-    }
 
-    setHydrated(true);
-  }, []);
+      const isNew = searchParams.get("new");
+      const draftRef = doc(db, "drafts", currentUser.uid);
 
+      if (isNew) {
+        await deleteDoc(draftRef).catch(() => {});
+        setStep(0);
+        setFormData(defaultFormData);
+        setHydrated(true);
+        return;
+      }
 
-  // ✅ Persist progress
+      const draftSnap = await getDoc(draftRef);
+      if (draftSnap.exists()) {
+        const draft = draftSnap.data();
+        setFormData(draft.formData || defaultFormData);
+        setStep(draft.step || 0);
+      }
+      setHydrated(true);
+    };
+
+    // wait for auth to load
+    const unsubscribe = auth.onAuthStateChanged((u) => {
+      if (u) loadDraft();
+      else setHydrated(true);
+    });
+    return () => unsubscribe();
+  }, [searchParams]);
+
+  // ✅ Auto-save Draft to Firestore
   useEffect(() => {
-    if (hydrated) localStorage.setItem("moveFormStep", step.toString());
-  }, [step, hydrated]);
+    const saveDraft = async () => {
+      const currentUser = auth.currentUser;
+      if (!currentUser || submitting || !hydrated) return;
 
-  useEffect(() => {
-    if (hydrated)
-      localStorage.setItem("moveFormData", JSON.stringify(formData));
-  }, [formData, hydrated]);
+      const draftRef = doc(db, "drafts", currentUser.uid);
+      try {
+        await setDoc(
+          draftRef,
+          {
+            step,
+            formData,
+            updatedAt: Timestamp.now(),
+          },
+          { merge: true }
+        );
+      } catch (err) {
+        console.error("Eroare la salvarea draftului:", err);
+      }
+    };
+
+    // delay save 1 sec pentru performanță
+    const timer = setTimeout(saveDraft, 1000);
+    return () => clearTimeout(timer);
+  }, [formData, step, hydrated, submitting]);
 
   if (!hydrated)
     return (
@@ -123,12 +159,9 @@ export default function MoveForm() {
       </div>
     );
 
-  // 🔹 Update field helper
-  const handleChange = (field: string, value: any) => {
+  const handleChange = (field: string, value: any) =>
     setFormData((prev: any) => ({ ...prev, [field]: value }));
-  };
 
-  // 🔹 Validation
   const validateStep = () => {
     const requiredFields: Record<number, string[]> = {
       0: ["serviceType"],
@@ -139,7 +172,6 @@ export default function MoveForm() {
     };
     const fields = requiredFields[step];
     if (!fields) return true;
-
     for (const f of fields) {
       if (!formData[f] || formData[f].trim() === "") {
         toast.error("Completează toate câmpurile obligatorii înainte de a continua.");
@@ -149,13 +181,11 @@ export default function MoveForm() {
     return true;
   };
 
-  // 🔹 Navigation
   const nextStep = () => {
     if (validateStep()) setStep((prev) => Math.min(prev + 1, steps.length - 1));
   };
   const prevStep = () => setStep((prev) => Math.max(prev - 1, 0));
 
-  // 🔹 Upload file helper
   const uploadWithProgress = (file: File) =>
     new Promise<string>((resolve, reject) => {
       const storageRef = ref(storage, `uploads/${Date.now()}-${file.name}`);
@@ -168,14 +198,13 @@ export default function MoveForm() {
       );
     });
 
-  // ✅ Submit handler (UPDATED)
+  // ✅ Submit cerere finală
   const handleSubmit = async () => {
     if (submitting) return;
     setSubmitting(true);
     toast.loading("Se trimite cererea...");
 
     try {
-      // 🔹 Require login
       const currentUser = auth.currentUser;
       if (!currentUser) {
         toast.dismiss();
@@ -185,7 +214,6 @@ export default function MoveForm() {
         return;
       }
 
-      // 🔹 Upload media
       let mediaUrls: string[] = [];
       if (formData.survey === "media" && formData.media.length > 0) {
         mediaUrls = await Promise.all(
@@ -193,7 +221,6 @@ export default function MoveForm() {
         );
       }
 
-      // 🔹 Generate unique ID
       let shortId: string;
       let exists = true;
       do {
@@ -202,7 +229,6 @@ export default function MoveForm() {
         exists = checkDoc.exists();
       } while (exists);
 
-      // 🔹 Save request securely
       await setDoc(doc(db, "requests", shortId), {
         ...formData,
         media: mediaUrls,
@@ -212,7 +238,6 @@ export default function MoveForm() {
         requestId: shortId,
       });
 
-      // 🔹 Update user info
       await setDoc(
         doc(db, "users", currentUser.uid),
         {
@@ -225,7 +250,6 @@ export default function MoveForm() {
         { merge: true }
       );
 
-      // 🔹 Optional: send email if media later
       if (formData.survey === "media_later" && formData.email) {
         const uploadLink = `${window.location.origin}/upload/${shortId}`;
         await emailjs.send(
@@ -242,13 +266,13 @@ export default function MoveForm() {
 
       toast.dismiss();
       toast.success("✅ Cererea ta a fost trimisă cu succes!");
+      // 🔹 ștergem draftul după trimitere
+      await deleteDoc(doc(db, "drafts", currentUser.uid));
       setTimeout(() => router.push("/customer/dashboard"), 1800);
 
-      // Reset
+      // Resetare locală
       setFormData(defaultFormData);
       setStep(0);
-      localStorage.removeItem("moveFormData");
-      localStorage.removeItem("moveFormStep");
     } catch (err) {
       console.error("❌ Eroare la salvare:", err);
       toast.dismiss();
@@ -258,7 +282,6 @@ export default function MoveForm() {
     }
   };
 
-  // 🔹 Step renderer
   const renderStep = () => {
     switch (step) {
       case 0:
@@ -286,7 +309,6 @@ export default function MoveForm() {
     }
   };
 
-  // === UI ===
   return (
     <div className="flex flex-col min-h-screen">
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 to-sky-50 px-4 py-10">
@@ -296,7 +318,6 @@ export default function MoveForm() {
           transition={{ duration: 0.6 }}
           className="bg-white/80 backdrop-blur-xl border border-emerald-100 shadow-xl rounded-3xl p-10 w-full max-w-2xl hover:shadow-emerald-100"
         >
-          {/* --- Progress --- */}
           <div className="mb-10 text-center">
             <p className="text-sm text-gray-600 mb-1 font-medium">
               {steps[step]} • Pasul {step + 1} din {steps.length}
@@ -311,7 +332,6 @@ export default function MoveForm() {
             </div>
           </div>
 
-          {/* --- Step Content --- */}
           <AnimatePresence mode="wait">
             <motion.div
               key={step}
@@ -324,11 +344,10 @@ export default function MoveForm() {
             </motion.div>
           </AnimatePresence>
 
-          {/* --- Navigation --- */}
           <div className="mt-10 flex justify-between items-center">
             {step > 0 ? (
               <button
-                onClick={prevStep}
+                onClick={() => setStep((s) => Math.max(s - 1, 0))}
                 className="flex items-center gap-2 px-6 py-2 rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300 transition-all"
               >
                 <ArrowLeft size={18} /> Înapoi
