@@ -48,7 +48,7 @@ export default function HomePage() {
       {/* 🖼️ Fundal imagine full width */}
       <div className="absolute inset-0">
         <Image
-          src="/index1.png"
+          src="/hero.webp"
           alt="Mutări"
           fill
           priority
