@@ -34,6 +34,8 @@ export default function ClientDashboard() {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<any>(null);
   const [tab, setTab] = useState("orders");
+  const [hasDraft, setHasDraft] = useState(false);
+  const [draftUpdated, setDraftUpdated] = useState<Date | null>(null);
 
   const statusColors: Record<string, string> = {
     Nouă: "bg-blue-100 text-blue-800",
@@ -92,7 +94,6 @@ export default function ClientDashboard() {
         setOrders(list);
       } catch (err: any) {
         console.warn("⚠️ Eroare la citirea comenzilor:", err);
-        // If permission denied, fallback to empty list instead of crash
         if (err.code === "permission-denied") {
           setOrders([]);
         }
@@ -102,6 +103,26 @@ export default function ClientDashboard() {
     };
 
     fetchOrders();
+  }, [user]);
+
+  // ✅ Check for active draft in Firestore
+  useEffect(() => {
+    if (!user) return;
+    const checkDraft = async () => {
+      try {
+        const snap = await getDoc(doc(db, "drafts", user.uid));
+        if (snap.exists()) {
+          setHasDraft(true);
+          const data = snap.data();
+          setDraftUpdated(data.updatedAt?.toDate?.() || null);
+        } else {
+          setHasDraft(false);
+        }
+      } catch (err) {
+        console.error("Eroare la verificarea draftului:", err);
+      }
+    };
+    checkDraft();
   }, [user]);
 
   if (!user) return null;
@@ -124,6 +145,44 @@ export default function ClientDashboard() {
             Urmărește cererile tale și comunică ușor cu firmele partenere.
           </p>
         </div>
+
+        {/* ✅ Active draft card */}
+        {hasDraft && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className="bg-yellow-50 border border-yellow-300 text-yellow-800 rounded-3xl shadow p-6 mt-2 max-w-3xl mx-auto text-center"
+          >
+            <h3 className="text-lg font-semibold mb-2">
+              🕒 Ai o cerere nefinalizată
+            </h3>
+            <p className="text-sm text-gray-700 mb-4">
+              Ultima salvare:{" "}
+              {draftUpdated
+                ? draftUpdated.toLocaleString("ro-RO", {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  })
+                : "necunoscută"}
+              .
+            </p>
+            <div className="flex flex-col sm:flex-row justify-center gap-3">
+              <button
+                onClick={() => router.push("/form")}
+                className="px-5 py-2 rounded-full bg-gradient-to-r from-emerald-500 to-sky-500 text-white font-medium shadow hover:scale-105 transition-all"
+              >
+                Continuă cererea
+              </button>
+              <button
+                onClick={() => router.push("/form?new=true")}
+                className="px-5 py-2 rounded-full bg-gray-200 text-gray-700 font-medium shadow hover:bg-gray-300 transition-all"
+              >
+                Începe una nouă
+              </button>
+            </div>
+          </motion.div>
+        )}
 
         {/* Tabs */}
         <div className="flex justify-center gap-8">
