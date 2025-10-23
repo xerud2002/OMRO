@@ -110,19 +110,23 @@ export default function MoveForm() {
         return;
       }
 
-      const draftSnap = await getDoc(draftRef);
-      if (draftSnap.exists()) {
-        const draft = draftSnap.data();
-        setFormData(draft.formData || defaultFormData);
-        setStep(draft.step || 0);
-        setHasDraft(true);
-      } else {
-        setHasDraft(false);
+      try {
+        const draftSnap = await getDoc(draftRef);
+        if (draftSnap.exists()) {
+          const draft = draftSnap.data();
+          setFormData(draft.formData || defaultFormData);
+          setStep(draft.step || 0);
+          setHasDraft(true);
+        } else {
+          setHasDraft(false);
+        }
+      } catch (err) {
+        console.warn("⚠️ Draft load error:", err);
+      } finally {
+        setHydrated(true);
       }
-      setHydrated(true);
     };
 
-    // wait for auth to load
     const unsubscribe = auth.onAuthStateChanged((u) => {
       if (u) loadDraft();
       else setHydrated(true);
@@ -130,13 +134,13 @@ export default function MoveForm() {
     return () => unsubscribe();
   }, [searchParams]);
 
-  // ✅ Auto-save Draft to Firestore (ignore File objects)
+  // ✅ Auto-save Draft to Firestore (only when authenticated)
   useEffect(() => {
     const saveDraft = async () => {
       const currentUser = auth.currentUser;
       if (!currentUser || submitting || !hydrated) return;
 
-      // 🧹 Remove File objects before saving
+      // 🧹 Remove File objects before saving (Firestore doesn't allow them)
       const cleanedFormData = {
         ...formData,
         media: Array.isArray(formData.media)
@@ -146,8 +150,8 @@ export default function MoveForm() {
           : [],
       };
 
-      const draftRef = doc(db, "drafts", currentUser.uid);
       try {
+        const draftRef = doc(db, "drafts", currentUser.uid);
         await setDoc(
           draftRef,
           {
@@ -162,7 +166,6 @@ export default function MoveForm() {
       }
     };
 
-    // small debounce to prevent too many writes
     const timer = setTimeout(saveDraft, 1000);
     return () => clearTimeout(timer);
   }, [formData, step, hydrated, submitting]);
@@ -297,11 +300,9 @@ export default function MoveForm() {
 
       toast.dismiss();
       toast.success("✅ Cererea ta a fost trimisă cu succes!");
-      // 🔹 ștergem draftul după trimitere
       await deleteDoc(doc(db, "drafts", currentUser.uid));
       setTimeout(() => router.push("/customer/dashboard"), 1800);
 
-      // Resetare locală
       setFormData(defaultFormData);
       setStep(0);
       setHasDraft(false);
