@@ -62,7 +62,7 @@ export default function StepContact({ formData, handleChange }: StepProps) {
       </div>
 
       <p className="text-sm text-gray-500 max-w-md mx-auto">
-        Te rugăm să introduci date reale — companiile de mutări te vor contacta
+        Te rugăm să introduci date reale si companiile de mutări te vor contacta
         direct pentru ofertă.
       </p>
     </div>

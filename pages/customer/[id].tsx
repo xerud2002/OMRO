@@ -12,14 +12,14 @@ import {
   onSnapshot,
   Timestamp,
 } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
 import { motion } from "framer-motion";
 import { SendHorizontal, ArrowLeft, Paperclip } from "lucide-react";
 import toast from "react-hot-toast";
 
 interface Message {
   id: string;
-  sender: "client" | "company";
+  sender: "client" | "company" | "admin";
   text?: string;
   type: "text" | "image" | "video" | "file";
   fileName?: string;
@@ -36,43 +36,63 @@ export default function OrderDetails() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [uploading, setUploading] = useState(false);
-  const [userRole, setUserRole] = useState<"client" | "company">("client");
+  const [userRole, setUserRole] = useState<"client" | "company" | "admin" | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [unread, setUnread] = useState(false);
 
   const chatRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  // 🔊 Preload subtle notification sound
+  // 🔊 preload sound
   useEffect(() => {
     audioRef.current = new Audio("/sounds/notify.mp3");
     audioRef.current.volume = 0.3;
   }, []);
 
-  // 🔐 Auth check
+  // 🔐 Auth + Role detection
   useEffect(() => {
     const unsub = onAuthChange(async (u) => {
-      if (!u) router.push("/customer/auth");
-      else setUserRole("client"); // (Later we can auto-detect company/admin)
+      if (!u) {
+        router.push("/customer/auth");
+        return;
+      }
+
+      setUserId(u.uid);
+
+      // Detect role from Firestore
+      try {
+        const snap = await getDoc(doc(db, "users", u.uid));
+        if (snap.exists()) {
+          const role = snap.data()?.role || "client";
+          setUserRole(role === "company" ? "company" : role === "admin" ? "admin" : "client");
+        } else {
+          setUserRole("client");
+        }
+      } catch {
+        setUserRole("client");
+      }
     });
     return () => unsub();
   }, [router]);
 
-  // 🔄 Fetch order + realtime messages
+  // 🔄 Fetch order + messages
   useEffect(() => {
     if (!id) return;
 
     const loadOrder = async () => {
-      const snap = await getDoc(doc(db, "requests", id));
-      if (snap.exists()) setOrder({ id: snap.id, ...snap.data() });
-      else toast.error("Cererea nu a fost găsită.");
+      try {
+        const snap = await getDoc(doc(db, "requests", id));
+        if (snap.exists()) setOrder({ id: snap.id, ...snap.data() });
+        else toast.error("❌ Cererea nu a fost găsită.");
+      } catch (err) {
+        console.error(err);
+        toast.error("Eroare la încărcarea cererii.");
+      }
     };
     loadOrder();
 
-    const q = query(
-      collection(db, "requests", id, "messages"),
-      orderBy("createdAt", "asc")
-    );
+    const q = query(collection(db, "requests", id, "messages"), orderBy("createdAt", "asc"));
 
     let prevCount = 0;
     const unsub = onSnapshot(q, (snap) => {
@@ -82,20 +102,20 @@ export default function OrderDetails() {
       }));
       setMessages(newMsgs);
 
-      // Auto-scroll
+      // Auto-scroll to bottom
       setTimeout(() => {
         chatRef.current?.scrollTo({
           top: chatRef.current.scrollHeight,
           behavior: "smooth",
         });
-      }, 120);
+      }, 150);
 
-      // Play sound for new incoming message
+      // Play sound only for new incoming messages
       if (newMsgs.length > prevCount) {
         const last = newMsgs[newMsgs.length - 1];
-        if (last && last.sender !== userRole) {
-          setUnread(true);
+        if (last && last.sender !== userRole && document.hasFocus()) {
           audioRef.current?.play().catch(() => {});
+          setUnread(true);
         }
       }
       prevCount = newMsgs.length;
@@ -104,9 +124,9 @@ export default function OrderDetails() {
     return () => unsub();
   }, [id, userRole]);
 
-  // ✉️ Send text
+  // ✉️ send text message
   const sendMessage = async () => {
-    if (!id || !newMessage.trim()) return;
+    if (!id || !newMessage.trim() || !userId || !userRole) return;
     try {
       await addDoc(collection(db, "requests", id, "messages"), {
         sender: userRole,
@@ -117,52 +137,60 @@ export default function OrderDetails() {
       setNewMessage("");
       setUnread(false);
     } catch (err) {
-      console.error("Eroare la trimiterea mesajului:", err);
+      console.error(err);
       toast.error("Eroare la trimiterea mesajului.");
     }
   };
 
-  // 📎 Upload file
+  // 📎 send file (image/video/pdf)
   const sendFile = async (file: File) => {
+    if (!id || !userId || !userRole) return;
+    setUploading(true);
+
     try {
-      setUploading(true);
-
-      // Clean file name
-      const cleanName = file.name
-        .replace(/\s+/g, "_")
-        .replace(/[^\w.-]/g, "");
+      const cleanName = file.name.replace(/\s+/g, "_").replace(/[^\w.-]/g, "");
       const storageRef = ref(storage, `chat/${id}/${Date.now()}_${cleanName}`);
-      await uploadBytes(storageRef, file);
-      const url = await getDownloadURL(storageRef);
+      const uploadTask = uploadBytesResumable(storageRef, file);
 
-      const isImage = file.type.startsWith("image/");
-      const isVideo = file.type.startsWith("video/");
-
-      await addDoc(collection(db, "requests", id, "messages"), {
-        sender: userRole,
-        type: isImage ? "image" : isVideo ? "video" : "file",
-        fileName: file.name,
-        fileUrl: url,
-        createdAt: Timestamp.now(),
-      });
-
-      setUnread(false);
+      uploadTask.on(
+        "state_changed",
+        (snap) => {
+          const pct = (snap.bytesTransferred / snap.totalBytes) * 100;
+          if (pct % 25 === 0) toast.loading(`Se încarcă... ${pct.toFixed(0)}%`, { id: "upload" });
+        },
+        (err) => {
+          console.error(err);
+          toast.error("Eroare la încărcarea fișierului.");
+        },
+        async () => {
+          toast.dismiss("upload");
+          const url = await getDownloadURL(uploadTask.snapshot.ref);
+          const isImage = file.type.startsWith("image/");
+          const isVideo = file.type.startsWith("video/");
+          await addDoc(collection(db, "requests", id, "messages"), {
+            sender: userRole,
+            type: isImage ? "image" : isVideo ? "video" : "file",
+            fileName: file.name,
+            fileUrl: url,
+            createdAt: Timestamp.now(),
+          });
+          setUnread(false);
+        }
+      );
     } catch (err) {
-      console.error("Eroare la upload:", err);
+      console.error("Upload error:", err);
       toast.error("Eroare la trimiterea fișierului.");
     } finally {
       setUploading(false);
     }
   };
 
-  // 🪄 File input handler
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) await sendFile(file);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  // 🕓 Loading state
   if (!order)
     return (
       <div className="flex justify-center items-center h-[60vh] text-gray-500 text-lg">
@@ -186,7 +214,7 @@ export default function OrderDetails() {
         >
           <ArrowLeft size={20} />
           {unread && (
-            <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse"></span>
+            <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse" />
           )}
         </button>
         <h1 className="text-2xl font-bold text-emerald-700">
@@ -197,26 +225,11 @@ export default function OrderDetails() {
       {/* 🔹 Order Info */}
       <div className="p-6 rounded-3xl bg-white/80 backdrop-blur-md border border-emerald-100 shadow mb-6">
         <div className="grid sm:grid-cols-2 gap-3 text-sm text-gray-700">
-          <p>
-            <strong>Serviciu:</strong> {order.serviceType || "-"}
-          </p>
-          <p>
-            <strong>Data:</strong> {order.moveDate || order.moveOption || "-"}
-          </p>
-          <p>
-            <strong>Colectare:</strong> {order.pickupCity || "-"},{" "}
-            {order.pickupCounty || "-"}
-          </p>
-          <p>
-            <strong>Livrare:</strong> {order.deliveryCity || "-"},{" "}
-            {order.deliveryCounty || "-"}
-          </p>
-          <p>
-            <strong>Status:</strong>{" "}
-            <span className="text-emerald-600 font-medium">
-              {order.status || "Nouă"}
-            </span>
-          </p>
+          <p><strong>Serviciu:</strong> {order.serviceType || "-"}</p>
+          <p><strong>Data:</strong> {order.moveDate || order.moveOption || "-"}</p>
+          <p><strong>Colectare:</strong> {order.pickupCity || "-"}, {order.pickupCounty || "-"}</p>
+          <p><strong>Livrare:</strong> {order.deliveryCity || "-"}, {order.deliveryCounty || "-"}</p>
+          <p><strong>Status:</strong> <span className="text-emerald-600 font-medium">{order.status || "Nouă"}</span></p>
         </div>
       </div>
 
@@ -231,15 +244,9 @@ export default function OrderDetails() {
           )}
         </h2>
 
-        {/* 🔸 Messages */}
-        <div
-          ref={chatRef}
-          className="flex-1 overflow-y-auto space-y-3 mb-4 pr-2 scrollbar-thin scrollbar-thumb-emerald-200"
-        >
+        <div ref={chatRef} className="flex-1 overflow-y-auto space-y-3 mb-4 pr-2 scrollbar-thin scrollbar-thumb-emerald-200">
           {messages.length === 0 ? (
-            <p className="text-gray-500 text-sm text-center mt-4">
-              Nu există mesaje încă.
-            </p>
+            <p className="text-gray-500 text-sm text-center mt-4">Nu există mesaje încă.</p>
           ) : (
             messages.map((msg) => (
               <motion.div
@@ -254,24 +261,11 @@ export default function OrderDetails() {
                 }`}
               >
                 {msg.type === "image" && msg.fileUrl ? (
-                  <img
-                    src={msg.fileUrl}
-                    alt={msg.fileName}
-                    className="rounded-lg max-w-[200px] mb-2"
-                  />
+                  <img src={msg.fileUrl} alt={msg.fileName} className="rounded-lg max-w-[200px] mb-2" />
                 ) : msg.type === "video" && msg.fileUrl ? (
-                  <video
-                    src={msg.fileUrl}
-                    controls
-                    className="rounded-lg max-w-[200px] mb-2"
-                  />
+                  <video src={msg.fileUrl} controls className="rounded-lg max-w-[200px] mb-2" />
                 ) : msg.type === "file" && msg.fileUrl ? (
-                  <a
-                    href={msg.fileUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline text-sm"
-                  >
+                  <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer" className="underline text-sm">
                     📎 {msg.fileName}
                   </a>
                 ) : (
@@ -293,7 +287,7 @@ export default function OrderDetails() {
           )}
         </div>
 
-        {/* 🔸 Input + Upload */}
+        {/* 🔸 Input & Upload */}
         <div className="flex items-center gap-2">
           <input
             type="text"
@@ -303,7 +297,6 @@ export default function OrderDetails() {
             onKeyDown={(e) => e.key === "Enter" && sendMessage()}
             className="flex-1 border border-emerald-200 rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-300 transition"
           />
-
           <input
             ref={fileInputRef}
             type="file"
@@ -311,7 +304,6 @@ export default function OrderDetails() {
             onChange={handleFileChange}
             hidden
           />
-
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
@@ -320,7 +312,6 @@ export default function OrderDetails() {
           >
             <Paperclip size={20} />
           </button>
-
           <button
             onClick={sendMessage}
             disabled={uploading}
