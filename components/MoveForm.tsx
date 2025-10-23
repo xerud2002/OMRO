@@ -15,7 +15,6 @@ import emailjs from "@emailjs/browser";
 import toast from "react-hot-toast";
 import { ArrowLeft, ArrowRight, Send } from "lucide-react";
 
-// 🔹 Import all step components
 import StepService from "../components/formSteps/StepService";
 import StepProperty from "../components/formSteps/StepProperty";
 import StepPickupAddress from "../components/formSteps/StepPickupAddress";
@@ -48,6 +47,7 @@ export default function MoveForm() {
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [hasDraft, setHasDraft] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   const defaultFormData = {
     serviceType: "",
@@ -89,28 +89,32 @@ export default function MoveForm() {
 
   const [formData, setFormData] = useState<any>(defaultFormData);
 
-  // ✅ Load Draft from Firestore
+  // ✅ Wait for Firebase Auth to be ready
   useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      setCurrentUser(user);
+      setHydrated(true);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // ✅ Load saved draft (after Auth is ready)
+  useEffect(() => {
+    if (!hydrated || !currentUser) return;
+
     const loadDraft = async () => {
-      const currentUser = auth.currentUser;
-      if (!currentUser) {
-        setHydrated(true);
-        return;
-      }
-
-      const isNew = searchParams.get("new");
-      const draftRef = doc(db, "drafts", currentUser.uid);
-
-      if (isNew) {
-        await deleteDoc(draftRef).catch(() => {});
-        setStep(0);
-        setFormData(defaultFormData);
-        setHasDraft(false);
-        setHydrated(true);
-        return;
-      }
-
       try {
+        const isNew = searchParams.get("new");
+        const draftRef = doc(db, "drafts", currentUser.uid);
+
+        if (isNew) {
+          await deleteDoc(draftRef).catch(() => {});
+          setStep(0);
+          setFormData(defaultFormData);
+          setHasDraft(false);
+          return;
+        }
+
         const draftSnap = await getDoc(draftRef);
         if (draftSnap.exists()) {
           const draft = draftSnap.data();
@@ -121,36 +125,32 @@ export default function MoveForm() {
           setHasDraft(false);
         }
       } catch (err) {
-        console.warn("⚠️ Draft load error:", err);
-      } finally {
-        setHydrated(true);
+        console.error("⚠️ Eroare la încărcarea draftului:", err);
       }
     };
 
-    const unsubscribe = auth.onAuthStateChanged((u) => {
-      if (u) loadDraft();
-      else setHydrated(true);
-    });
-    return () => unsubscribe();
-  }, [searchParams]);
+    loadDraft();
+  }, [currentUser, hydrated, searchParams]);
 
-  // ✅ Auto-save Draft to Firestore (only when authenticated)
+  // ✅ Auto-save Draft (safe delay + waits for Auth)
   useEffect(() => {
+    if (!hydrated || !currentUser || submitting) return;
+
     const saveDraft = async () => {
-      const currentUser = auth.currentUser;
-      if (!currentUser || submitting || !hydrated) return;
-
-      // 🧹 Remove File objects before saving (Firestore doesn't allow them)
-      const cleanedFormData = {
-        ...formData,
-        media: Array.isArray(formData.media)
-          ? formData.media.map((file: any) =>
-              typeof file === "string" ? file : file?.name || null
-            )
-          : [],
-      };
-
       try {
+        // Check auth again before writing
+        const activeUser = auth.currentUser;
+        if (!activeUser || activeUser.uid !== currentUser.uid) return;
+
+        const cleanedFormData = {
+          ...formData,
+          media: Array.isArray(formData.media)
+            ? formData.media.map((file: any) =>
+                typeof file === "string" ? file : file?.name || null
+              )
+            : [],
+        };
+
         const draftRef = doc(db, "drafts", currentUser.uid);
         await setDoc(
           draftRef,
@@ -161,18 +161,21 @@ export default function MoveForm() {
           },
           { merge: true }
         );
-      } catch (err) {
+      } catch (err: any) {
+        if (err.code === "permission-denied") {
+          console.warn("⚠️ Auth not ready, skipping early save...");
+          return;
+        }
         console.error("⚠️ Eroare la salvarea draftului:", err);
       }
     };
 
-    const timer = setTimeout(saveDraft, 1000);
+    const timer = setTimeout(saveDraft, 1500);
     return () => clearTimeout(timer);
-  }, [formData, step, hydrated, submitting]);
+  }, [formData, step, hydrated, submitting, currentUser]);
 
-  // ✅ Resetare completă (Începe o cerere nouă)
+  // ✅ Start new form (delete old draft)
   const startNewForm = async () => {
-    const currentUser = auth.currentUser;
     if (!currentUser) return;
     try {
       await deleteDoc(doc(db, "drafts", currentUser.uid));
@@ -232,14 +235,13 @@ export default function MoveForm() {
       );
     });
 
-  // ✅ Submit cerere finală
+  // ✅ Final submit
   const handleSubmit = async () => {
     if (submitting) return;
     setSubmitting(true);
     toast.loading("Se trimite cererea...");
 
     try {
-      const currentUser = auth.currentUser;
       if (!currentUser) {
         toast.dismiss();
         toast.error("Trebuie să te autentifici înainte de a trimite cererea.");
@@ -317,28 +319,17 @@ export default function MoveForm() {
 
   const renderStep = () => {
     switch (step) {
-      case 0:
-        return <StepService formData={formData} handleChange={handleChange} />;
-      case 1:
-        return <StepProperty formData={formData} handleChange={handleChange} />;
-      case 2:
-        return <StepPickupAddress formData={formData} handleChange={handleChange} />;
-      case 3:
-        return <StepDeliveryProperty formData={formData} handleChange={handleChange} />;
-      case 4:
-        return <StepDeliveryAddress formData={formData} handleChange={handleChange} />;
-      case 5:
-        return <StepMoveDate formData={formData} handleChange={handleChange} />;
-      case 6:
-        return <StepPacking formData={formData} handleChange={handleChange} />;
-      case 7:
-        return <StepDismantling formData={formData} handleChange={handleChange} />;
-      case 8:
-        return <StepSurvey formData={formData} handleChange={handleChange} setFormData={setFormData} />;
-      case 9:
-        return <StepContact formData={formData} handleChange={handleChange} />;
-      default:
-        return null;
+      case 0: return <StepService formData={formData} handleChange={handleChange} />;
+      case 1: return <StepProperty formData={formData} handleChange={handleChange} />;
+      case 2: return <StepPickupAddress formData={formData} handleChange={handleChange} />;
+      case 3: return <StepDeliveryProperty formData={formData} handleChange={handleChange} />;
+      case 4: return <StepDeliveryAddress formData={formData} handleChange={handleChange} />;
+      case 5: return <StepMoveDate formData={formData} handleChange={handleChange} />;
+      case 6: return <StepPacking formData={formData} handleChange={handleChange} />;
+      case 7: return <StepDismantling formData={formData} handleChange={handleChange} />;
+      case 8: return <StepSurvey formData={formData} handleChange={handleChange} setFormData={setFormData} />;
+      case 9: return <StepContact formData={formData} handleChange={handleChange} />;
+      default: return null;
     }
   };
 
@@ -392,7 +383,7 @@ export default function MoveForm() {
           <div className="mt-10 flex justify-between items-center">
             {step > 0 ? (
               <button
-                onClick={() => setStep((s) => Math.max(s - 1, 0))}
+                onClick={prevStep}
                 className="flex items-center gap-2 px-6 py-2 rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300 transition-all"
               >
                 <ArrowLeft size={18} /> Înapoi
