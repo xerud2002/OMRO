@@ -1,32 +1,46 @@
 {
-  "firestore": {
-    "rules": "firestore.rules",
-    "indexes": "firestore.indexes.json"
+  "name": "ofertemutare",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "format": "prettier --write .",
+    "deploy": "firebase deploy --only hosting"
   },
-  "storage": {
-    "rules": "storage.rules"
+  "dependencies": {
+    "@headlessui/react": "^2.2.0",
+    "@heroicons/react": "^2.1.5",
+    "@tanstack/react-query": "^5.51.7",
+    "autoprefixer": "^10.4.20",
+    "clsx": "^2.1.0",
+    "date-fns": "^3.6.0",
+    "firebase": "^11.0.0",
+    "framer-motion": "^11.1.0",
+    "lucide-react": "^0.424.0",
+    "next": "^14.2.4",
+    "postcss": "^8.4.41",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-hook-form": "^7.52.1",
+    "react-hot-toast": "^2.4.1",
+    "react-icons": "^5.3.0",
+    "tailwind-merge": "^2.2.2",
+    "tailwindcss": "^3.4.3",
+    "uuid": "^9.0.1"
   },
-  "emulators": {
-  "firestore": {
-    "port": 8085
-  },
-  "storage": {
-    "port": 9199
-  },
-  "auth": {
-    "port": 9099
-  },
-  "ui": {
-    "enabled": true
-  },
-  "singleProjectMode": true
-},
-  "hosting": {
-    "public": "out",
-    "ignore": [
-      "firebase.json",
-      "**/.*",
-      "**/node_modules/**"
-    ]
+  "devDependencies": {
+    "@types/node": "^20.14.10",
+    "@types/react": "^18.3.4",
+    "@types/react-dom": "^18.3.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.1",
+    "@typescript-eslint/parser": "^8.0.1",
+    "eslint": "^9.7.0",
+    "eslint-config-next": "^14.2.4",
+    "postcss": "^8.4.41",
+    "prettier": "^3.3.3",
+    "typescript": "^5.6.2"
   }
 }
