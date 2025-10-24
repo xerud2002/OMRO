@@ -9,14 +9,18 @@
   --color-dark: #064e3b;
 }
 
+
 /* 🌿 BODY global */
 body {
-  @apply font-sans text-gray-800 bg-gradient-to-br from-emerald-50 via-white to-sky-50;
+  font-family: theme('fontFamily.sans');
+  color: rgb(31, 41, 55); /* echivalent text-gray-800 */
+  background: linear-gradient(to bottom right, #ecfdf5, #ffffff, #f0f9ff);
   background-attachment: fixed;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   scroll-behavior: smooth;
 }
+
 
 /* 🌿 CARD (folosit în MoveForm și alte componente) */
 .card {
@@ -78,7 +82,6 @@ textarea {
 .hero-overlay {
   @apply bg-white/20 backdrop-blur-[2px] rounded-3xl border border-white/30 shadow-md p-8 text-center;
 }
-
 
 /* 🌿 Animations */
 .fade-in {
