@@ -2,8 +2,8 @@
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
-import { auth, db, storage } from "../utils/firebase";
+import { auth, db } from "../utils/firebase";
+import { uploadFile } from "../utils/uploadFile";
 import {
   setDoc,
   doc,
@@ -50,6 +50,7 @@ export default function MoveForm() {
   const [submitting, setSubmitting] = useState(false);
   const [hasDraft, setHasDraft] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [progress, setProgress] = useState<number>(0);
 
   const defaultFormData = {
     serviceType: "",
@@ -129,7 +130,7 @@ export default function MoveForm() {
     })();
   }, [currentUser, hydrated, searchParams]);
 
-  // Auto-save draft (fixed duplicate effect bug)
+  // Auto-save draft
   useEffect(() => {
     if (!hydrated || !currentUser || submitting) return;
 
@@ -150,11 +151,7 @@ export default function MoveForm() {
         const draftRef = doc(db, "drafts", currentUser.uid);
         await setDoc(
           draftRef,
-          {
-            step,
-            formData: cleanedFormData,
-            updatedAt: Timestamp.now(),
-          },
+          { step, formData: cleanedFormData, updatedAt: Timestamp.now() },
           { merge: true }
         );
       } catch (err: any) {
@@ -197,18 +194,6 @@ export default function MoveForm() {
   };
   const prevStep = () => setStep((p) => Math.max(p - 1, 0));
 
-  const uploadWithProgress = (file: File) =>
-    new Promise<string>((resolve, reject) => {
-      const storageRef = ref(storage, `uploads/${Date.now()}-${file.name}`);
-      const uploadTask = uploadBytesResumable(storageRef, file);
-      uploadTask.on(
-        "state_changed",
-        undefined,
-        reject,
-        async () => resolve(await getDownloadURL(storageRef))
-      );
-    });
-
   // Submit final
   const handleSubmit = async () => {
     if (submitting) return;
@@ -224,14 +209,7 @@ export default function MoveForm() {
         return;
       }
 
-      let mediaUrls: string[] = [];
-      if (formData.survey === "media" && formData.media?.length > 0) {
-        mediaUrls = await Promise.all(
-          formData.media.map((file: File) => uploadWithProgress(file))
-        );
-      }
-
-      // generate unique short id
+      // Generate unique short ID
       let shortId: string;
       let exists = true;
       do {
@@ -240,40 +218,20 @@ export default function MoveForm() {
         exists = checkDoc.exists();
       } while (exists);
 
+      // Upload media (if applicable)
+      let mediaUrls: string[] = [];
+      if (formData.survey === "media" && formData.media?.length > 0) {
+        mediaUrls = await Promise.all(
+          formData.media.map((file: File) =>
+            uploadFile(file, "uploads", shortId, (p) => setProgress(p))
+          )
+        );
+      }
+
       // 1) Write the request WITHOUT contact fields
       const requestRef = doc(db, "requests", shortId);
       await setDoc(requestRef, {
-        serviceType: formData.serviceType,
-        propertyType: formData.propertyType,
-        rooms: formData.rooms,
-        houseFloors: formData.houseFloors,
-        floor: formData.floor,
-        lift: formData.lift,
-        packing: formData.packing,
-        dismantling: formData.dismantling,
-        survey: formData.survey,
-        details: formData.details,
-        moveDate: formData.moveDate,
-        moveOption: formData.moveOption,
-        pickupCounty: formData.pickupCounty,
-        pickupCity: formData.pickupCity,
-        pickupStreet: formData.pickupStreet,
-        pickupNumber: formData.pickupNumber,
-        pickupDetails: formData.pickupDetails,
-        pickupPostal: formData.pickupPostal,
-        pickupInstructions: formData.pickupInstructions,
-        deliveryCounty: formData.deliveryCounty,
-        deliveryCity: formData.deliveryCity,
-        deliveryStreet: formData.deliveryStreet,
-        deliveryNumber: formData.deliveryNumber,
-        deliveryDetails: formData.deliveryDetails,
-        deliveryPostal: formData.deliveryPostal,
-        deliveryInstructions: formData.deliveryInstructions,
-        propertyTypeTo: formData.propertyTypeTo,
-        roomsTo: formData.roomsTo,
-        houseFloorsTo: formData.houseFloorsTo,
-        floorTo: formData.floorTo,
-        liftTo: formData.liftTo,
+        ...formData,
         media: mediaUrls,
         userId: currentUser.uid,
         createdAt: Timestamp.now(),
@@ -289,7 +247,7 @@ export default function MoveForm() {
         createdAt: Timestamp.now(),
       });
 
-      // keep user profile fresh
+      // Keep user profile fresh
       await setDoc(
         doc(db, "users", currentUser.uid),
         {
@@ -302,7 +260,7 @@ export default function MoveForm() {
         { merge: true }
       );
 
-      // email “upload later” link
+      // Optional email for later upload
       if (formData.survey === "media_later" && formData.email) {
         const uploadLink = `${window.location.origin}/upload/${shortId}`;
         await emailjs.send(
@@ -320,8 +278,8 @@ export default function MoveForm() {
       toast.dismiss();
       toast.success("✅ Cererea ta a fost trimisă cu succes!");
       await deleteDoc(doc(db, "drafts", currentUser.uid));
-      setTimeout(() => router.push("/customer/dashboard"), 1500);
 
+      setTimeout(() => router.push("/customer/dashboard"), 1500);
       setFormData(defaultFormData);
       setStep(0);
       setHasDraft(false);
@@ -420,6 +378,16 @@ export default function MoveForm() {
               {renderStep()}
             </motion.div>
           </AnimatePresence>
+
+          {/* Upload progress bar (visible when uploading files) */}
+          {progress > 0 && progress < 100 && (
+            <div className="mt-6 w-full bg-gray-200 h-2 rounded-full overflow-hidden">
+              <div
+                className="h-2 bg-gradient-to-r from-emerald-500 to-sky-500 rounded-full transition-all"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          )}
 
           <div className="mt-10 flex justify-between items-center">
             {step > 0 ? (

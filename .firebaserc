@@ -1,0 +1,15 @@
+{
+  "projects": {
+    "default": "omro-e5a88"
+  },
+  "targets": {
+    "omro-e5a88": {
+      "storage": {
+        "rules": [
+          "omro-e5a88.appspot.com"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}
