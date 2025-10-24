@@ -8,7 +8,6 @@ import { motion } from "framer-motion";
 import AdminProtectedRoute from "../../../components/AdminProtectedRoute";
 import AdminLayout from "../../../components/AdminLayout";
 import {
-  Hash,
   User,
   Mail,
   Phone,
@@ -48,11 +47,30 @@ export default function NewRequestPage() {
 
     try {
       const shortId = `REQ-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
-      await setDoc(doc(collection(db, "requests"), shortId), {
-        ...formData,
+      const requestRef = doc(collection(db, "requests"), shortId);
+
+      // Main request without contact fields
+      await setDoc(requestRef, {
+        pickupCity: formData.pickupCity,
+        pickupCounty: formData.pickupCounty,
+        deliveryCity: formData.deliveryCity,
+        deliveryCounty: formData.deliveryCounty,
+        propertyType: formData.propertyType,
+        rooms: formData.rooms,
+        moveDate: formData.moveDate,
+        details: formData.details,
         createdAt: Timestamp.now(),
-        status: "noua",
+        status: "Nouă",
         requestId: shortId,
+        userId: "admin-created", // optional marker
+      });
+
+      // Contact protected subdoc
+      await setDoc(doc(requestRef, "contact", "info"), {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        createdAt: Timestamp.now(),
       });
 
       toast.success("✅ Cererea a fost adăugată cu succes!");
@@ -79,7 +97,7 @@ export default function NewRequestPage() {
           </h1>
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Client info */}
+            {/* Client info (stored in contact subdoc) */}
             <div className="grid md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1">
@@ -214,7 +232,6 @@ export default function NewRequestPage() {
               </div>
             </div>
 
-            {/* Date */}
             <div>
               <label className="block text-sm font-medium text-gray-600 mb-1">
                 <CalendarDays size={14} className="inline mr-1" /> Data mutării
@@ -227,21 +244,6 @@ export default function NewRequestPage() {
               />
             </div>
 
-            {/* Details */}
-            <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">
-                Detalii suplimentare
-              </label>
-              <textarea
-                value={formData.details}
-                onChange={(e) => handleChange("details", e.target.value)}
-                className="w-full border rounded-lg p-2 focus:ring-2 focus:ring-emerald-400"
-                rows={3}
-                placeholder="Ex: Etaj 2 fără lift, canapele mari, etc."
-              />
-            </div>
-
-            {/* Submit */}
             <div className="pt-6">
               <button
                 type="submit"

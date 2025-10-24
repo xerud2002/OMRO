@@ -10,11 +10,13 @@ import {
   getDoc,
   Timestamp,
   deleteDoc,
+  collection,
 } from "firebase/firestore";
 import emailjs from "@emailjs/browser";
 import toast from "react-hot-toast";
 import { ArrowLeft, ArrowRight, Send } from "lucide-react";
 
+// Steps
 import StepService from "../components/formSteps/StepService";
 import StepProperty from "../components/formSteps/StepProperty";
 import StepPickupAddress from "../components/formSteps/StepPickupAddress";
@@ -89,7 +91,7 @@ export default function MoveForm() {
 
   const [formData, setFormData] = useState<any>(defaultFormData);
 
-  // ✅ Wait for Firebase Auth to be ready
+  // Auth hydrate
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
       setCurrentUser(user);
@@ -98,47 +100,41 @@ export default function MoveForm() {
     return () => unsubscribe();
   }, []);
 
-  // ✅ Load saved draft (after Auth is ready)
+  // Load draft (once hydrated)
   useEffect(() => {
-    if (!hydrated || !currentUser) return;
+    if (!hydrated) return;
+    (async () => {
+      if (!currentUser) return;
 
-    const loadDraft = async () => {
-      try {
-        const isNew = searchParams.get("new");
-        const draftRef = doc(db, "drafts", currentUser.uid);
+      const isNew = searchParams.get("new");
+      const draftRef = doc(db, "drafts", currentUser.uid);
 
-        if (isNew) {
-          await deleteDoc(draftRef).catch(() => {});
-          setStep(0);
-          setFormData(defaultFormData);
-          setHasDraft(false);
-          return;
-        }
-
-        const draftSnap = await getDoc(draftRef);
-        if (draftSnap.exists()) {
-          const draft = draftSnap.data();
-          setFormData(draft.formData || defaultFormData);
-          setStep(draft.step || 0);
-          setHasDraft(true);
-        } else {
-          setHasDraft(false);
-        }
-      } catch (err) {
-        console.error("⚠️ Eroare la încărcarea draftului:", err);
+      if (isNew) {
+        await deleteDoc(draftRef).catch(() => {});
+        setStep(0);
+        setFormData(defaultFormData);
+        setHasDraft(false);
+        return;
       }
-    };
 
-    loadDraft();
+      const draftSnap = await getDoc(draftRef);
+      if (draftSnap.exists()) {
+        const draft = draftSnap.data();
+        setFormData(draft.formData || defaultFormData);
+        setStep(draft.step || 0);
+        setHasDraft(true);
+      } else {
+        setHasDraft(false);
+      }
+    })();
   }, [currentUser, hydrated, searchParams]);
 
-  // ✅ Auto-save Draft (safe delay + waits for Auth)
+  // Auto-save draft (fixed duplicate effect bug)
   useEffect(() => {
     if (!hydrated || !currentUser || submitting) return;
 
     const saveDraft = async () => {
       try {
-        // Check auth again before writing
         const activeUser = auth.currentUser;
         if (!activeUser || activeUser.uid !== currentUser.uid) return;
 
@@ -163,55 +159,33 @@ export default function MoveForm() {
         );
       } catch (err: any) {
         if (err.code === "permission-denied") {
-          console.warn("⚠️ Auth not ready, skipping early save...");
+          console.warn("⚠️ Skipped early draft save (auth not yet ready).");
           return;
         }
         console.error("⚠️ Eroare la salvarea draftului:", err);
       }
     };
 
-    const timer = setTimeout(saveDraft, 1500);
+    const timer = setTimeout(saveDraft, 1200);
     return () => clearTimeout(timer);
   }, [formData, step, hydrated, submitting, currentUser]);
-
-  // ✅ Start new form (delete old draft)
-  const startNewForm = async () => {
-    if (!currentUser) return;
-    try {
-      await deleteDoc(doc(db, "drafts", currentUser.uid));
-      setFormData(defaultFormData);
-      setStep(0);
-      setHasDraft(false);
-      toast.success("🆕 Formular nou început de la zero!");
-    } catch (err) {
-      console.error("Eroare la resetare formular:", err);
-      toast.error("Eroare la resetarea formularului.");
-    }
-  };
-
-  if (!hydrated)
-    return (
-      <div className="text-center py-16 text-emerald-600 font-medium">
-        Se încarcă formularul...
-      </div>
-    );
 
   const handleChange = (field: string, value: any) =>
     setFormData((prev: any) => ({ ...prev, [field]: value }));
 
   const validateStep = () => {
-    const requiredFields: Record<number, string[]> = {
+    const required: Record<number, string[]> = {
       0: ["serviceType"],
       1: ["propertyType"],
       2: ["pickupCity", "pickupCounty"],
       4: ["deliveryCity", "deliveryCounty"],
       9: ["name", "phone", "email"],
     };
-    const fields = requiredFields[step];
+    const fields = required[step];
     if (!fields) return true;
     for (const f of fields) {
-      if (!formData[f] || formData[f].trim() === "") {
-        toast.error("Completează toate câmpurile obligatorii înainte de a continua.");
+      if (!formData[f] || String(formData[f]).trim() === "") {
+        toast.error("Completează câmpurile obligatorii înainte de a continua.");
         return false;
       }
     }
@@ -219,9 +193,9 @@ export default function MoveForm() {
   };
 
   const nextStep = () => {
-    if (validateStep()) setStep((prev) => Math.min(prev + 1, steps.length - 1));
+    if (validateStep()) setStep((p) => Math.min(p + 1, steps.length - 1));
   };
-  const prevStep = () => setStep((prev) => Math.max(prev - 1, 0));
+  const prevStep = () => setStep((p) => Math.max(p - 1, 0));
 
   const uploadWithProgress = (file: File) =>
     new Promise<string>((resolve, reject) => {
@@ -235,7 +209,7 @@ export default function MoveForm() {
       );
     });
 
-  // ✅ Final submit
+  // Submit final
   const handleSubmit = async () => {
     if (submitting) return;
     setSubmitting(true);
@@ -244,19 +218,20 @@ export default function MoveForm() {
     try {
       if (!currentUser) {
         toast.dismiss();
-        toast.error("Trebuie să te autentifici înainte de a trimite cererea.");
+        toast.error("Autentifică-te înainte de a trimite cererea.");
         router.push("/customer/auth");
         setSubmitting(false);
         return;
       }
 
       let mediaUrls: string[] = [];
-      if (formData.survey === "media" && formData.media.length > 0) {
+      if (formData.survey === "media" && formData.media?.length > 0) {
         mediaUrls = await Promise.all(
           formData.media.map((file: File) => uploadWithProgress(file))
         );
       }
 
+      // generate unique short id
       let shortId: string;
       let exists = true;
       do {
@@ -265,8 +240,40 @@ export default function MoveForm() {
         exists = checkDoc.exists();
       } while (exists);
 
-      await setDoc(doc(db, "requests", shortId), {
-        ...formData,
+      // 1) Write the request WITHOUT contact fields
+      const requestRef = doc(db, "requests", shortId);
+      await setDoc(requestRef, {
+        serviceType: formData.serviceType,
+        propertyType: formData.propertyType,
+        rooms: formData.rooms,
+        houseFloors: formData.houseFloors,
+        floor: formData.floor,
+        lift: formData.lift,
+        packing: formData.packing,
+        dismantling: formData.dismantling,
+        survey: formData.survey,
+        details: formData.details,
+        moveDate: formData.moveDate,
+        moveOption: formData.moveOption,
+        pickupCounty: formData.pickupCounty,
+        pickupCity: formData.pickupCity,
+        pickupStreet: formData.pickupStreet,
+        pickupNumber: formData.pickupNumber,
+        pickupDetails: formData.pickupDetails,
+        pickupPostal: formData.pickupPostal,
+        pickupInstructions: formData.pickupInstructions,
+        deliveryCounty: formData.deliveryCounty,
+        deliveryCity: formData.deliveryCity,
+        deliveryStreet: formData.deliveryStreet,
+        deliveryNumber: formData.deliveryNumber,
+        deliveryDetails: formData.deliveryDetails,
+        deliveryPostal: formData.deliveryPostal,
+        deliveryInstructions: formData.deliveryInstructions,
+        propertyTypeTo: formData.propertyTypeTo,
+        roomsTo: formData.roomsTo,
+        houseFloorsTo: formData.houseFloorsTo,
+        floorTo: formData.floorTo,
+        liftTo: formData.liftTo,
         media: mediaUrls,
         userId: currentUser.uid,
         createdAt: Timestamp.now(),
@@ -274,6 +281,15 @@ export default function MoveForm() {
         requestId: shortId,
       });
 
+      // 2) Write contact subdocument protected by rules
+      await setDoc(doc(collection(requestRef, "contact"), "info"), {
+        name: formData.name,
+        phone: formData.phone,
+        email: formData.email,
+        createdAt: Timestamp.now(),
+      });
+
+      // keep user profile fresh
       await setDoc(
         doc(db, "users", currentUser.uid),
         {
@@ -286,6 +302,7 @@ export default function MoveForm() {
         { merge: true }
       );
 
+      // email “upload later” link
       if (formData.survey === "media_later" && formData.email) {
         const uploadLink = `${window.location.origin}/upload/${shortId}`;
         await emailjs.send(
@@ -303,7 +320,7 @@ export default function MoveForm() {
       toast.dismiss();
       toast.success("✅ Cererea ta a fost trimisă cu succes!");
       await deleteDoc(doc(db, "drafts", currentUser.uid));
-      setTimeout(() => router.push("/customer/dashboard"), 1800);
+      setTimeout(() => router.push("/customer/dashboard"), 1500);
 
       setFormData(defaultFormData);
       setStep(0);
@@ -319,19 +336,37 @@ export default function MoveForm() {
 
   const renderStep = () => {
     switch (step) {
-      case 0: return <StepService formData={formData} handleChange={handleChange} />;
-      case 1: return <StepProperty formData={formData} handleChange={handleChange} />;
-      case 2: return <StepPickupAddress formData={formData} handleChange={handleChange} />;
-      case 3: return <StepDeliveryProperty formData={formData} handleChange={handleChange} />;
-      case 4: return <StepDeliveryAddress formData={formData} handleChange={handleChange} />;
-      case 5: return <StepMoveDate formData={formData} handleChange={handleChange} />;
-      case 6: return <StepPacking formData={formData} handleChange={handleChange} />;
-      case 7: return <StepDismantling formData={formData} handleChange={handleChange} />;
-      case 8: return <StepSurvey formData={formData} handleChange={handleChange} setFormData={setFormData} />;
-      case 9: return <StepContact formData={formData} handleChange={handleChange} />;
-      default: return null;
+      case 0:
+        return <StepService formData={formData} handleChange={handleChange} />;
+      case 1:
+        return <StepProperty formData={formData} handleChange={handleChange} />;
+      case 2:
+        return <StepPickupAddress formData={formData} handleChange={handleChange} />;
+      case 3:
+        return <StepDeliveryProperty formData={formData} handleChange={handleChange} />;
+      case 4:
+        return <StepDeliveryAddress formData={formData} handleChange={handleChange} />;
+      case 5:
+        return <StepMoveDate formData={formData} handleChange={handleChange} />;
+      case 6:
+        return <StepPacking formData={formData} handleChange={handleChange} />;
+      case 7:
+        return <StepDismantling formData={formData} handleChange={handleChange} />;
+      case 8:
+        return <StepSurvey formData={formData} handleChange={handleChange} setFormData={setFormData} />;
+      case 9:
+        return <StepContact formData={formData} handleChange={handleChange} />;
+      default:
+        return null;
     }
   };
+
+  if (!hydrated)
+    return (
+      <div className="text-center py-16 text-emerald-600 font-medium">
+        Se încarcă formularul...
+      </div>
+    );
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -340,7 +375,13 @@ export default function MoveForm() {
           <div className="bg-yellow-100 border border-yellow-300 text-yellow-800 text-sm p-4 text-center mb-6 rounded-xl shadow-sm max-w-2xl w-full">
             Ai o cerere în desfășurare salvată automat.{" "}
             <button
-              onClick={startNewForm}
+              onClick={async () => {
+                if (!currentUser) return;
+                await deleteDoc(doc(db, "drafts", currentUser.uid)).catch(() => {});
+                setFormData(defaultFormData);
+                setStep(0);
+                setHasDraft(false);
+              }}
               className="ml-2 px-3 py-1 bg-gradient-to-r from-emerald-500 to-sky-500 text-white rounded-full text-xs hover:scale-105 transition-all"
             >
               Începe o cerere nouă
