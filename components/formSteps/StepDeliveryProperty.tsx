@@ -1,9 +1,10 @@
 "use client";
 import React from "react";
+import { motion } from "framer-motion";
 import FormSelect from "../../components/form/FormSelect";
 
 interface StepProps {
-  formData: any;
+  formData: Record<string, any>;
   handleChange: (field: string, value: any) => void;
 }
 
@@ -11,10 +12,7 @@ interface StepProps {
  * Step 4 – Destination Property Type
  * Collects details about the destination property (house, apartment, office, etc.)
  */
-export default function StepDeliveryProperty({
-  formData,
-  handleChange,
-}: StepProps) {
+export default function StepDeliveryProperty({ formData, handleChange }: StepProps) {
   const propertyOptions = [
     { value: "Casă", label: "Casă" },
     { value: "Apartament", label: "Apartament" },
@@ -52,12 +50,26 @@ export default function StepDeliveryProperty({
   ];
 
   return (
-    <div className="text-center">
-      <h2 className="text-2xl font-bold text-emerald-700 mb-6">
+    <motion.div
+      className="text-center space-y-8"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+    >
+      <h2 className="text-2xl font-bold text-emerald-700">
         Tipul de proprietate la destinație
       </h2>
 
-      <div className="max-w-md mx-auto text-left space-y-5">
+      <p className="text-sm text-gray-600 max-w-lg mx-auto">
+        Completează informațiile despre locația de descărcare pentru a estima accesul și timpul necesar.
+      </p>
+
+      <motion.div
+        initial={{ opacity: 0, scale: 0.98 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.4 }}
+        className="max-w-md mx-auto text-left space-y-5 bg-white/70 backdrop-blur-sm p-6 rounded-2xl border border-emerald-100 shadow-sm"
+      >
         {/* --- Tip proprietate --- */}
         <FormSelect
           id="propertyTypeTo"
@@ -65,11 +77,17 @@ export default function StepDeliveryProperty({
           options={propertyOptions}
           value={formData.propertyTypeTo || ""}
           onChange={(e) => handleChange("propertyTypeTo", e.target.value)}
+          required
         />
 
-        {/* --- Caz: Casă --- */}
+        {/* --- Casă --- */}
         {formData.propertyTypeTo === "Casă" && (
-          <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3 }}
+            className="space-y-4"
+          >
             <FormSelect
               id="roomsTo"
               label="Număr camere"
@@ -85,13 +103,18 @@ export default function StepDeliveryProperty({
               value={formData.houseFloorsTo || ""}
               onChange={(e) => handleChange("houseFloorsTo", e.target.value)}
             />
-          </>
+          </motion.div>
         )}
 
-        {/* --- Caz: Apartament / Office --- */}
+        {/* --- Apartament / Office --- */}
         {(formData.propertyTypeTo === "Apartament" ||
           formData.propertyTypeTo === "Office") && (
-          <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3 }}
+            className="space-y-4"
+          >
             <FormSelect
               id="roomsTo"
               label="Număr camere"
@@ -117,9 +140,24 @@ export default function StepDeliveryProperty({
                 onChange={(e) => handleChange("liftTo", e.target.value)}
               />
             )}
-          </>
+          </motion.div>
         )}
-      </div>
-    </div>
+
+        {/* --- Depozit --- */}
+        {formData.propertyTypeTo === "Depozit" && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.3 }}
+            className="text-sm text-gray-600 italic"
+          >
+            <p>
+              Poți specifica detalii despre accesul în depozit sau restricțiile de descărcare în
+              secțiunea următoare.
+            </p>
+          </motion.div>
+        )}
+      </motion.div>
+    </motion.div>
   );
 }

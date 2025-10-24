@@ -16,7 +16,7 @@ export default function FormPage() {
         <div className="w-full max-w-4xl bg-white/80 backdrop-blur-md rounded-3xl shadow-lg border border-emerald-100 p-6 sm:p-10">
           <h1 className="text-3xl font-bold text-center text-emerald-700 mb-10">
             Completează detaliile pentru cererea ta de mutare{" "}
-            <span className="inline-block">🚚</span>
+            
           </h1>
           <MoveForm />
         </div>

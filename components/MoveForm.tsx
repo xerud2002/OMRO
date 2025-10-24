@@ -1,9 +1,10 @@
+// components/MoveForm.tsx
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { auth, db } from "../utils/firebase";
-import { uploadFile } from "../utils/uploadFile";
+import { uploadMultipleFiles } from "../utils/storageService";
 import {
   setDoc,
   doc,
@@ -16,7 +17,6 @@ import emailjs from "@emailjs/browser";
 import toast from "react-hot-toast";
 import { ArrowLeft, ArrowRight, Send } from "lucide-react";
 
-// Steps
 import StepService from "../components/formSteps/StepService";
 import StepProperty from "../components/formSteps/StepProperty";
 import StepPickupAddress from "../components/formSteps/StepPickupAddress";
@@ -41,160 +41,143 @@ const steps = [
   "Date de contact",
 ];
 
+const defaultFormData = {
+  serviceType: "",
+  propertyType: "",
+  rooms: "",
+  houseFloors: "",
+  floor: "",
+  lift: "",
+  packing: "",
+  dismantling: "",
+  survey: "",
+  details: "",
+  name: "",
+  phone: "",
+  email: "",
+  moveDate: "",
+  moveOption: "",
+  pickupCounty: "",
+  pickupCity: "",
+  pickupStreet: "",
+  pickupNumber: "",
+  pickupDetails: "",
+  pickupPostal: "",
+  pickupInstructions: "",
+  deliveryCounty: "",
+  deliveryCity: "",
+  deliveryStreet: "",
+  deliveryNumber: "",
+  deliveryDetails: "",
+  deliveryPostal: "",
+  deliveryInstructions: "",
+  propertyTypeTo: "",
+  roomsTo: "",
+  houseFloorsTo: "",
+  floorTo: "",
+  liftTo: "",
+  media: [] as File[],
+};
+
 export default function MoveForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-
-  const [hydrated, setHydrated] = useState(false);
   const [step, setStep] = useState(0);
-  const [submitting, setSubmitting] = useState(false);
-  const [hasDraft, setHasDraft] = useState(false);
-  const [currentUser, setCurrentUser] = useState<any>(null);
-  const [progress, setProgress] = useState<number>(0);
-
-  const defaultFormData = {
-    serviceType: "",
-    propertyType: "",
-    rooms: "",
-    houseFloors: "",
-    floor: "",
-    lift: "",
-    packing: "",
-    dismantling: "",
-    survey: "",
-    details: "",
-    name: "",
-    phone: "",
-    email: "",
-    moveDate: "",
-    moveOption: "",
-    pickupCounty: "",
-    pickupCity: "",
-    pickupStreet: "",
-    pickupNumber: "",
-    pickupDetails: "",
-    pickupPostal: "",
-    pickupInstructions: "",
-    deliveryCounty: "",
-    deliveryCity: "",
-    deliveryStreet: "",
-    deliveryNumber: "",
-    deliveryDetails: "",
-    deliveryPostal: "",
-    deliveryInstructions: "",
-    propertyTypeTo: "",
-    roomsTo: "",
-    houseFloorsTo: "",
-    floorTo: "",
-    liftTo: "",
-    media: [] as File[],
-  };
-
   const [formData, setFormData] = useState<any>(defaultFormData);
+  const [progress, setProgress] = useState<number>(0);
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [hasDraft, setHasDraft] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [ready, setReady] = useState(false);
+  const saveTimeout = useRef<NodeJS.Timeout | null>(null);
 
-  // Auth hydrate
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
       setCurrentUser(user);
-      setHydrated(true);
+      setReady(true);
     });
     return () => unsubscribe();
   }, []);
 
-  // Load draft (once hydrated)
   useEffect(() => {
-    if (!hydrated) return;
+    if (!ready || !currentUser) return;
     (async () => {
-      if (!currentUser) return;
-
       const isNew = searchParams.get("new");
       const draftRef = doc(db, "drafts", currentUser.uid);
-
       if (isNew) {
         await deleteDoc(draftRef).catch(() => {});
-        setStep(0);
         setFormData(defaultFormData);
+        setStep(0);
         setHasDraft(false);
         return;
       }
 
-      const draftSnap = await getDoc(draftRef);
-      if (draftSnap.exists()) {
-        const draft = draftSnap.data();
+      const snap = await getDoc(draftRef);
+      if (snap.exists()) {
+        const draft = snap.data();
         setFormData(draft.formData || defaultFormData);
         setStep(draft.step || 0);
         setHasDraft(true);
-      } else {
-        setHasDraft(false);
       }
     })();
-  }, [currentUser, hydrated, searchParams]);
+  }, [currentUser, ready, searchParams]);
 
-  // Auto-save draft
+  const saveDraft = useCallback(async () => {
+    if (!ready || !currentUser || submitting) return;
+    try {
+      const draftRef = doc(db, "drafts", currentUser.uid);
+      const cleaned = {
+        ...formData,
+        media: formData.media?.map((f: any) =>
+          typeof f === "string" ? f : f?.name
+        ),
+      };
+      await setDoc(
+        draftRef,
+        { step, formData: cleaned, updatedAt: Timestamp.now() },
+        { merge: true }
+      );
+    } catch (e) {
+      console.warn("Draft save skipped:", e);
+    }
+  }, [formData, step, ready, submitting, currentUser]);
+
   useEffect(() => {
-    if (!hydrated || !currentUser || submitting) return;
+    if (!ready || !currentUser) return;
+    if (saveTimeout.current) clearTimeout(saveTimeout.current);
+    saveTimeout.current = setTimeout(saveDraft, 1200);
+  }, [formData, step, saveDraft, ready, currentUser]);
 
-    const saveDraft = async () => {
-      try {
-        const activeUser = auth.currentUser;
-        if (!activeUser || activeUser.uid !== currentUser.uid) return;
+  const handleChange = useCallback(
+    (field: string, value: any) =>
+      setFormData((prev: any) => ({ ...prev, [field]: value })),
+    []
+  );
 
-        const cleanedFormData = {
-          ...formData,
-          media: Array.isArray(formData.media)
-            ? formData.media.map((file: any) =>
-                typeof file === "string" ? file : file?.name || null
-              )
-            : [],
-        };
+  const required = {
+    0: ["serviceType"],
+    1: ["propertyType"],
+    2: ["pickupCity", "pickupCounty"],
+    4: ["deliveryCity", "deliveryCounty"],
+    9: ["name", "phone", "email"],
+  } as Record<number, string[]>;
 
-        const draftRef = doc(db, "drafts", currentUser.uid);
-        await setDoc(
-          draftRef,
-          { step, formData: cleanedFormData, updatedAt: Timestamp.now() },
-          { merge: true }
-        );
-      } catch (err: any) {
-        if (err.code === "permission-denied") {
-          console.warn("⚠️ Skipped early draft save (auth not yet ready).");
-          return;
-        }
-        console.error("⚠️ Eroare la salvarea draftului:", err);
-      }
-    };
-
-    const timer = setTimeout(saveDraft, 1200);
-    return () => clearTimeout(timer);
-  }, [formData, step, hydrated, submitting, currentUser]);
-
-  const handleChange = (field: string, value: any) =>
-    setFormData((prev: any) => ({ ...prev, [field]: value }));
-
-  const validateStep = () => {
-    const required: Record<number, string[]> = {
-      0: ["serviceType"],
-      1: ["propertyType"],
-      2: ["pickupCity", "pickupCounty"],
-      4: ["deliveryCity", "deliveryCounty"],
-      9: ["name", "phone", "email"],
-    };
+  const validateStep = useCallback(() => {
     const fields = required[step];
     if (!fields) return true;
     for (const f of fields) {
-      if (!formData[f] || String(formData[f]).trim() === "") {
-        toast.error("Completează câmpurile obligatorii înainte de a continua.");
+      if (!formData[f]?.trim()) {
+        toast.error("Completează câmpurile obligatorii.");
         return false;
       }
     }
     return true;
-  };
+  }, [step, formData]);
 
-  const nextStep = () => {
-    if (validateStep()) setStep((p) => Math.min(p + 1, steps.length - 1));
-  };
+  const nextStep = () =>
+    validateStep() && setStep((p) => Math.min(p + 1, steps.length - 1));
   const prevStep = () => setStep((p) => Math.max(p - 1, 0));
 
-  // Submit final
   const handleSubmit = async () => {
     if (submitting) return;
     setSubmitting(true);
@@ -203,34 +186,30 @@ export default function MoveForm() {
     try {
       if (!currentUser) {
         toast.dismiss();
-        toast.error("Autentifică-te înainte de a trimite cererea.");
+        toast.error("Autentifică-te pentru a trimite cererea.");
         router.push("/customer/auth");
-        setSubmitting(false);
         return;
       }
 
-      // Generate unique short ID
       let shortId: string;
-      let exists = true;
       do {
-        shortId = `REQ-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
-        const checkDoc = await getDoc(doc(db, "requests", shortId));
-        exists = checkDoc.exists();
-      } while (exists);
+        shortId = `REQ-${Math.random()
+          .toString(36)
+          .substring(2, 7)
+          .toUpperCase()}`;
+      } while ((await getDoc(doc(db, "requests", shortId))).exists());
 
-      // Upload media (if applicable)
-      let mediaUrls: string[] = [];
-      if (formData.survey === "media" && formData.media?.length > 0) {
-        mediaUrls = await Promise.all(
-          formData.media.map((file: File) =>
-            uploadFile(file, "uploads", shortId, (p) => setProgress(p))
-          )
-        );
-      }
+      const mediaUrls =
+        formData.survey === "media" && formData.media?.length
+          ? await uploadMultipleFiles(
+              formData.media,
+              `uploads/${shortId}`,
+              (p) => setProgress(p)
+            )
+          : [];
 
-      // 1) Write the request WITHOUT contact fields
-      const requestRef = doc(db, "requests", shortId);
-      await setDoc(requestRef, {
+      const ref = doc(db, "requests", shortId);
+      await setDoc(ref, {
         ...formData,
         media: mediaUrls,
         userId: currentUser.uid,
@@ -239,15 +218,13 @@ export default function MoveForm() {
         requestId: shortId,
       });
 
-      // 2) Write contact subdocument protected by rules
-      await setDoc(doc(collection(requestRef, "contact"), "info"), {
+      await setDoc(doc(collection(ref, "contact"), "info"), {
         name: formData.name,
         phone: formData.phone,
         email: formData.email,
         createdAt: Timestamp.now(),
       });
 
-      // Keep user profile fresh
       await setDoc(
         doc(db, "users", currentUser.uid),
         {
@@ -260,7 +237,6 @@ export default function MoveForm() {
         { merge: true }
       );
 
-      // Optional email for later upload
       if (formData.survey === "media_later" && formData.email) {
         const uploadLink = `${window.location.origin}/upload/${shortId}`;
         await emailjs.send(
@@ -275,51 +251,41 @@ export default function MoveForm() {
         );
       }
 
-      toast.dismiss();
-      toast.success("✅ Cererea ta a fost trimisă cu succes!");
       await deleteDoc(doc(db, "drafts", currentUser.uid));
-
-      setTimeout(() => router.push("/customer/dashboard"), 1500);
+      toast.dismiss();
+      toast.success("✅ Cererea a fost trimisă cu succes!");
+      setTimeout(() => router.push("/form/success"), 1500);
       setFormData(defaultFormData);
       setStep(0);
       setHasDraft(false);
     } catch (err) {
-      console.error("❌ Eroare la salvare:", err);
+      console.error("❌ Eroare la submit:", err);
       toast.dismiss();
-      toast.error("A apărut o eroare la salvarea cererii.");
+      toast.error("A apărut o eroare la trimiterea cererii.");
     } finally {
       setSubmitting(false);
     }
   };
 
   const renderStep = () => {
-    switch (step) {
-      case 0:
-        return <StepService formData={formData} handleChange={handleChange} />;
-      case 1:
-        return <StepProperty formData={formData} handleChange={handleChange} />;
-      case 2:
-        return <StepPickupAddress formData={formData} handleChange={handleChange} />;
-      case 3:
-        return <StepDeliveryProperty formData={formData} handleChange={handleChange} />;
-      case 4:
-        return <StepDeliveryAddress formData={formData} handleChange={handleChange} />;
-      case 5:
-        return <StepMoveDate formData={formData} handleChange={handleChange} />;
-      case 6:
-        return <StepPacking formData={formData} handleChange={handleChange} />;
-      case 7:
-        return <StepDismantling formData={formData} handleChange={handleChange} />;
-      case 8:
-        return <StepSurvey formData={formData} handleChange={handleChange} setFormData={setFormData} />;
-      case 9:
-        return <StepContact formData={formData} handleChange={handleChange} />;
-      default:
-        return null;
-    }
+    const stepProps = { formData, handleChange, setFormData };
+    const stepsList = [
+      StepService,
+      StepProperty,
+      StepPickupAddress,
+      StepDeliveryProperty,
+      StepDeliveryAddress,
+      StepMoveDate,
+      StepPacking,
+      StepDismantling,
+      StepSurvey,
+      StepContact,
+    ];
+    const Component = stepsList[step];
+    return <Component {...stepProps} />;
   };
 
-  if (!hydrated)
+  if (!ready)
     return (
       <div className="text-center py-16 text-emerald-600 font-medium">
         Se încarcă formularul...
@@ -328,14 +294,15 @@ export default function MoveForm() {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <div className="min-h-screen flex flex-col items-center justify-start bg-gradient-to-br from-emerald-50 to-sky-50 px-4 py-10">
+      <div className="flex flex-col items-center justify-start bg-gradient-to-br from-emerald-50 to-sky-50 px-4 py-10 min-h-screen">
         {hasDraft && (
           <div className="bg-yellow-100 border border-yellow-300 text-yellow-800 text-sm p-4 text-center mb-6 rounded-xl shadow-sm max-w-2xl w-full">
-            Ai o cerere în desfășurare salvată automat.{" "}
+            Ai o cerere salvată automat.
             <button
               onClick={async () => {
-                if (!currentUser) return;
-                await deleteDoc(doc(db, "drafts", currentUser.uid)).catch(() => {});
+                await deleteDoc(doc(db, "drafts", currentUser.uid)).catch(
+                  () => {}
+                );
                 setFormData(defaultFormData);
                 setStep(0);
                 setHasDraft(false);
@@ -359,7 +326,6 @@ export default function MoveForm() {
             </p>
             <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
               <motion.div
-                initial={{ width: 0 }}
                 animate={{ width: `${((step + 1) / steps.length) * 100}%` }}
                 transition={{ duration: 0.4 }}
                 className="h-2 bg-gradient-to-r from-emerald-500 to-sky-500 rounded-full"
@@ -379,7 +345,6 @@ export default function MoveForm() {
             </motion.div>
           </AnimatePresence>
 
-          {/* Upload progress bar (visible when uploading files) */}
           {progress > 0 && progress < 100 && (
             <div className="mt-6 w-full bg-gray-200 h-2 rounded-full overflow-hidden">
               <div
@@ -392,7 +357,7 @@ export default function MoveForm() {
           <div className="mt-10 flex justify-between items-center">
             {step > 0 ? (
               <button
-                onClick={prevStep}
+                onClick={() => setStep((p) => Math.max(p - 1, 0))}
                 className="flex items-center gap-2 px-6 py-2 rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300 transition-all"
               >
                 <ArrowLeft size={18} /> Înapoi
@@ -403,7 +368,10 @@ export default function MoveForm() {
 
             {step < steps.length - 1 ? (
               <button
-                onClick={nextStep}
+                onClick={() =>
+                  validateStep() &&
+                  setStep((p) => Math.min(p + 1, steps.length - 1))
+                }
                 className="flex items-center gap-2 px-6 py-2 rounded-full bg-gradient-to-r from-emerald-500 to-sky-500 text-white font-medium shadow-md hover:scale-105 transition-all"
               >
                 Următorul <ArrowRight size={18} />
@@ -418,7 +386,13 @@ export default function MoveForm() {
                     : "bg-gradient-to-r from-emerald-500 to-sky-500 text-white hover:scale-105"
                 }`}
               >
-                {submitting ? "Se trimite..." : <>Trimite cererea <Send size={18} /></>}
+                {submitting ? (
+                  "Se trimite..."
+                ) : (
+                  <>
+                    Trimite cererea <Send size={18} />
+                  </>
+                )}
               </button>
             )}
           </div>

@@ -1,16 +1,16 @@
 "use client";
 import React from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import FormInput from "../../components/form/FormInput";
 import FormSelect from "../../components/form/FormSelect";
 
 interface StepProps {
-  formData: any;
+  formData: Record<string, any>;
   handleChange: (field: string, value: any) => void;
 }
 
 /**
- * Step 2 – Property Type & Collection Details
- * Collects details about the pickup property (house, apartment, office, storage).
+ * Step 2 – Tip proprietate & detalii colectare
  */
 export default function StepProperty({ formData, handleChange }: StepProps) {
   const propertyOptions = [
@@ -21,42 +21,44 @@ export default function StepProperty({ formData, handleChange }: StepProps) {
   ];
 
   const roomOptions = [
-    { value: "1 cameră", label: "1 cameră" },
-    { value: "2 camere", label: "2 camere" },
-    { value: "3 camere", label: "3 camere" },
-    { value: "4 camere", label: "4 camere" },
-    { value: "5+ camere", label: "5+ camere" },
-  ];
+    "1 cameră",
+    "2 camere",
+    "3 camere",
+    "4 camere",
+    "5+ camere",
+  ].map((r) => ({ value: r, label: r }));
 
   const floorOptions = [
-    { value: "Parter", label: "Parter" },
-    { value: "Etaj 1", label: "Etaj 1" },
-    { value: "Etaj 2", label: "Etaj 2" },
-    { value: "Etaj 3", label: "Etaj 3" },
-    { value: "Etaj 4", label: "Etaj 4" },
-    { value: "Etaj 5+", label: "Etaj 5+" },
-  ];
+    "Parter",
+    "Etaj 1",
+    "Etaj 2",
+    "Etaj 3",
+    "Etaj 4",
+    "Etaj 5+",
+  ].map((f) => ({ value: f, label: f }));
 
-  const liftOptions = [
-    { value: "Da", label: "Da" },
-    { value: "Nu", label: "Nu" },
-  ];
+  const liftOptions = ["Da", "Nu"].map((v) => ({ value: v, label: v }));
 
   const houseFloorOptions = [
-    { value: "Fără etaj", label: "Fără etaj" },
-    { value: "1 etaj", label: "1 etaj" },
-    { value: "2 etaje", label: "2 etaje" },
-    { value: "3 etaje", label: "3 etaje" },
-  ];
+    "Fără etaj",
+    "1 etaj",
+    "2 etaje",
+    "3 etaje",
+  ].map((f) => ({ value: f, label: f }));
 
   return (
-    <div className="text-center">
-      <h2 className="text-2xl font-bold text-emerald-700 mb-6">
+    <div className="text-center space-y-8">
+      <h2 className="text-2xl font-bold text-emerald-700">
         Tipul de proprietate și detalii colectare
       </h2>
 
-      <div className="max-w-md mx-auto text-left space-y-5">
-        {/* --- Tip proprietate --- */}
+      <p className="text-gray-600 text-sm max-w-lg mx-auto">
+        Alege tipul de proprietate de la care colectăm bunurile și oferă câteva detalii
+        despre mărime și acces.
+      </p>
+
+      <div className="max-w-md mx-auto text-left space-y-6 bg-white/70 backdrop-blur-sm p-6 rounded-2xl border border-emerald-100 shadow-sm">
+        {/* Tip proprietate */}
         <FormSelect
           id="propertyType"
           label="Tip proprietate"
@@ -65,66 +67,82 @@ export default function StepProperty({ formData, handleChange }: StepProps) {
           onChange={(e) => handleChange("propertyType", e.target.value)}
         />
 
-        {/* --- Mărime / Camere --- */}
-        {formData.propertyType && (
-          <>
-            {formData.propertyType === "Storage" ? (
-              <FormInput
-                id="storageSize"
-                type="number"
-                min="1"
-                label="Mărimea spațiului (m³)"
-                placeholder="Ex: 12"
-                value={formData.rooms || ""}
-                onChange={(e) => handleChange("rooms", e.target.value)}
-              />
-            ) : (
-              <FormSelect
-                id="rooms"
-                label="Număr camere"
-                options={roomOptions}
-                value={formData.rooms || ""}
-                onChange={(e) => handleChange("rooms", e.target.value)}
-              />
-            )}
-          </>
-        )}
-
-        {/* --- Detalii pentru casă --- */}
-        {formData.propertyType === "Casă" && formData.rooms && (
-          <FormSelect
-            id="houseFloors"
-            label="Câte etaje are casa?"
-            options={houseFloorOptions}
-            value={formData.houseFloors || ""}
-            onChange={(e) => handleChange("houseFloors", e.target.value)}
-          />
-        )}
-
-        {/* --- Detalii pentru apartament / office --- */}
-        {(formData.propertyType === "Apartament" ||
-          formData.propertyType === "Office") &&
-          formData.rooms && (
-            <>
-              <FormSelect
-                id="floor"
-                label="La ce etaj este?"
-                options={floorOptions}
-                value={formData.floor || ""}
-                onChange={(e) => handleChange("floor", e.target.value)}
-              />
-
-              {formData.floor && formData.floor !== "Parter" && (
+        <AnimatePresence mode="wait">
+          {formData.propertyType && (
+            <motion.div
+              key={formData.propertyType}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3 }}
+              className="space-y-5"
+            >
+              {/* Mărime / camere */}
+              {formData.propertyType === "Storage" ? (
+                <FormInput
+                  id="storageSize"
+                  type="number"
+                  min="1"
+                  label="Mărimea spațiului (m³)"
+                  placeholder="Ex: 12"
+                  value={formData.rooms || ""}
+                  onChange={(e) => handleChange("rooms", e.target.value)}
+                />
+              ) : (
                 <FormSelect
-                  id="lift"
-                  label="Există lift?"
-                  options={liftOptions}
-                  value={formData.lift || ""}
-                  onChange={(e) => handleChange("lift", e.target.value)}
+                  id="rooms"
+                  label="Număr camere"
+                  options={roomOptions}
+                  value={formData.rooms || ""}
+                  onChange={(e) => handleChange("rooms", e.target.value)}
                 />
               )}
-            </>
+
+              {/* Caz special: Casă */}
+              {formData.propertyType === "Casă" && formData.rooms && (
+                <FormSelect
+                  id="houseFloors"
+                  label="Câte etaje are casa?"
+                  options={houseFloorOptions}
+                  value={formData.houseFloors || ""}
+                  onChange={(e) =>
+                    handleChange("houseFloors", e.target.value)
+                  }
+                />
+              )}
+
+              {/* Apartament / Office */}
+              {(formData.propertyType === "Apartament" ||
+                formData.propertyType === "Office") &&
+                formData.rooms && (
+                  <>
+                    <FormSelect
+                      id="floor"
+                      label="La ce etaj este?"
+                      options={floorOptions}
+                      value={formData.floor || ""}
+                      onChange={(e) =>
+                        handleChange("floor", e.target.value)
+                      }
+                    />
+
+                    {formData.floor &&
+                      formData.floor !== "Parter" && (
+                        <FormSelect
+                          id="lift"
+                          label="Există lift?"
+                          options={liftOptions}
+                          value={formData.lift || ""}
+                          onChange={(e) =>
+                            handleChange("lift", e.target.value)
+                          }
+                        />
+                      )}
+                  </>
+                )}
+            </motion.div>
           )}
+        </AnimatePresence>
       </div>
     </div>
   );

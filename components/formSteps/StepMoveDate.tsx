@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
   addMonths,
@@ -16,13 +16,13 @@ import {
 import { ro } from "date-fns/locale";
 
 interface StepProps {
-  formData: any;
+  formData: Record<string, any>;
   handleChange: (field: string, value: any) => void;
 }
 
 /**
  * Step 6 – Move Date
- * Lets the user select a preferred move date from a calendar or choose flexible options.
+ * Selectează o dată fixă sau opțiuni flexibile pentru mutare.
  */
 export default function StepMoveDate({ formData, handleChange }: StepProps) {
   const [currentMonth, setCurrentMonth] = useState(
@@ -30,13 +30,17 @@ export default function StepMoveDate({ formData, handleChange }: StepProps) {
   );
   const selectedDate = formData.moveDate ? new Date(formData.moveDate) : null;
 
-  // 🗓️ Generate full month grid starting Monday
-  const days = eachDayOfInterval({
-    start: startOfWeek(startOfMonth(currentMonth), { weekStartsOn: 1 }),
-    end: endOfWeek(endOfMonth(currentMonth), { weekStartsOn: 1 }),
-  });
+  // 🗓️ Generează zilele lunii curente (memoizate)
+  const days = useMemo(
+    () =>
+      eachDayOfInterval({
+        start: startOfWeek(startOfMonth(currentMonth), { weekStartsOn: 1 }),
+        end: endOfWeek(endOfMonth(currentMonth), { weekStartsOn: 1 }),
+      }),
+    [currentMonth]
+  );
 
-  // ✅ Handle day selection (fix timezone offset)
+  // ✅ Clic pe o zi (stochează doar YYYY-MM-DD, corectat pentru timezone)
   const handleSelect = (day: Date) => {
     const localDate = new Date(day.getTime() - day.getTimezoneOffset() * 60000)
       .toISOString()
@@ -48,6 +52,7 @@ export default function StepMoveDate({ formData, handleChange }: StepProps) {
   const isSelected = (day: Date) => selectedDate && isSameDay(day, selectedDate);
   const isToday = (day: Date) => isSameDay(day, new Date());
 
+  // === UI ===
   return (
     <motion.div
       className="text-center flex flex-col items-center space-y-8"
@@ -62,17 +67,16 @@ export default function StepMoveDate({ formData, handleChange }: StepProps) {
       {/* === Calendar === */}
       <motion.div
         className="bg-white/80 backdrop-blur-md border border-emerald-100 rounded-3xl shadow-lg p-6 w-full max-w-md"
-        initial={{ opacity: 0, scale: 0.95 }}
+        initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.4 }}
       >
         {/* --- Header --- */}
-        <div className="flex justify-between items-center mb-4">
+        <div className="flex justify-between items-center mb-4 select-none">
           <button
             onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
             aria-label="Luna precedentă"
-            title="Luna precedentă"
-            className="p-2 rounded-full text-emerald-600 hover:bg-emerald-50 transition"
+            className="p-2 rounded-full text-emerald-600 hover:bg-emerald-50 transition active:scale-90"
           >
             ‹
           </button>
@@ -82,8 +86,7 @@ export default function StepMoveDate({ formData, handleChange }: StepProps) {
           <button
             onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
             aria-label="Luna următoare"
-            title="Luna următoare"
-            className="p-2 rounded-full text-emerald-600 hover:bg-emerald-50 transition"
+            className="p-2 rounded-full text-emerald-600 hover:bg-emerald-50 transition active:scale-90"
           >
             ›
           </button>
@@ -111,21 +114,21 @@ export default function StepMoveDate({ formData, handleChange }: StepProps) {
             return (
               <motion.button
                 key={day.toISOString()}
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.95 }}
+                whileHover={{ scale: 1.08 }}
+                whileTap={{ scale: 0.92 }}
                 onClick={() => handleSelect(day)}
-                aria-label={`Selectează data ${format(day, "d MMMM yyyy", {
+                aria-label={`Selectează ${format(day, "d MMMM yyyy", {
                   locale: ro,
                 })}`}
                 className={`p-2 rounded-full text-sm font-medium transition-all duration-200 text-center select-none
                   ${
                     outside
-                      ? "text-gray-300"
+                      ? "text-gray-300 cursor-default"
                       : selected
-                      ? "bg-gradient-to-r from-emerald-500 to-sky-500 text-white shadow-lg scale-105"
-                      : today
-                      ? "border border-emerald-400 text-emerald-700 shadow-sm"
-                      : "hover:bg-emerald-50 hover:text-emerald-700"
+                      ? "bg-gradient-to-r from-emerald-500 to-sky-500 text-white shadow-md scale-105"
+                      : today && !selectedDate
+                      ? "text-emerald-600 font-medium" // doar text verde subtil, fără border
+                      : "hover:bg-emerald-50 hover:text-emerald-700 cursor-pointer"
                   }`}
               >
                 {format(day, "d")}
@@ -134,9 +137,14 @@ export default function StepMoveDate({ formData, handleChange }: StepProps) {
           })}
         </div>
 
-        <p className="text-sm text-gray-500 mt-5">
-          Dacă nu știi data exactă, o poți actualiza ulterior din contul tău.
-        </p>
+        {formData.moveDate && (
+          <p className="mt-4 text-emerald-700 text-sm font-medium">
+            📅 Ai selectat:{" "}
+            {format(new Date(formData.moveDate), "d MMMM yyyy", { locale: ro })}
+          </p>
+        )}
+
+        
       </motion.div>
 
       {/* === Flexible Date Options === */}

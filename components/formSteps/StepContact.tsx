@@ -1,70 +1,94 @@
 "use client";
 import React from "react";
+import { motion } from "framer-motion";
 import FormInput from "../../components/form/FormInput";
 
 interface StepProps {
-  formData: any;
+  formData: Record<string, any>;
   handleChange: (field: string, value: any) => void;
+  showErrors?: boolean; // <-- added to control validation timing
 }
 
 /**
  * Step 10 – Contact Details
  * Collects the client's name, phone number, and email.
  */
-export default function StepContact({ formData, handleChange }: StepProps) {
+export default function StepContact({ formData, handleChange, showErrors }: StepProps) {
+  const isEmailMissing = !formData.email || formData.email.trim() === "";
+
   return (
-    <div className="text-center space-y-6">
+    <motion.div
+      className="text-center space-y-8"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+    >
       <h2 className="text-2xl font-bold text-emerald-700">
         Datele tale de contact
       </h2>
 
-      <div className="max-w-2xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
-        {/* --- Nume complet --- */}
-        <FormInput
-          id="name"
-          label="Nume complet"
-          placeholder="Ex: Andrei Popescu"
-          value={formData.name || ""}
-          onChange={(e) => handleChange("name", e.target.value)}
-          required
-        />
+      <p className="text-sm text-gray-600 max-w-md mx-auto">
+        Completează datele tale corecte — companiile de mutări te vor contacta direct
+        pentru ofertă.
+      </p>
 
-        {/* --- Telefon --- */}
-        <FormInput
-          id="phone"
-          label="Telefon"
-          type="tel"
-          placeholder="Ex: 07xx xxx xxx"
-          pattern="[0-9+ ]*"
-          value={formData.phone || ""}
-          onChange={(e) => handleChange("phone", e.target.value)}
-          required
-        />
-      </div>
+      <motion.div
+        className="max-w-2xl mx-auto bg-white/70 backdrop-blur-sm border border-emerald-100 rounded-2xl shadow-sm p-6 space-y-5"
+        initial={{ opacity: 0, scale: 0.97 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ duration: 0.4 }}
+      >
+        {/* Nume complet + Telefon */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
+          <FormInput
+            id="name"
+            label="Nume complet"
+            placeholder="Ex: Andrei Popescu"
+            value={formData.name || ""}
+            onChange={(e) => handleChange("name", e.target.value)}
+            required
+          />
 
-      {/* --- Email --- */}
-      <div className="max-w-md mx-auto text-left">
-        <FormInput
-          id="email"
-          label="Email"
-          type="email"
-          placeholder="Ex: contact@exemplu.ro"
-          value={formData.email || ""}
-          onChange={(e) => handleChange("email", e.target.value)}
-          required
-        />
+          <FormInput
+            id="phone"
+            label="Telefon"
+            type="tel"
+            placeholder="Ex: 07xx xxx xxx"
+            pattern="[0-9+ ]*"
+            value={formData.phone || ""}
+            onChange={(e) => handleChange("phone", e.target.value)}
+            required
+          />
+        </div>
 
-        {!formData.email && (
-          <p className="text-red-500 text-sm mt-1">
-            Emailul este obligatoriu pentru a primi ofertele.
-          </p>
-        )}
-      </div>
+        {/* Email */}
+        <div className="text-left">
+          <FormInput
+            id="email"
+            label="Email"
+            type="email"
+            placeholder="Ex: contact@exemplu.ro"
+            value={formData.email || ""}
+            onChange={(e) => handleChange("email", e.target.value)}
+            required
+          />
+          {/* Show warning only after submission */}
+          {showErrors && isEmailMissing && (
+            <motion.p
+              className="text-red-500 text-sm mt-1"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3 }}
+            >
+              Emailul este obligatoriu pentru a primi ofertele.
+            </motion.p>
+          )}
+        </div>
+      </motion.div>
 
       <p className="text-sm text-gray-500 max-w-md mx-auto">
-        Te rugăm să introduci date reale si companiile de mutări te vor contacta
-        direct pentru ofertă.
+        Verifică emailul introdus pentru a primi detaliile complete.
       </p>
-    </div>
+    </motion.div>
   );
 }

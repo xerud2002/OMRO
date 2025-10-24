@@ -1,0 +1,145 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ===== Helper functions =====
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return /databases/$(database)/documents/users/$(request.auth.uid);
+    }
+
+    function userRole(role) {
+      return isSignedIn()
+        && exists(userDoc())
+        && get(userDoc()).data.role == role;
+    }
+
+    function isAdmin() {
+      return userRole("admin");
+    }
+
+    function isCompany() {
+      return userRole("company");
+    }
+
+    function isClient() {
+      return userRole("client");
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // Safe getter for request owner
+    function requestOwner(requestId) {
+      return exists(/databases/$(database)/documents/requests/$(requestId))
+        ? get(/databases/$(database)/documents/requests/$(requestId)).data.userId
+        : "";
+    }
+
+    // Verify that a company has paid for unlocking this request
+    function hasPaidForRequest(requestId) {
+      return isCompany()
+        && exists(/databases/$(database)/documents/requests/$(requestId)/payments/$(request.auth.uid));
+    }
+
+    // ===== USERS =====
+    match /users/{userId} {
+      allow create: if isSignedIn() && isOwner(userId);
+      allow read, update, delete: if isSignedIn() && (isOwner(userId) || isAdmin());
+      allow list: if isAdmin();
+    }
+
+    // ===== COMPANIES =====
+    match /companies/{companyId} {
+      allow create: if isSignedIn() && isOwner(companyId);
+      allow read: if isSignedIn();
+      allow update, delete: if isSignedIn() && (isOwner(companyId) || isAdmin());
+      allow list: if isAdmin();
+    }
+
+    // ===== DRAFTS =====
+    match /drafts/{userId} {
+      allow read, write, delete: if isOwner(userId) || isAdmin();
+      allow list: if false; // prevent enumeration
+    }
+
+    // ===== REQUESTS =====
+    match /requests/{requestId} {
+
+      // Create new move request
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid;
+
+      // Read/update/delete
+      allow get, update, delete: if isSignedIn() && (
+        isAdmin()
+        || isCompany()
+        || (resource.data.userId != null && isOwner(resource.data.userId))
+      );
+
+      // Allow list for admins & companies (clients never list all)
+      allow list: if isSignedIn() && (isAdmin() || isCompany());
+
+      // ===== Subcollection: messages =====
+      match /messages/{messageId} {
+        allow read: if isSignedIn() && (
+          isAdmin()
+          || isCompany()
+          || isOwner(requestOwner(requestId))
+        );
+        allow create: if isSignedIn();
+        allow delete: if isAdmin();
+      }
+
+      // ===== Subcollection: contact =====
+      match /contact/{docId} {
+        // Client can create their own contact info
+        allow create, update: if isSignedIn() && (
+          isAdmin()
+          || isOwner(requestOwner(requestId))
+        );
+
+        // Companies can read only after unlock (paid)
+        allow get: if isSignedIn() && (
+          isAdmin()
+          || isOwner(requestOwner(requestId))
+          || hasPaidForRequest(requestId)
+        );
+
+        allow delete: if isAdmin();
+      }
+
+      // ===== Subcollection: payments =====
+      match /payments/{companyId} {
+        allow create: if isSignedIn() && (isAdmin() || request.auth.uid == companyId);
+        allow get: if isSignedIn() && (
+          isAdmin()
+          || request.auth.uid == companyId
+          || isOwner(requestOwner(requestId))
+        );
+        allow delete: if isAdmin();
+      }
+    }
+
+    // ===== GLOBAL PAYMENTS =====
+    match /payments/{paymentId} {
+      allow create: if isSignedIn() && (isCompany() || isAdmin());
+      allow read: if isSignedIn() && (
+        isAdmin()
+        || (exists(/databases/$(database)/documents/payments/$(paymentId))
+            && get(/databases/$(database)/documents/payments/$(paymentId)).data.companyId == request.auth.uid)
+      );
+      allow delete: if isAdmin();
+    }
+
+    // ===== ACTIVITY LOG =====
+    match /activity/{logId} {
+      allow create, read, list: if isAdmin();
+      allow delete: if isAdmin();
+    }
+  }
+}
