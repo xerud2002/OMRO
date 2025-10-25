@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import AddressSelector from "../../components/form/AddressSelector";
 import FormInput from "../../components/form/FormInput";
 import FormTextarea from "../../components/form/FormTextarea";
+import { MapPin } from "lucide-react";
 
 interface StepProps {
   formData: Record<string, any>;
@@ -12,32 +13,43 @@ interface StepProps {
 
 /**
  * Step 3 – Adresa completă de colectare
- * Folosește AddressSelector (județ + oraș/comună)
+ * Modern UI aligned with the visual style of StepProperty & StepDeliveryProperty
  */
 export default function StepPickupAddress({ formData, handleChange }: StepProps) {
   return (
-    <div className="text-center space-y-8">
-      <h2 className="text-2xl font-bold text-emerald-700">
-        Adresa completă de colectare
-      </h2>
+    <motion.div
+      initial={{ opacity: 0, y: 15 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="text-center space-y-8"
+    >
+      {/* Title */}
+      <div>
+        <h2 className="text-2xl md:text-3xl font-bold text-emerald-700 mb-2 flex items-center justify-center gap-2">
+          <MapPin className="text-sky-500" size={28} />
+          Adresa completă de colectare
+        </h2>
+        <p className="text-sm md:text-base text-gray-600 max-w-lg mx-auto">
+          Completează detaliile exacte de unde se face ridicarea bunurilor, pentru o estimare corectă a timpului și accesului.
+        </p>
+      </div>
 
-      <p className="text-sm text-gray-600 max-w-lg mx-auto">
-        Completează detaliile exacte de unde se face ridicarea bunurilor, pentru ca
-        echipa să poată estima timpul și accesul corect.
-      </p>
-
+      {/* Card container */}
       <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="max-w-md mx-auto text-left space-y-5 bg-white/70 backdrop-blur-sm p-6 rounded-2xl border border-emerald-100 shadow-sm"
+        initial={{ scale: 0.97, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ duration: 0.5 }}
+        className="max-w-xl mx-auto bg-white/70 backdrop-blur-sm border border-emerald-100 rounded-3xl shadow-lg p-8 space-y-6 text-left"
       >
-        {/* Select județ + oraș/comună */}
-        <AddressSelector type="pickup" formData={formData} handleChange={handleChange} />
+        {/* Localizare */}
+        <div>
+          <p className="font-semibold text-emerald-700 text-sm mb-2">Localizare</p>
+          <AddressSelector type="pickup" formData={formData} handleChange={handleChange} />
+        </div>
 
-        {/* Stradă + număr */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="flex-1">
+        {/* Stradă + Nr. */}
+        <div className="grid sm:grid-cols-3 gap-3">
+          <div className="sm:col-span-2">
             <FormInput
               id="pickupStreet"
               label="Stradă"
@@ -46,7 +58,7 @@ export default function StepPickupAddress({ formData, handleChange }: StepProps)
               onChange={(e) => handleChange("pickupStreet", e.target.value)}
             />
           </div>
-          <div className="sm:w-1/3">
+          <div>
             <FormInput
               id="pickupNumber"
               label="Nr."
@@ -57,7 +69,7 @@ export default function StepPickupAddress({ formData, handleChange }: StepProps)
           </div>
         </div>
 
-        {/* Detalii suplimentare */}
+        {/* Bloc / Etaj / Apartament */}
         <FormInput
           id="pickupDetails"
           label="Bloc / Scara / Etaj / Apartament (opțional)"
@@ -76,15 +88,17 @@ export default function StepPickupAddress({ formData, handleChange }: StepProps)
         />
 
         {/* Instrucțiuni speciale */}
-        <FormTextarea
-          id="pickupInstructions"
-          label="Instrucțiuni speciale pentru acces"
-          placeholder="Ex: interfon, acces camion, stradă îngustă..."
-          rows={3}
-          value={formData.pickupInstructions || ""}
-          onChange={(e) => handleChange("pickupInstructions", e.target.value)}
-        />
+        <div>
+          <FormTextarea
+            id="pickupInstructions"
+            label="Instrucțiuni speciale pentru acces"
+            placeholder="Ex: interfon, acces camion, stradă îngustă..."
+            rows={3}
+            value={formData.pickupInstructions || ""}
+            onChange={(e) => handleChange("pickupInstructions", e.target.value)}
+          />
+        </div>
       </motion.div>
-    </div>
+    </motion.div>
   );
 }
