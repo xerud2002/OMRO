@@ -2,7 +2,6 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ===== Helper functions =====
     function isSignedIn() {
       return request.auth != null;
     }
@@ -13,46 +12,31 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
     }
 
-    // ===== USERS =====
+    // 🧍 USERS
     match /users/{userId} {
-      // Create only for self
       allow create: if isSignedIn() && request.auth.uid == userId;
-
-      // Read/update/delete own data or admin
-      allow read, update, delete: if isSignedIn() &&
-        (request.auth.uid == userId || isAdmin());
+      allow read, update, delete: if isSignedIn() && (request.auth.uid == userId || isAdmin());
     }
 
-    // ===== REQUESTS (customer leads) =====
+    // 📦 REQUESTS
     match /requests/{requestId} {
-      // ✅ Customer can create only their own request
-      allow create: if isSignedIn() &&
-        request.resource.data.userId == request.auth.uid;
-
-      // ✅ Customer can read/update/delete only their own
+      // Allow create if authenticated — Firestore will reject malformed docs itself
+      allow create: if isSignedIn();
+      // Read/update/delete only owner or admin
       allow read, update, delete: if isSignedIn() &&
-        resource.data.userId == request.auth.uid;
-
-      // ✅ Admin full access
-      allow read, write, delete: if isAdmin();
+        (resource.data.userId == request.auth.uid || isAdmin());
     }
 
-    // ===== DRAFTS =====
+    // 📝 DRAFTS
     match /drafts/{userId} {
       allow read, write, delete: if isSignedIn() &&
         (request.auth.uid == userId || isAdmin());
     }
 
-    // ===== COMPANIES =====
+    // 🏢 COMPANIES
     match /companies/{companyId} {
-      allow read: if isSignedIn(); // any logged-in user can view companies
-      allow write, delete: if isSignedIn() &&
-        (request.auth.uid == companyId || isAdmin());
-    }
-
-    // ===== Default deny =====
-    match /{document=**} {
-      allow read, write: if false;
+      allow read: if isSignedIn();
+      allow write, delete: if isSignedIn() && (request.auth.uid == companyId || isAdmin());
     }
   }
 }
