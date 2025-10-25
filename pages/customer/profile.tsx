@@ -1,4 +1,5 @@
 "use client";
+import Head from "next/head";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { db, onAuthChange, storage } from "../../utils/firebase";
@@ -7,7 +8,7 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import ClientLayout from "../../components/ClientLayout";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, Camera, Save } from "lucide-react";
 
 export default function CustomerProfile() {
   const router = useRouter();
@@ -25,7 +26,6 @@ export default function CustomerProfile() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // ✅ Auth & data load
   useEffect(() => {
     const unsub = onAuthChange(async (u) => {
       if (!u) {
@@ -38,12 +38,10 @@ export default function CustomerProfile() {
         if (snap.exists()) {
           const data = snap.data();
           setForm((prev) => ({ ...prev, ...data }));
-          // Auto-add userId if missing
           if (!data.userId) {
             await setDoc(doc(db, "users", u.uid), { userId: u.uid }, { merge: true });
           }
         } else {
-          // Create initial user doc if missing
           await setDoc(doc(db, "users", u.uid), {
             userId: u.uid,
             email: u.email || "",
@@ -64,7 +62,6 @@ export default function CustomerProfile() {
 
   const handleChange = (f: string, v: any) => setForm((p) => ({ ...p, [f]: v }));
 
-  // ✅ Upload profile photo
   const handleUpload = async (e: any) => {
     const file = e.target.files[0];
     if (!file || !user) return;
@@ -84,7 +81,6 @@ export default function CustomerProfile() {
     }
   };
 
-  // ✅ Save profile
   const handleSave = async () => {
     if (!user) return;
     setSaving(true);
@@ -103,9 +99,22 @@ export default function CustomerProfile() {
     }
   };
 
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "ProfilePage",
+    name: "Profil client - ofertemutare.ro",
+    url: "https://ofertemutare.ro/customer/profile",
+    description:
+      "Pagină privată pentru clienții ofertemutare.ro. Actualizează datele de contact și vizualizează cererile tale de mutare.",
+  };
+
   if (loading)
     return (
       <ClientLayout>
+        <Head>
+          <meta name="robots" content="noindex, nofollow" />
+          <title>Se încarcă profilul... | ofertemutare.ro</title>
+        </Head>
         <div className="flex justify-center items-center h-[60vh] text-emerald-600 text-lg">
           <Loader2 className="animate-spin mr-2" /> Se încarcă profilul...
         </div>
@@ -114,75 +123,98 @@ export default function CustomerProfile() {
 
   return (
     <ClientLayout>
+      <Head>
+        <title>Profil client | ofertemutare.ro</title>
+        <meta
+          name="description"
+          content="Actualizează-ți datele de contact, adresa și poza de profil pentru o comunicare rapidă cu firmele de mutări partenere."
+        />
+        <meta name="robots" content="noindex, nofollow" />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+        />
+      </Head>
+
       <motion.div
         initial={{ opacity: 0, y: 25 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="max-w-3xl mx-auto space-y-8"
+        className="max-w-3xl mx-auto space-y-10 py-10 px-4 sm:px-0"
       >
-        {/* Header */}
-        <div className="rounded-3xl p-8 text-center text-white shadow-xl bg-gradient-to-r from-emerald-500 via-emerald-600 to-sky-500">
-          <h1 className="text-3xl font-semibold mb-2">Profilul tău personal 👤</h1>
-          <p className="text-emerald-50 text-sm">
-            Actualizează-ți datele pentru o comunicare rapidă cu firmele de mutări.
-          </p>
+        {/* 🌿 Header */}
+        <div className="text-center relative">
+          <div className="inline-block bg-gradient-to-r from-emerald-500 to-sky-500 text-white py-4 px-10 rounded-2xl shadow-lg">
+            <h1 className="text-2xl sm:text-3xl font-bold">
+              Profilul tău personal 👤
+            </h1>
+            <p className="text-emerald-50 text-sm mt-1">
+              Actualizează-ți datele pentru o comunicare rapidă cu firmele de mutări.
+            </p>
+            <div className="h-0.5 w-24 mx-auto mt-3 bg-white/60 rounded-full" />
+          </div>
         </div>
 
-        {/* Profile Card */}
-        <div className="rounded-3xl bg-white/80 backdrop-blur-md p-8 shadow-lg border border-emerald-100">
-          {/* PHOTO */}
-          <div className="flex flex-col items-center mb-6">
-            {form.photo ? (
+        {/* 🌿 Card */}
+        <div className="rounded-3xl bg-white/90 backdrop-blur-md p-8 shadow-lg border border-emerald-100 hover:shadow-emerald-200 transition-all duration-300">
+          {/* Avatar */}
+          <div className="flex flex-col items-center mb-6 relative">
+            <div className="relative group">
               <img
-                src={form.photo}
+                src={form.photo || "/default-avatar.png"}
                 alt="Foto profil"
-                className="w-24 h-24 rounded-full object-cover border-4 border-emerald-100 shadow-md mb-2"
+                className="w-28 h-28 rounded-full object-cover border-4 border-white shadow-lg transition-transform duration-300 group-hover:scale-105"
               />
-            ) : (
-              <img
-                src="/default-avatar.png"
-                alt="Default avatar"
-                className="w-24 h-24 rounded-full object-cover border-4 border-emerald-50 shadow-md mb-2 opacity-70"
+              <label
+                htmlFor="file-upload"
+                className="absolute bottom-1 right-1 bg-white border border-emerald-100 rounded-full p-2 shadow-md hover:shadow-lg transition-all cursor-pointer group-hover:scale-110"
+                title="Încarcă poză nouă"
+              >
+                <Camera size={16} className="text-emerald-500" />
+              </label>
+              <input
+                id="file-upload"
+                type="file"
+                accept="image/*"
+                onChange={handleUpload}
+                disabled={uploading}
+                className="hidden"
               />
+            </div>
+            {uploading && (
+              <p className="text-xs text-gray-500 mt-2">Se încarcă imaginea...</p>
             )}
-            <input
-              type="file"
-              accept="image/*"
-              onChange={handleUpload}
-              disabled={uploading}
-              className="text-sm"
-              title={uploading ? "Se încarcă..." : "Încarcă poză nouă"}
-            />
-            {uploading && <p className="text-xs text-gray-500 mt-1">Se încarcă imaginea...</p>}
           </div>
 
-          {/* FORM FIELDS */}
-          <div className="space-y-3">
+          {/* Form fields */}
+          <div className="space-y-4">
             <Input label="Nume complet" value={form.name} onChange={(e) => handleChange("name", e.target.value)} />
             <Input label="Telefon" value={form.phone} onChange={(e) => handleChange("phone", e.target.value)} />
             <Input label="Email" value={form.email} disabled />
             <Input label="Adresă" value={form.address} onChange={(e) => handleChange("address", e.target.value)} />
-            <div className="flex gap-3">
+            <div className="flex flex-col sm:flex-row gap-3">
               <Input label="Oraș" value={form.city} onChange={(e) => handleChange("city", e.target.value)} />
               <Input label="Județ" value={form.county} onChange={(e) => handleChange("county", e.target.value)} />
             </div>
           </div>
 
-          {/* SAVE BUTTON */}
-          <div className="mt-6 text-center">
+          {/* Save Button */}
+          <div className="mt-8 text-center">
             <button
               onClick={handleSave}
               disabled={saving}
-              className={`bg-gradient-to-r from-emerald-500 to-sky-500 text-white px-8 py-3 rounded-xl font-medium shadow-md hover:scale-[1.02] transition-all ${
+              className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-500 to-sky-500 text-white px-10 py-3 rounded-full font-semibold shadow-md hover:shadow-lg hover:scale-105 transition-all ${
                 saving ? "opacity-70 cursor-not-allowed" : ""
               }`}
             >
               {saving ? (
-                <span className="flex items-center justify-center gap-2">
+                <>
                   <Loader2 className="animate-spin" size={18} /> Se salvează...
-                </span>
+                </>
               ) : (
-                "💾 Salvează modificările"
+                <>
+                  💾 Salvează modificările
+                </>
               )}
             </button>
           </div>
@@ -192,7 +224,7 @@ export default function CustomerProfile() {
   );
 }
 
-/* ✅ Reusable Input Component */
+/* 🧩 Reusable Input Component */
 function Input({
   label,
   value,
@@ -206,14 +238,14 @@ function Input({
 }) {
   return (
     <div className="flex flex-col w-full">
-      <label className="text-sm text-gray-600 mb-1">{label}</label>
+      <label className="text-sm text-gray-600 mb-1 font-medium">{label}</label>
       <input
         placeholder={label}
         value={value}
         onChange={onChange}
         disabled={disabled}
-        className={`w-full border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-emerald-300 transition-all ${
-          disabled ? "bg-gray-100 cursor-not-allowed" : "bg-white"
+        className={`w-full border border-gray-200 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-300 bg-white shadow-sm transition-all ${
+          disabled ? "bg-gray-100 text-gray-400 cursor-not-allowed" : ""
         }`}
       />
     </div>

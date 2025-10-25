@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { Truck, FormInput, Users, CheckCircle, ArrowRight } from "lucide-react";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
-import { onAuthChange, logout, auth } from "../utils/firebase";
+import { onAuthChange, logout } from "../utils/firebase";
 import { User } from "firebase/auth";
 import FadeInWhenVisible from "../components/FadeInWhenVisible";
 import { motion } from "framer-motion";
@@ -22,59 +22,101 @@ export default function HomePage() {
   }, []);
 
   const handleGetOffers = () => {
-    if (user) {
-      router.push("/form");
-    } else {
+    if (user) router.push("/form");
+    else {
       localStorage.setItem("redirectAfterLogin", "form");
       router.push("customer/auth");
     }
   };
 
+  // 🔹 JSON-LD structured data for SEO
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "ofertemutare.ro",
+    url: "https://ofertemutare.ro",
+    description:
+      "Compara oferte de la firme de mutări verificate din România. Platforma ofertemutare.ro conectează clienții cu companii de mutări sigure și profesionale.",
+    inLanguage: "ro",
+    potentialAction: {
+      "@type": "SearchAction",
+      target: "https://ofertemutare.ro/form?q={search_term_string}",
+      "query-input": "required name=search_term_string",
+    },
+    publisher: {
+      "@type": "Organization",
+      name: "ofertemutare.ro",
+      url: "https://ofertemutare.ro",
+      logo: "https://ofertemutare.ro/logo.png",
+      contactPoint: {
+        "@type": "ContactPoint",
+        telephone: "+40 700 000 000",
+        contactType: "customer service",
+        areaServed: "RO",
+        availableLanguage: ["ro", "en"],
+      },
+    },
+  };
+
   return (
     <>
       <Head>
-        <title>ofertemutare.ro</title>
+        <title>
+          Oferte mutare România | Firme de mutări verificate | ofertemutare.ro
+        </title>
         <meta
           name="description"
-          content="Compară oferte de la companii de mutări verificate din România."
+          content="Compara oferte reale de la firme de mutări verificate din România. Platforma ofertemutare.ro te ajută să găsești rapid cea mai bună ofertă pentru mutarea ta."
+        />
+        <meta
+          name="keywords"
+          content="firme de mutări, oferte mutare, mutări România, transport mobilă, servicii mutare, platformă mutări"
+        />
+        <meta property="og:title" content="ofertemutare.ro - Firme de mutări verificate" />
+        <meta
+          property="og:description"
+          content="Cere oferte de la companii de mutări verificate din România. Rapid, sigur și fără stres."
+        />
+        <meta property="og:image" content="https://ofertemutare.ro/og-image.jpg" />
+        <meta property="og:url" content="https://ofertemutare.ro" />
+        <link rel="canonical" href="https://ofertemutare.ro" />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
         />
       </Head>
 
       <Navbar />
       <div className="h-[80px]" />
 
-      {/* HERO SECTION */}
+      {/* === HERO === */}
       <section className="relative h-screen w-screen flex flex-col items-center justify-center overflow-hidden">
-      {/* 🖼️ Fundal imagine full width */}
-      <div className="absolute inset-0">
-        <Image
-          src="/hero.webp"
-          alt="Mutări"
-          fill
-          priority
-          className="object-cover object-center w-full h-full"
-        />
-        {/* Overlay subtil */}
-        <div className="absolute inset-0 bg-black/30"></div>
-      </div>
+        <div className="absolute inset-0">
+          <Image
+            src="/hero.webp"
+            alt="Firme de mutări România"
+            fill
+            priority
+            className="object-cover object-center w-full h-full"
+          />
+          <div className="absolute inset-0 bg-black/30" />
+        </div>
 
-      {/* 🌿 Textul de pe imagine */}
-      <div className="relative z-10 text-center px-6 max-w-3xl">
-        <h1 className="text-4xl md:text-6xl font-bold text-white leading-tight drop-shadow-lg mb-6">
-          Găsește firma de mutări potrivită pentru tine
-        </h1>
-        <p className="text-lg md:text-xl text-white/90 mb-8">
-          Compară oferte de la companii verificate și alege varianta ideală pentru mutarea ta.
-        </p>
-        <button
-          onClick={handleGetOffers}
-          className="bg-gradient-to-r from-emerald-500 to-sky-500 text-white font-semibold px-8 py-3 rounded-full shadow-lg hover:scale-105 transition-transform"
-        >
-          Obține oferte acum
-        </button>
-
-      </div>
-    </section>
+        <div className="relative z-10 text-center px-6 max-w-3xl">
+          <h1 className="text-4xl md:text-6xl font-bold text-white leading-tight drop-shadow-lg mb-6">
+            Găsește firma de mutări potrivită pentru tine
+          </h1>
+          <p className="text-lg md:text-xl text-white/90 mb-8">
+            Compară oferte de la companii verificate și alege varianta ideală pentru mutarea ta.
+          </p>
+          <button
+            onClick={handleGetOffers}
+            className="bg-gradient-to-r from-emerald-500 to-sky-500 text-white font-semibold px-8 py-3 rounded-full shadow-lg hover:scale-105 transition-transform"
+          >
+            Obține oferte acum
+          </button>
+        </div>
+      </section>
       {/* STEPS SECTION */}
       <section className="py-16 bg-gradient-to-br from-white to-emerald-50">
         <FadeInWhenVisible>
