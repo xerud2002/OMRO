@@ -1,136 +1,136 @@
-// utils/firebase.ts
+// ========================================
+// ✅ utils/firebase.ts
+// Compatibil Firebase SDK v12+
+// Include: Auth, Firestore, Storage, Login/Register/Logout
+// ========================================
+
 import { initializeApp, getApps, getApp } from "firebase/app";
 import {
   getAuth,
-  onAuthStateChanged,
-  signInWithPopup,
-  GoogleAuthProvider,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   sendPasswordResetEmail,
+  signInWithPopup,
+  GoogleAuthProvider,
   signOut,
+  onAuthStateChanged,
   User,
 } from "firebase/auth";
 import {
   getFirestore,
+  serverTimestamp,
+  collection,
   doc,
   setDoc,
   getDoc,
-  serverTimestamp,
+  getDocs,
+  deleteDoc,
+  query,
+  where,
 } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 
-// 🔹 Config din .env
+// ========================================
+// 🔧 Configurația Firebase din .env.local
+// ========================================
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN!,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID!,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET!,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID!,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID!,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID!,
 };
 
-// 🔸 Initialize Firebase app doar o singură dată
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+// ========================================
+// 🚀 Initialize Firebase App
+// ========================================
+const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
-// 🔸 Initialize services
+// ========================================
+// 🔐 Auth, Firestore, Storage
+// ========================================
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
-const provider = new GoogleAuthProvider();
 
-/* ======================================================
-   🔐 AUTH FUNCTIONS
-====================================================== */
+// ========================================
+// 🧩 Auth Helpers (login, register, logout)
+// ========================================
 
-// 🟢 Înregistrare cu email/parolă
+// 🟢 Înregistrare utilizator nou (email/parolă)
 export async function registerWithEmail(email: string, password: string) {
   return await createUserWithEmailAndPassword(auth, email, password);
 }
 
-// 🟢 Login cu email/parolă
+// 🟣 Login utilizator existent (email/parolă)
 export async function loginWithEmail(email: string, password: string) {
   return await signInWithEmailAndPassword(auth, email, password);
 }
 
-// 🟢 Login cu Google
-export async function loginWithGoogle(role: "customer" | "company" = "customer") {
+// 🔵 Login cu Google (creează cont automat dacă nu există)
+export async function loginWithGoogle(role: string = "customer") {
+  const provider = new GoogleAuthProvider();
   const result = await signInWithPopup(auth, provider);
   const user = result.user;
 
-  const userRef = doc(db, "users", user.uid);
-  const userSnap = await getDoc(userRef);
-
-  if (!userSnap.exists()) {
-    await setDoc(userRef, {
+  // Creează / actualizează profilul în Firestore
+  await setDoc(
+    doc(db, "users", user.uid),
+    {
       email: user.email,
       name: user.displayName || "",
+      userId: user.uid,
       role,
       createdAt: serverTimestamp(),
-    });
-  } else {
-    const existingData = userSnap.data();
-    if (!existingData.role) {
-      await setDoc(userRef, { role }, { merge: true });
-    }
-  }
-
-  // Dacă e firmă, adaugă în "companies"
-  if (role === "company") {
-    const companyRef = doc(db, "companies", user.uid);
-    const companySnap = await getDoc(companyRef);
-    if (!companySnap.exists()) {
-      await setDoc(companyRef, {
-        name: user.displayName || "",
-        email: user.email,
-        phone: "",
-        city: "",
-        county: "",
-        verified: false,
-        subscription: "free",
-        services: [],
-        createdAt: serverTimestamp(),
-      });
-    }
-  }
+    },
+    { merge: true }
+  );
 
   return result;
 }
 
-// 🟢 Resetare parolă
+// 🟠 Resetare parolă
 export async function resetPassword(email: string) {
   return await sendPasswordResetEmail(auth, email);
 }
 
-// 🟢 Logout
+// 🔴 Logout
 export async function logout() {
-  return await signOut(auth);
+  try {
+    await signOut(auth);
+    console.log("👋 Utilizator delogat cu succes.");
+  } catch (error) {
+    console.error("❌ Eroare la delogare:", error);
+  }
 }
 
-// 🟢 Detectare stare utilizator (autentificat / delogat)
+// 🟣 Ascultă modificările de autentificare
 export function onAuthChange(callback: (user: User | null) => void) {
   return onAuthStateChanged(auth, callback);
 }
 
-/* ======================================================
-   🧾 USER PROFILE UTILS
-====================================================== */
+// ========================================
+// ⏰ Shortcut pentru timestamp server
+// ========================================
+export const serverTime = serverTimestamp;
 
-export async function ensureUserProfile(user: User, role: string = "customer") {
-  const ref = doc(db, "users", user.uid);
-  const snap = await getDoc(ref);
+// ========================================
+// 📦 Exporturi Firestore (utile în alte fișiere)
+// ========================================
+export {
+  collection,
+  doc,
+  setDoc,
+  getDoc,
+  getDocs,
+  deleteDoc,
+  query,
+  where,
+};
 
-  if (!snap.exists()) {
-    await setDoc(ref, {
-      email: user.email,
-      name: user.displayName || "",
-      role,
-      createdAt: serverTimestamp(),
-    });
-  }
-}
-
-// ✅ Export principal pentru compatibilitate
-export { app };
+// ========================================
+// ✅ Export implicit
+// ========================================
 export default app;
