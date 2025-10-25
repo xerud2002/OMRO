@@ -1,97 +1,133 @@
 "use client";
 import React from "react";
 import { motion } from "framer-motion";
+import { Package, Truck, Trash2 } from "lucide-react";
 
 interface StepProps {
-  formData: Record<string, any>;
+  formData: any;
   handleChange: (field: string, value: any) => void;
 }
 
 /**
- * Step 1 – Tip serviciu
- * Alege între mutare completă, transport obiecte, sau aruncare.
+ * Step 1 – Service Type
+ * Lets the user choose what type of moving service they want
  */
-const SERVICE_OPTIONS = [
-  {
-    value: "Mutare completă",
-    label: "Mutare completă",
-    desc: "Include ambalare, transport, descărcare și reasamblare.",
-    icon: "🚛",
-  },
-  {
-    value: "Transport câteva obiecte",
-    label: "Transport câteva obiecte",
-    desc: "Pentru mobilă sau articole individuale ce trebuie mutate.",
-    icon: "📦",
-  },
-  {
-    value: "Aruncare lucruri",
-    label: "Aruncare lucruri",
-    desc: "Scăpăm responsabil de mobilierul vechi sau resturile.",
-    icon: "🗑️",
-  },
-];
-
 export default function StepService({ formData, handleChange }: StepProps) {
-  const selectedType = formData.serviceType;
-
-  const handleSelect = (value: string) => {
-    handleChange("serviceType", value);
-  };
+  const services = [
+    {
+      id: "Mutare completă",
+      title: "Mutare completă",
+      desc: "Include ambalare, transport, descărcare și reasamblare.",
+      icon: <Truck size={42} strokeWidth={1.5} />,
+      gradient: "from-emerald-500 to-sky-500",
+    },
+    {
+      id: "Transport câteva obiecte",
+      title: "Transport câteva obiecte",
+      desc: "Pentru piese de mobilier, electrocasnice sau articole individuale.",
+      icon: <Package size={42} strokeWidth={1.5} />,
+      gradient: "from-sky-500 to-emerald-400",
+    },
+    {
+      id: "Aruncare lucruri",
+      title: "Aruncare lucruri",
+      desc: "Scapă responsabil de mobilierul vechi sau deșeurile nefolositoare.",
+      icon: <Trash2 size={42} strokeWidth={1.5} />,
+      gradient: "from-rose-500 to-orange-400",
+    },
+  ];
 
   return (
-    <fieldset className="text-center space-y-8">
-      <legend className="text-2xl font-bold text-emerald-700">
-        Ce tip de serviciu dorești?
-      </legend>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="text-center space-y-8"
+    >
+      {/* Header */}
+      <div>
+        <h2 className="text-2xl md:text-3xl font-bold text-emerald-700 mb-2">
+          Ce tip de serviciu dorești?
+        </h2>
+        <p className="text-gray-600 max-w-md mx-auto text-sm md:text-base">
+          Alege tipul de serviciu pentru care dorești o ofertă personalizată.
+        </p>
+      </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-4xl mx-auto">
-        {SERVICE_OPTIONS.map((opt) => {
-          const selected = selectedType === opt.value;
+      {/* Service Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+        {services.map((service) => {
+          const isSelected = formData.serviceType === service.id;
           return (
-            <motion.label
-              key={opt.value}
-              htmlFor={opt.value}
-              whileHover={{ scale: 1.03 }}
-              whileTap={{ scale: 0.98 }}
-              className={`relative flex flex-col justify-between items-center p-6 rounded-2xl border-2 cursor-pointer shadow-sm transition-all duration-200 ${
-                selected
-                  ? "border-emerald-500 bg-gradient-to-br from-emerald-50 to-sky-50 text-emerald-800 font-semibold shadow-md"
-                  : "border-gray-200 bg-white/70 text-gray-700 hover:border-emerald-300"
-              }`}
-              onClick={() => handleSelect(opt.value)}
-              aria-checked={selected}
-              role="radio"
+            <motion.button
+              key={service.id}
+              whileHover={{ scale: 1.05, y: -4 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={() => handleChange("serviceType", service.id)}
+              className={`relative p-6 rounded-3xl border shadow-md transition-all duration-300 text-left overflow-hidden
+                ${
+                  isSelected
+                    ? "bg-gradient-to-br from-emerald-500 to-sky-500 text-white shadow-lg scale-105"
+                    : "bg-white hover:bg-gradient-to-br hover:from-emerald-50 hover:to-sky-50 border-emerald-100 text-gray-700"
+                }`}
             >
-              <div className="text-3xl mb-2">{opt.icon}</div>
-              <div className="text-lg font-semibold">{opt.label}</div>
-              <p className="text-sm text-gray-600 mt-2">{opt.desc}</p>
-
-              {selected && (
+              {/* Animated background ring */}
+              {isSelected && (
                 <motion.div
-                  layoutId="serviceSelected"
-                  className="absolute inset-0 rounded-2xl border-2 border-emerald-400 shadow-inner pointer-events-none"
-                  transition={{ type: "spring", stiffness: 200, damping: 20 }}
+                  layoutId="glow"
+                  className="absolute inset-0 bg-gradient-to-br from-emerald-500/20 to-sky-500/20 blur-xl"
                 />
               )}
 
-              <input
-                id={opt.value}
-                type="radio"
-                name="serviceType"
-                value={opt.value}
-                checked={selected}
-                onChange={() => handleSelect(opt.value)}
-                className="hidden"
-              />
-            </motion.label>
+              {/* Icon */}
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`mb-4 flex items-center justify-center w-14 h-14 rounded-2xl mx-auto
+                  ${
+                    isSelected
+                      ? "bg-white/20 text-white"
+                      : "bg-gradient-to-br from-emerald-100 to-sky-100 text-emerald-600"
+                  }`}
+              >
+                {service.icon}
+              </motion.div>
+
+              {/* Title */}
+              <h3
+                className={`text-lg font-semibold text-center mb-2 ${
+                  isSelected ? "text-white" : "text-emerald-700"
+                }`}
+              >
+                {service.title}
+              </h3>
+
+              {/* Description */}
+              <p
+                className={`text-sm text-center leading-relaxed ${
+                  isSelected ? "text-white/90" : "text-gray-600"
+                }`}
+              >
+                {service.desc}
+              </p>
+
+              {/* Active ring animation */}
+              {isSelected && (
+                <motion.div
+                  layoutId="ring"
+                  className="absolute inset-0 border-2 border-white/70 rounded-3xl shadow-[0_0_15px_rgba(16,185,129,0.4)]"
+                  transition={{ duration: 0.3 }}
+                />
+              )}
+            </motion.button>
           );
         })}
       </div>
 
-      <p className="text-sm text-gray-500 max-w-md mx-auto">
+      {/* Footer note */}
+      <p className="text-sm text-gray-500 mt-4">
         Selectează tipul de serviciu pentru care dorești o ofertă personalizată.
       </p>
-    </fieldset>
+    </motion.div>
   );
 }
