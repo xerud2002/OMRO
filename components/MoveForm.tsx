@@ -9,6 +9,7 @@ import toast from "react-hot-toast";
 import emailjs from "@emailjs/browser";
 import { ArrowLeft, ArrowRight, Send } from "lucide-react";
 
+// === Form steps ===
 import StepService from "../components/formSteps/StepService";
 import StepProperty from "../components/formSteps/StepProperty";
 import StepPickupAddress from "../components/formSteps/StepPickupAddress";
@@ -33,6 +34,7 @@ const steps = [
   "Date de contact",
 ];
 
+// === Default empty form ===
 const defaultFormData = {
   serviceType: "",
   propertyType: "",
@@ -76,18 +78,18 @@ export default function MoveForm() {
   const [step, setStep] = useState(0);
   const [formData, setFormData] = useState<any>(defaultFormData);
   const [progress, setProgress] = useState<number>(0);
-  const [user, setUser] = useState<any>(null);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [submitting, setSubmitting] = useState(false);
   const [ready, setReady] = useState(false);
 
-  // wait for authenticated user
+  // === Authentication listener ===
   useEffect(() => {
-    const unsub = auth.onAuthStateChanged((u) => {
-      if (!u) {
-        toast.error("Trebuie să te autentifici.");
+    const unsub = auth.onAuthStateChanged((user) => {
+      if (!user) {
+        toast.error("Trebuie să te autentifici pentru a completa cererea.");
         router.push("/customer/auth");
       } else {
-        setUser(u);
+        setCurrentUser(user);
         setReady(true);
       }
     });
@@ -95,16 +97,18 @@ export default function MoveForm() {
   }, [router]);
 
   const handleChange = useCallback(
-    (f: string, v: any) => setFormData((p: any) => ({ ...p, [f]: v })),
+    (field: string, value: any) =>
+      setFormData((prev: any) => ({ ...prev, [field]: value })),
     []
   );
 
+  // === Validation per step (basic)
   const required: Record<number, string[]> = {
     0: ["serviceType"],
     1: ["propertyType"],
     2: ["pickupCity", "pickupCounty"],
     4: ["deliveryCity", "deliveryCounty"],
-    9: ["name", "phone", "email"],
+    9: ["name", "phone"],
   };
 
   const validateStep = useCallback(() => {
@@ -112,107 +116,126 @@ export default function MoveForm() {
     if (!fields) return true;
     for (const f of fields) {
       if (!formData[f]?.trim()) {
-        toast.error("Completează câmpurile obligatorii.");
+        toast.error("Completează câmpurile obligatorii înainte de a continua.");
         return false;
       }
     }
     return true;
   }, [step, formData]);
 
-  const nextStep = () =>
-    validateStep() && setStep((p) => Math.min(p + 1, steps.length - 1));
+  const nextStep = () => validateStep() && setStep((p) => Math.min(p + 1, steps.length - 1));
   const prevStep = () => setStep((p) => Math.max(p - 1, 0));
 
+  // === Handle submit ===
   const handleSubmit = async () => {
     if (submitting) return;
-    if (!user?.uid) {
-      toast.error("Utilizatorul nu este autentificat corect.");
+    if (!currentUser?.uid) {
+      toast.error("Eroare: utilizatorul nu este autentificat corect.");
       return;
     }
+
     setSubmitting(true);
     toast.loading("Se trimite cererea...");
 
     try {
+      // Generate unique request ID
       let shortId: string;
       do {
         shortId = `REQ-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
       } while ((await getDoc(doc(db, "requests", shortId))).exists());
 
+      // Upload files if any
       const mediaUrls =
         formData.survey === "media" && formData.media?.length
-          ? await uploadMultipleFiles(formData.media, `uploads/${shortId}`, setProgress)
+          ? await uploadMultipleFiles(formData.media, `uploads/${shortId}`, (p) => setProgress(p))
           : [];
 
-      const payload = {
+      // Build document
+      const requestPayload = {
         ...formData,
         media: mediaUrls,
-        userId: user.uid,
+        userId: currentUser.uid,
+        email: formData.email || currentUser.email,
         createdAt: Timestamp.now(),
         status: "Nouă",
         requestId: shortId,
       };
 
-      console.log("📦 Payload trimis:", payload);
+      console.log("📦 Payload trimis:", requestPayload);
 
-      await setDoc(doc(db, "requests", shortId), payload);
+      // Save to Firestore
+      await setDoc(doc(db, "requests", shortId), requestPayload);
 
+      // Update user profile
       await setDoc(
-        doc(db, "users", user.uid),
+        doc(db, "users", currentUser.uid),
         {
           name: formData.name,
           phone: formData.phone,
-          email: formData.email,
+          email: currentUser.email,
           role: "customer",
-          userId: user.uid,
+          userId: currentUser.uid,
           updatedAt: Timestamp.now(),
         },
         { merge: true }
       );
 
-      if (formData.survey === "media_later" && formData.email) {
-        const uploadLink = `${window.location.origin}/upload/${shortId}`;
-        await emailjs.send(
-          process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID!,
-          process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID!,
-          {
-            to_email: formData.email,
-            to_name: formData.name || "Client",
-            upload_link: uploadLink,
-          },
-          process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY!
-        );
+      // Optional email reminder (if needed)
+      if (formData.survey === "media_later" && currentUser.email) {
+        try {
+          const uploadLink = `${window.location.origin}/upload/${shortId}`;
+          await emailjs.send(
+            process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID!,
+            process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID!,
+            {
+              to_email: currentUser.email,
+              to_name: formData.name || "Client",
+              upload_link: uploadLink,
+            },
+            process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY!
+          );
+        } catch (e) {
+          console.warn("⚠️ Eroare la trimiterea emailului:", e);
+        }
       }
 
       toast.dismiss();
-      toast.success("Cererea a fost trimisă cu succes!");
-      router.push(`/form/success?id=${shortId}`);
+      toast.success("✅ Cererea a fost trimisă cu succes!");
+      setTimeout(() => router.push(`/form/success?id=${shortId}`), 1000);
+
+      // Reset form
+      setFormData(defaultFormData);
+      setStep(0);
     } catch (err: any) {
-      console.error("❌ Firestore error:", err);
+      console.error("❌ Eroare Firestore:", err);
       toast.dismiss();
-      toast.error("Eroare Firestore: " + (err?.message || err?.code));
+      toast.error("Eroare la trimiterea cererii: " + (err?.message || err?.code));
     } finally {
       setSubmitting(false);
     }
   };
 
-  const renderStep = () => {
-    const C = [
-      StepService,
-      StepProperty,
-      StepPickupAddress,
-      StepDeliveryProperty,
-      StepDeliveryAddress,
-      StepMoveDate,
-      StepPacking,
-      StepDismantling,
-      StepSurvey,
-      StepContact,
-    ][step];
-    return <C formData={formData} handleChange={handleChange} setFormData={setFormData} />;
-  };
+  // === Step Renderer ===
+  const stepComponents = [
+    StepService,
+    StepProperty,
+    StepPickupAddress,
+    StepDeliveryProperty,
+    StepDeliveryAddress,
+    StepMoveDate,
+    StepPacking,
+    StepDismantling,
+    StepSurvey,
+    StepContact,
+  ];
+  const CurrentStep = stepComponents[step];
 
   if (!ready)
-    return <div className="text-center py-16 text-emerald-600">Se încarcă formularul...</div>;
+    return (
+      <div className="text-center py-20 text-emerald-600 font-semibold">
+        Se încarcă formularul...
+      </div>
+    );
 
   return (
     <div className="flex flex-col items-center bg-gradient-to-br from-emerald-50 to-sky-50 px-4 py-10 min-h-screen">
@@ -220,11 +243,11 @@ export default function MoveForm() {
         initial={{ opacity: 0, y: 40 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
-        className="bg-white/80 backdrop-blur-xl border border-emerald-100 shadow-xl rounded-3xl p-10 w-full max-w-2xl hover:shadow-emerald-100"
+        className="bg-white/80 backdrop-blur-md border border-emerald-100 shadow-xl rounded-3xl p-10 w-full max-w-2xl"
       >
-        {/* progress */}
+        {/* === Progress bar === */}
         <div className="mb-10 text-center">
-          <p className="text-sm text-gray-600 mb-1 font-medium">
+          <p className="text-sm text-gray-600 mb-1">
             {steps[step]} • Pasul {step + 1} din {steps.length}
           </p>
           <div className="w-full bg-gray-100 h-2 rounded-full overflow-hidden">
@@ -236,7 +259,7 @@ export default function MoveForm() {
           </div>
         </div>
 
-        {/* step content */}
+        {/* === Step Content === */}
         <AnimatePresence mode="wait">
           <motion.div
             key={step}
@@ -245,11 +268,11 @@ export default function MoveForm() {
             exit={{ opacity: 0, x: -40 }}
             transition={{ duration: 0.4 }}
           >
-            {renderStep()}
+            <CurrentStep formData={formData} handleChange={handleChange} setFormData={setFormData} />
           </motion.div>
         </AnimatePresence>
 
-        {/* progress bar for uploads */}
+        {/* === Upload Progress === */}
         {progress > 0 && progress < 100 && (
           <div className="mt-6 w-full bg-gray-200 h-2 rounded-full overflow-hidden">
             <div
@@ -259,11 +282,11 @@ export default function MoveForm() {
           </div>
         )}
 
-        {/* nav buttons */}
+        {/* === Navigation Buttons === */}
         <div className="mt-10 flex justify-between items-center">
           {step > 0 ? (
             <button
-              onClick={() => setStep((p) => p - 1)}
+              onClick={prevStep}
               className="flex items-center gap-2 px-6 py-2 rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300 transition-all"
             >
               <ArrowLeft size={18} /> Înapoi
@@ -271,9 +294,10 @@ export default function MoveForm() {
           ) : (
             <div />
           )}
+
           {step < steps.length - 1 ? (
             <button
-              onClick={() => setStep((p) => p + 1)}
+              onClick={nextStep}
               className="flex items-center gap-2 px-6 py-2 rounded-full bg-gradient-to-r from-emerald-500 to-sky-500 text-white font-medium shadow-md hover:scale-105 transition-all"
             >
               Următorul <ArrowRight size={18} />
@@ -288,7 +312,13 @@ export default function MoveForm() {
                   : "bg-gradient-to-r from-emerald-500 to-sky-500 text-white hover:scale-105"
               }`}
             >
-              {submitting ? "Se trimite..." : <>Trimite cererea <Send size={18} /></>}
+              {submitting ? (
+                "Se trimite..."
+              ) : (
+                <>
+                  Trimite cererea <Send size={18} />
+                </>
+              )}
             </button>
           )}
         </div>

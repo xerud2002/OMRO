@@ -1,8 +1,9 @@
 "use client";
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { UserRound, Phone, Mail } from "lucide-react";
 import FormInput from "../../components/form/FormInput";
+import { auth } from "../../utils/firebase";
 
 interface StepProps {
   formData: Record<string, any>;
@@ -13,9 +14,21 @@ interface StepProps {
 /**
  * Step 10 – Date de contact
  * Colectează numele, telefonul și emailul clientului.
+ * Dacă utilizatorul e autentificat, câmpul email este completat automat și blocat.
  */
 export default function StepContact({ formData, handleChange, showErrors }: StepProps) {
-  const isEmailMissing = !formData.email || formData.email.trim() === "";
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    const current = auth.currentUser;
+    if (current?.email) {
+      setUserEmail(current.email);
+      // actualizează emailul în formData dacă lipsește
+      if (!formData.email) handleChange("email", current.email);
+    }
+  }, [handleChange, formData.email]);
+
+  const isEmailMissing = !formData.email && !userEmail;
 
   return (
     <motion.div
@@ -74,13 +87,14 @@ export default function StepContact({ formData, handleChange, showErrors }: Step
             label="Email"
             type="email"
             placeholder="Ex: contact@exemplu.ro"
-            value={formData.email || ""}
+            value={userEmail || formData.email || ""}
             onChange={(e) => handleChange("email", e.target.value)}
-            required
+            required={!userEmail}
+            readOnly={!!userEmail} // ✅ blocat dacă e deja autentificat
             icon={<Mail size={18} className="text-emerald-500" />}
           />
 
-          {/* ⚠️ Mesaj eroare dacă emailul lipsește */}
+          {/* ⚠️ Mesaj eroare doar dacă emailul chiar lipsește */}
           {showErrors && isEmailMissing && (
             <motion.p
               className="text-red-500 text-sm mt-1"
@@ -95,8 +109,8 @@ export default function StepContact({ formData, handleChange, showErrors }: Step
       </motion.div>
 
       <p className="text-sm text-gray-500 max-w-md mx-auto">
-        Asigură-te că adresa de email și numărul de telefon sunt corecte — așa
-        vei putea primi rapid ofertele și detaliile despre mutare.
+        Asigură-te că numărul de telefon este corect — echipele te vor contacta
+        direct pentru confirmare și detalii despre mutare.
       </p>
     </motion.div>
   );

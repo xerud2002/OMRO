@@ -1,4 +1,3 @@
-// utils/firebase.ts
 import { initializeApp, getApps, getApp } from "firebase/app";
 import {
   getAuth,
@@ -29,14 +28,14 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// prevent double-init during hot reload
+// Avoid reinit
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 
-// ---------- AUTH HELPERS ----------
+// === AUTH HELPERS ===
 const provider = new GoogleAuthProvider();
 
 export async function registerWithEmail(email: string, password: string) {
@@ -44,8 +43,9 @@ export async function registerWithEmail(email: string, password: string) {
   const uid = cred.user.uid;
   await setDoc(doc(db, "users", uid), {
     email,
-    userId: uid,
+    name: "",
     role: "customer",
+    userId: uid,
     createdAt: serverTimestamp(),
   });
   return cred;

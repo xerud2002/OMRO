@@ -1,6 +1,15 @@
 // utils/formValidation.ts
+import { auth } from "./firebase";
+
+/**
+ * Verifică dacă toate câmpurile obligatorii din formular sunt completate corect.
+ * Returnează un mesaj de eroare (string) dacă există probleme, sau null dacă totul e valid.
+ */
 export function validateForm(formData: Record<string, any>): string | null {
-  // ✅ Basic required fields
+  const currentUser = auth.currentUser;
+  const hasAutoEmail = !!currentUser?.email;
+
+  // ✅ Câmpuri obligatorii de bază
   const requiredFields = [
     "serviceType",
     "pickupCounty",
@@ -9,11 +18,13 @@ export function validateForm(formData: Record<string, any>): string | null {
     "deliveryCity",
     "name",
     "phone",
-    "email",
   ];
 
+  // Email devine obligatoriu doar dacă nu e autentificat
+  if (!hasAutoEmail) requiredFields.push("email");
+
   for (const field of requiredFields) {
-    if (!formData[field] || formData[field].trim() === "") {
+    if (!formData[field] || String(formData[field]).trim() === "") {
       switch (field) {
         case "serviceType":
           return "Selectează tipul de serviciu.";
@@ -33,32 +44,37 @@ export function validateForm(formData: Record<string, any>): string | null {
     }
   }
 
-  // ✅ Email format
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (formData.email && !emailRegex.test(formData.email)) {
-    return "Te rugăm să introduci un email valid.";
+  // ✅ Verificare format email doar dacă există în formData
+  if (formData.email && !hasAutoEmail) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.email)) {
+      return "Te rugăm să introduci un email valid.";
+    }
   }
 
-  // ✅ Phone number format
+  // ✅ Verificare număr de telefon
   const phoneRegex = /^[0-9+ ]{7,20}$/;
   if (formData.phone && !phoneRegex.test(formData.phone)) {
     return "Numărul de telefon introdus nu este valid.";
   }
 
-  // ✅ Move date check
+  // ✅ Verificare dată mutare sau opțiune flexibilă
   if (!formData.moveDate && !formData.moveOption) {
     return "Selectează data mutării sau marchează că ești flexibil.";
   }
 
-  // ✅ Survey selection check
+  // ✅ Survey selectat
   if (!formData.survey) {
     return "Selectează o opțiune pentru survey (vizită, video sau estimare).";
   }
 
-  // ✅ For file uploads
-  if (formData.survey === "media" && (!formData.media || formData.media.length === 0)) {
+  // ✅ Upload media obligatoriu dacă survey = media
+  if (
+    formData.survey === "media" &&
+    (!formData.media || formData.media.length === 0)
+  ) {
     return "Adaugă cel puțin o poză sau un video pentru estimare.";
   }
 
-  return null; // ✅ No errors
+  return null; // ✅ Totul e valid
 }

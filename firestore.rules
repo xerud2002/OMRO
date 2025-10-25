@@ -12,31 +12,35 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
     }
 
-    // 🧍 USERS
+    // USERS
     match /users/{userId} {
       allow create: if isSignedIn() && request.auth.uid == userId;
-      allow read, update, delete: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow read, update, delete: if isSignedIn() &&
+        (request.auth.uid == userId || isAdmin());
     }
 
-    // 📦 REQUESTS
+    // REQUESTS (customer requests)
     match /requests/{requestId} {
-      // Allow create if authenticated — Firestore will reject malformed docs itself
-      allow create: if isSignedIn();
-      // Read/update/delete only owner or admin
+      allow create: if isSignedIn();  // allow all authenticated users to create
       allow read, update, delete: if isSignedIn() &&
         (resource.data.userId == request.auth.uid || isAdmin());
     }
 
-    // 📝 DRAFTS
+    // DRAFTS
     match /drafts/{userId} {
       allow read, write, delete: if isSignedIn() &&
         (request.auth.uid == userId || isAdmin());
     }
 
-    // 🏢 COMPANIES
+    // COMPANIES
     match /companies/{companyId} {
       allow read: if isSignedIn();
-      allow write, delete: if isSignedIn() && (request.auth.uid == companyId || isAdmin());
+      allow write, delete: if isSignedIn() &&
+        (request.auth.uid == companyId || isAdmin());
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
