@@ -1,5 +1,4 @@
 "use client";
-
 import { useState, useEffect } from "react";
 import Head from "next/head";
 import { useRouter } from "next/navigation";
@@ -27,7 +26,10 @@ import {
   Building2,
   Edit,
   Trash2,
+  BugPlay,
 } from "lucide-react";
+import { testFirebaseConnection } from "../../utils/testConnection";
+import toast from "react-hot-toast";
 
 export default function ClientDashboard() {
   const router = useRouter();
@@ -35,9 +37,9 @@ export default function ClientDashboard() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<any>(null);
-  const [tab, setTab] = useState<"orders" | "profile" | "messages">("orders");
-  const [hasDraft, setHasDraft] = useState(false);
-  const [draftUpdated, setDraftUpdated] = useState<Date | null>(null);
+  const [tab, setTab] = useState("orders");
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState("");
 
   const statusColors: Record<string, string> = {
     Nouă: "bg-blue-100 text-blue-800",
@@ -45,85 +47,74 @@ export default function ClientDashboard() {
     Finalizată: "bg-green-100 text-green-800",
   };
 
-  // 🔐 Auth check
+  // 🔐 Auth
   useEffect(() => {
     const unsub = onAuthChange((u) => {
-      if (!u) {
-        router.push("/customer/auth");
-      } else {
-        setUser(u);
-      }
+      if (!u) router.push("/customer/auth");
+      else setUser(u);
     });
     return () => unsub();
   }, [router]);
 
-  // 🔹 Load profile info
+  // 🔹 Profile
   useEffect(() => {
     if (!user) return;
-    (async () => {
-      try {
-        const snap = await getDoc(doc(db, "users", user.uid));
-        if (snap.exists()) setProfile(snap.data());
-      } catch (err) {
-        console.error("❌ Eroare la încărcarea profilului:", err);
-      }
-    })();
+    const fetchProfile = async () => {
+      const snap = await getDoc(doc(db, "users", user.uid));
+      if (snap.exists()) setProfile(snap.data());
+    };
+    fetchProfile();
   }, [user]);
 
-  // 🔹 Load client orders
+  // 🔹 Orders
   useEffect(() => {
     if (!user) return;
-    (async () => {
+    const fetchOrders = async () => {
       setLoading(true);
       try {
         const q = query(collection(db, "requests"), where("userId", "==", user.uid));
         const snap = await getDocs(q);
-        const list = snap.docs.map((d) => {
-          const data = d.data();
-          return {
-            id: d.id,
-            ...data,
-            createdAt: data.createdAt?.seconds
-              ? new Date(data.createdAt.seconds * 1000)
-              : null,
-          };
-        });
+        const list = snap.docs.map((d) => ({
+          id: d.id,
+          ...d.data(),
+          createdAt: d.data().createdAt?.seconds
+            ? new Date(d.data().createdAt.seconds * 1000)
+            : null,
+        }));
         list.sort(
           (a, b) =>
             (b.createdAt?.getTime?.() || 0) - (a.createdAt?.getTime?.() || 0)
         );
         setOrders(list);
-      } catch (err: any) {
-        console.warn("⚠️ Eroare la citirea comenzilor:", err);
-        if (err.code === "permission-denied") setOrders([]);
+      } catch (err) {
+        console.error("Eroare la citirea comenzilor:", err);
       } finally {
         setLoading(false);
       }
-    })();
+    };
+    fetchOrders();
   }, [user]);
 
-  // 🔹 Check for saved draft
-  useEffect(() => {
-    if (!user) return;
-    (async () => {
-      try {
-        const snap = await getDoc(doc(db, "drafts", user.uid));
-        if (snap.exists()) {
-          setHasDraft(true);
-          const data = snap.data();
-          setDraftUpdated(data.updatedAt?.toDate?.() || null);
-        } else {
-          setHasDraft(false);
-        }
-      } catch (err) {
-        console.error("Eroare la verificarea draftului:", err);
-      }
-    })();
-  }, [user]);
+  // 🔍 Run Firebase test
+  const handleTest = async () => {
+    if (testing) return;
+    setTesting(true);
+    setTestResult("⏳ Se verifică conexiunea...");
+    try {
+      const result = await testFirebaseConnection();
+      setTestResult(result);
+      if (result.includes("✅")) toast.success("Conexiune funcțională!");
+      else toast.error("Testul a eșuat!");
+    } catch (err) {
+      console.error(err);
+      toast.error("Eroare la testarea conexiunii.");
+    } finally {
+      setTesting(false);
+    }
+  };
 
   if (!user) return null;
 
-  // 🔸 JSON-LD breadcrumb for SEO clarity
   const breadcrumbSchema = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
@@ -152,7 +143,6 @@ export default function ClientDashboard() {
           content="Panou personalizat pentru clienții ofertemutare.ro. Vizualizează cererile de mutare, profilul și comunicările cu firmele de mutări."
         />
         <meta name="robots" content="noindex, nofollow" />
-        <link rel="canonical" href="https://ofertemutare.ro/customer/dashboard" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
@@ -165,7 +155,7 @@ export default function ClientDashboard() {
         transition={{ duration: 0.6 }}
         className="space-y-10 pb-20"
       >
-        {/* 🌿 Welcome Banner */}
+        {/* 🌿 Welcome */}
         <div className="text-center bg-gradient-to-r from-emerald-500 via-emerald-600 to-sky-500 rounded-3xl py-12 px-6 shadow-xl text-white max-w-4xl mx-auto">
           <h2 className="text-3xl font-bold mb-2">
             Bun venit, {profile?.name || user.displayName || user.email} 👋
@@ -176,44 +166,6 @@ export default function ClientDashboard() {
           <div className="h-0.5 w-24 mx-auto mt-3 bg-white/50 rounded-full" />
         </div>
 
-        {/* 🕒 Active Draft */}
-        {hasDraft && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4 }}
-            className="bg-yellow-50 border border-yellow-300 text-yellow-800 rounded-3xl shadow p-6 max-w-3xl mx-auto text-center hover:shadow-yellow-200 transition-all"
-          >
-            <h3 className="text-lg font-semibold mb-2">
-              🕒 Ai o cerere nefinalizată
-            </h3>
-            <p className="text-sm text-gray-700 mb-4">
-              Ultima salvare:{" "}
-              {draftUpdated
-                ? draftUpdated.toLocaleString("ro-RO", {
-                    dateStyle: "medium",
-                    timeStyle: "short",
-                  })
-                : "necunoscută"}
-              .
-            </p>
-            <div className="flex flex-col sm:flex-row justify-center gap-3">
-              <button
-                onClick={() => router.push("/form")}
-                className="px-6 py-2 rounded-full bg-gradient-to-r from-emerald-500 to-sky-500 text-white font-medium shadow-md hover:scale-105 transition-all"
-              >
-                Continuă cererea
-              </button>
-              <button
-                onClick={() => router.push("/form?new=true")}
-                className="px-6 py-2 rounded-full bg-gray-200 text-gray-700 font-medium shadow-md hover:bg-gray-300 transition-all"
-              >
-                Începe una nouă
-              </button>
-            </div>
-          </motion.div>
-        )}
-
         {/* 🌈 Tabs */}
         <div className="flex justify-center gap-6 sm:gap-10 flex-wrap">
           {[
@@ -223,7 +175,7 @@ export default function ClientDashboard() {
           ].map((t) => (
             <button
               key={t.key}
-              onClick={() => setTab(t.key as any)}
+              onClick={() => setTab(t.key)}
               className={`flex items-center gap-2 pb-2 font-medium text-sm sm:text-base transition-all border-b-2 ${
                 tab === t.key
                   ? "border-emerald-500 text-emerald-700 scale-105"
@@ -236,18 +188,16 @@ export default function ClientDashboard() {
           ))}
         </div>
 
-        {/* 🗂 ORDERS TAB */}
+        {/* 🗂 ORDERS */}
         {tab === "orders" && (
-          <section>
+          <div>
             {loading ? (
               <div className="flex justify-center items-center py-10 text-emerald-600">
                 <Loader2 className="animate-spin mr-2" /> Se încarcă comenzile...
               </div>
             ) : orders.length === 0 ? (
               <div className="text-center py-16 text-gray-500">
-                <p className="text-lg mb-2">
-                  Nu ai trimis nicio cerere de mutare încă.
-                </p>
+                <p className="text-lg mb-2">Nu ai trimis nicio cerere de mutare încă.</p>
                 <button
                   onClick={() => router.push("/form")}
                   className="text-emerald-600 font-medium hover:underline"
@@ -272,17 +222,14 @@ export default function ClientDashboard() {
                         {order.deliveryCity}
                       </h3>
                       <span className="text-xs text-gray-400">
-                        {order.createdAt
-                          ? order.createdAt.toLocaleDateString()
-                          : "-"}
+                        {order.createdAt ? order.createdAt.toLocaleDateString() : "-"}
                       </span>
                     </div>
 
                     <div className="text-sm text-gray-700 space-y-1 mb-4">
                       <p className="flex items-center gap-1">
                         <CalendarDays size={14} className="text-emerald-500" />
-                        <strong>Data mutării:</strong>{" "}
-                        {order.moveDate || order.moveOption || "-"}
+                        <strong>Data mutării:</strong> {order.moveDate || "-"}
                       </p>
                       <p className="flex items-center gap-1">
                         <Building2 size={14} className="text-emerald-500" />
@@ -324,9 +271,7 @@ export default function ClientDashboard() {
                         onClick={async () => {
                           if (confirm("Sigur vrei să ștergi această cerere?")) {
                             await deleteDoc(doc(db, "requests", order.id));
-                            setOrders((prev) =>
-                              prev.filter((o) => o.id !== order.id)
-                            );
+                            setOrders((p) => p.filter((o) => o.id !== order.id));
                           }
                         }}
                         className="flex-1 inline-flex items-center justify-center gap-1 bg-gradient-to-r from-red-500 to-red-600 text-white py-2 rounded-full font-medium shadow hover:scale-[1.03] transition-all"
@@ -338,33 +283,53 @@ export default function ClientDashboard() {
                 ))}
               </div>
             )}
-          </section>
+          </div>
         )}
 
-        {/* 👤 PROFILE TAB */}
+        {/* 👤 PROFILE + Test Firebase */}
         {tab === "profile" && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
-            className="rounded-3xl p-8 bg-white/90 backdrop-blur-md shadow-lg text-center border border-emerald-100 max-w-2xl mx-auto"
+            className="rounded-3xl p-8 bg-white/90 backdrop-blur-md shadow-lg text-center border border-emerald-100 max-w-2xl mx-auto space-y-6"
           >
-            <h2 className="text-xl font-semibold text-emerald-700 mb-4 flex justify-center items-center gap-2">
+            <h2 className="text-xl font-semibold text-emerald-700 mb-2 flex justify-center items-center gap-2">
               <UserIcon size={20} /> Detalii profil
             </h2>
-            <p>
-              <strong>Email:</strong> {profile?.email || user.email}
-            </p>
-            <p>
-              <strong>Nume:</strong> {profile?.name || user.displayName || "-"}
-            </p>
-            <p>
-              <strong>Telefon:</strong> {profile?.phone || "-"}
-            </p>
+            <p><strong>Email:</strong> {profile?.email || user.email}</p>
+            <p><strong>Nume:</strong> {profile?.name || user.displayName || "-"}</p>
+            <p><strong>Telefon:</strong> {profile?.phone || "-"}</p>
+
+            <div className="pt-6 border-t border-emerald-100">
+              <h3 className="text-lg font-semibold text-emerald-700 flex justify-center items-center gap-2 mb-4">
+                <BugPlay size={18} /> Test conexiune Firebase
+              </h3>
+              <button
+                onClick={handleTest}
+                disabled={testing}
+                className={`px-6 py-2 rounded-full font-medium shadow-md transition-all ${
+                  testing
+                    ? "bg-gray-400 text-white cursor-not-allowed"
+                    : "bg-gradient-to-r from-emerald-500 to-sky-500 text-white hover:scale-105"
+                }`}
+              >
+                {testing ? "Se verifică..." : "Rulează testul 🔍"}
+              </button>
+              {testResult && (
+                <p
+                  className={`mt-4 text-sm font-medium ${
+                    testResult.includes("✅") ? "text-green-600" : "text-red-500"
+                  }`}
+                >
+                  {testResult}
+                </p>
+              )}
+            </div>
           </motion.div>
         )}
 
-        {/* 💬 MESSAGES TAB */}
+        {/* 💬 MESSAGES */}
         {tab === "messages" && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -376,11 +341,7 @@ export default function ClientDashboard() {
               <MessageSquare size={20} /> Mesaje
             </h2>
             <p className="text-gray-600">
-              📩 Aici vor apărea mesajele companiilor de mutări care răspund la
-              cererile tale.
-            </p>
-            <p className="text-sm text-gray-500 mt-2">
-              Sugestie: poți adăuga un mini-chat pentru fiecare comandă.
+              📩 Aici vor apărea mesajele companiilor care răspund la cererile tale.
             </p>
           </motion.div>
         )}

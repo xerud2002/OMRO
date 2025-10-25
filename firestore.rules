@@ -2,6 +2,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // ✅ Helper functions
     function isSignedIn() {
       return request.auth != null;
     }
@@ -12,35 +13,32 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
     }
 
-    // USERS
+    // 🧍 USERS
     match /users/{userId} {
       allow create: if isSignedIn() && request.auth.uid == userId;
-      allow read, update, delete: if isSignedIn() &&
-        (request.auth.uid == userId || isAdmin());
+      allow read, update, delete: if isSignedIn() && request.auth.uid == userId;
     }
 
-    // REQUESTS (customer leads)
+    // 📦 REQUESTS (client moves)
     match /requests/{requestId} {
-      allow create: if isSignedIn();
+      // ✅ client can create only if request contains his own userId
+      allow create: if isSignedIn() &&
+        request.resource.data.userId == request.auth.uid;
+
+      // ✅ read/update/delete only by the owner or admin
       allow read, update, delete: if isSignedIn() &&
         (resource.data.userId == request.auth.uid || isAdmin());
     }
 
-    // DRAFTS
+    // 📝 DRAFTS
     match /drafts/{userId} {
-      allow read, write, delete: if isSignedIn() &&
-        (request.auth.uid == userId || isAdmin());
+      allow read, write, delete: if isSignedIn() && request.auth.uid == userId;
     }
 
-    // COMPANIES
+    // 🏢 COMPANIES
     match /companies/{companyId} {
       allow read: if isSignedIn();
-      allow write, delete: if isSignedIn() &&
-        (request.auth.uid == companyId || isAdmin());
-    }
-
-    match /{document=**} {
-      allow read, write: if false;
+      allow write, delete: if isSignedIn() && request.auth.uid == companyId;
     }
   }
 }

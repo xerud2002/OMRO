@@ -3,12 +3,13 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3000",
-    "build": "next build",
-    "start": "next start",
-    "seed": "tsx scripts/seedFirestore.mts",
-    "lint": "next lint"
-  },
+  "dev": "next dev -p 3000",
+  "build": "next build",
+  "start": "next start",
+  "seed": "tsx scripts/seedFirestore.mts",
+  "lint": "next lint",
+  "clean": "rmdir /s /q .next node_modules && npm install"
+},
   "dependencies": {
     "@emailjs/browser": "^4.4.1",
     "@faker-js/faker": "^10.1.0",

@@ -1,36 +1,45 @@
 {
   "compilerOptions": {
-    "target": "ES2020",
-    "lib": [
-      "dom",
-      "dom.iterable",
-      "esnext"
-    ],
-    "allowJs": true,
-    "skipLibCheck": true,
+    /* ---- Target & Module ---- */
+    "target": "ES2022",
+    "module": "esnext",
+    "lib": ["dom", "dom.iterable", "esnext"],
+
+    /* ---- Strictness & Checks ---- */
     "strict": true,
+    "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
+    "isolatedModules": true,
     "noEmit": true,
+
+    /* ---- Interop & Imports ---- */
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
-    "module": "esnext",
-    "moduleResolution": "node",
     "resolveJsonModule": true,
-    "isolatedModules": true,
+
+    /* ---- React / JSX ---- */
     "jsx": "react-jsx",
+
+    /* ---- Node / Scripts ---- */
+    "moduleResolution": "node",
+    "types": ["node"],
+
+    /* ---- Incremental Builds ---- */
     "incremental": true,
-    "types": [
-      "node"
-    ]
+
+    /* ---- Experimental / ESM Support ---- */
+    "allowJs": true
   },
+
+  /* ---- Include TS & MTS ---- */
   "include": [
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    "scripts/seedDummyRequests.mts",
-    "scripts/seedFirestore.mts"
+    "scripts/**/*.mts",
+    "utils/**/*.ts"
   ],
-  "exclude": [
-    "node_modules"
-  ]
+
+  /* ---- Exclude node_modules ---- */
+  "exclude": ["node_modules"]
 }
