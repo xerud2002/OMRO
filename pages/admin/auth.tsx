@@ -1,39 +1,28 @@
 "use client";
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import Head from "next/head";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
-import { handleRoleRedirect } from "../../utils/handleRoleRedirect";
 import {
-  registerWithEmail,
   loginWithEmail,
   loginWithGoogle,
-  logout,
   onAuthChange,
-  resetPassword,
-  db,
+  logout,
 } from "../../utils/firebase";
-import { doc, setDoc } from "firebase/firestore";
-import { User } from "firebase/auth";
-import {
-  UserPlus,
-  LogIn,
-  Mail,
-  Lock,
-  RefreshCw,
-  LogOut,
-} from "lucide-react";
+import { handleRoleRedirect } from "../../utils/handleRoleRedirect";
+import { LogOut, LogIn, Mail, Lock, Shield } from "lucide-react";
+import type { User } from "firebase/auth";
 
-export default function CustomerAuthPage() {
+
+export default function AdminAuthPage() {
   const router = useRouter();
-  const [user, setUser] = useState<User | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isRegister, setIsRegister] = useState(false);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // 🔹 Detect auth state and redirect by role
+  // 🔹 Listen for auth changes
   useEffect(() => {
     const unsub = onAuthChange(async (u) => {
       if (u) {
@@ -46,54 +35,29 @@ export default function CustomerAuthPage() {
     return () => unsub();
   }, [router]);
 
-  // 🔹 Email / Password Auth
-  const handleEmailAuth = async () => {
-    if (!email || !password) return toast.error("Completează toate câmpurile!");
+  // 🔹 Handle Email Login
+  const handleLogin = async () => {
+    if (!email || !password)
+      return toast.error("Completează emailul și parola!");
     setLoading(true);
     try {
-      if (isRegister) {
-        const cred = await registerWithEmail(email, password);
-        const uid = cred.user.uid;
-
-        await setDoc(doc(db, "users", uid), {
-          email,
-          role: "customer",
-          createdAt: new Date(),
-        });
-
-        toast.success("✅ Cont client creat cu succes!");
-        router.push("/form"); // direct spre formular
-      } else {
-        await loginWithEmail(email, password);
-        toast.success("✅ Autentificat cu succes!");
-        router.push("/form");
-      }
+      await loginWithEmail(email, password);
+      toast.success("✅ Autentificat cu succes!");
+      router.push("/admin/dashboard");
     } catch (err: any) {
-      toast.error(err.message || "Eroare la autentificare.");
+      toast.error("❌ Eroare: " + (err.message || "Verifică datele introduse."));
     } finally {
       setLoading(false);
     }
   };
 
-  // 🔹 Reset password
-  const handleResetPassword = async () => {
-    if (!email) return toast.error("Introduceți adresa de email!");
-    try {
-      await resetPassword(email);
-      toast.success("📩 Email trimis pentru resetarea parolei.");
-    } catch (err: any) {
-      toast.error("Eroare: " + err.message);
-    }
-  };
-
-  // 🔹 Google login
+  // 🔹 Optional Google Login
   const handleGoogle = async () => {
     setLoading(true);
     try {
       const cred = await loginWithGoogle();
-      const u = cred.user;
       toast.success("✅ Autentificat cu Google!");
-      await handleRoleRedirect(u, router);
+      await handleRoleRedirect(cred.user, router);
     } catch (err: any) {
       toast.error("Eroare Google Login: " + err.message);
     } finally {
@@ -101,16 +65,14 @@ export default function CustomerAuthPage() {
     }
   };
 
-  // 🔹 Structured Data
+  // 🔹 Structured data (SEO)
   const structuredData = {
     "@context": "https://schema.org",
     "@type": "WebPage",
-    name: isRegister
-      ? "Înregistrare client - ofertemutare.ro"
-      : "Autentificare client - ofertemutare.ro",
-    url: "https://ofertemutare.ro/customer/auth",
+    name: "Autentificare admin - ofertemutare.ro",
+    url: "https://ofertemutare.ro/admin/auth",
     description:
-      "Pagina dedicată clienților ofertemutare.ro pentru autentificare și creare cont.",
+      "Autentificare securizată pentru administratorii platformei ofertemutare.ro.",
   };
 
   // 🔹 Logged-in view
@@ -118,7 +80,7 @@ export default function CustomerAuthPage() {
     return (
       <>
         <Head>
-          <title>Contul tău | ofertemutare.ro</title>
+          <title>Panou admin | ofertemutare.ro</title>
           <meta name="robots" content="noindex, nofollow" />
         </Head>
 
@@ -128,12 +90,13 @@ export default function CustomerAuthPage() {
             animate={{ opacity: 1, y: 0 }}
             className="bg-white/80 backdrop-blur-md p-8 rounded-3xl shadow-lg w-full max-w-md text-center border border-emerald-100"
           >
+            <Shield size={36} className="text-emerald-600 mx-auto mb-3" />
             <p className="text-lg font-semibold mb-4 text-emerald-700">
-              Salut, <span className="font-medium">{user.email}</span>
+              Bine ai revenit, <span className="font-medium">{user.email}</span>
             </p>
             <button
               onClick={logout}
-              className="inline-flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-emerald-500 to-sky-500 text-white rounded-xl shadow hover:scale-[1.03] transition-all"
+              className="inline-flex items-center gap-2 px-6 py-2 bg-gradient-to-r from-emerald-500 to-sky-500 text-white rounded-xl shadow hover:scale-105 transition-all"
             >
               <LogOut size={18} /> Logout
             </button>
@@ -143,18 +106,14 @@ export default function CustomerAuthPage() {
     );
   }
 
-  // 🔹 Auth form
+  // 🔹 Login Form
   return (
     <>
       <Head>
-        <title>
-          {isRegister
-            ? "Înregistrare client | ofertemutare.ro"
-            : "Autentificare client | ofertemutare.ro"}
-        </title>
+        <title>Autentificare admin | ofertemutare.ro</title>
         <meta
           name="description"
-          content="Autentifică-te sau creează un cont nou pentru a primi oferte de mutare de la companii verificate din România."
+          content="Conectează-te ca administrator pentru a gestiona companii, cereri și plăți pe ofertemutare.ro."
         />
         <meta name="robots" content="noindex, nofollow" />
         <script
@@ -165,27 +124,26 @@ export default function CustomerAuthPage() {
 
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-160px)] bg-gradient-to-br from-emerald-50 to-sky-50 p-6">
         <motion.div
-          initial={{ opacity: 0, y: 40 }}
+          initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
           className="bg-white/85 backdrop-blur-xl p-8 rounded-3xl shadow-xl w-full max-w-md border border-emerald-100"
         >
           {/* Header */}
           <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold text-emerald-700 mb-1">
-              {isRegister ? "Înregistrare client" : "Autentificare client"}
+            <Shield size={42} className="text-emerald-600 mx-auto mb-2" />
+            <h1 className="text-2xl font-bold text-emerald-700">
+              Autentificare admin
             </h1>
             <p className="text-gray-600 text-sm">
-              {isRegister
-                ? "Creează-ți contul pentru a solicita oferte"
-                : "Autentifică-te pentru a continua cererea"}
+              Acces rezervat administratorilor platformei
             </p>
           </div>
 
           {/* Inputs */}
           <Input
             icon={<Mail size={18} />}
-            placeholder="Email"
+            placeholder="Email admin"
             value={email}
             onChange={setEmail}
             type="email"
@@ -198,9 +156,9 @@ export default function CustomerAuthPage() {
             type="password"
           />
 
-          {/* Submit Button */}
+          {/* Submit */}
           <button
-            onClick={handleEmailAuth}
+            onClick={handleLogin}
             disabled={loading}
             className={`w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-xl mb-3 font-medium shadow-md transition-all ${
               loading
@@ -210,10 +168,6 @@ export default function CustomerAuthPage() {
           >
             {loading ? (
               "Se procesează..."
-            ) : isRegister ? (
-              <>
-                <UserPlus size={18} /> Creează cont
-              </>
             ) : (
               <>
                 <LogIn size={18} /> Login
@@ -221,29 +175,7 @@ export default function CustomerAuthPage() {
             )}
           </button>
 
-          {/* Forgot password */}
-          {!isRegister && (
-            <p
-              onClick={handleResetPassword}
-              className="text-sm text-emerald-600 text-center mb-4 cursor-pointer hover:underline"
-            >
-              <RefreshCw size={14} className="inline mr-1" />
-              Am uitat parola
-            </p>
-          )}
-
-          {/* Switch form type */}
-          <p className="text-center text-sm text-gray-600 mb-4">
-            {isRegister ? "Ai deja cont?" : "Nu ai cont?"}{" "}
-            <span
-              onClick={() => setIsRegister(!isRegister)}
-              className="text-emerald-600 cursor-pointer hover:underline font-medium"
-            >
-              {isRegister ? "Login" : "Înregistrează-te"}
-            </span>
-          </p>
-
-          {/* Google Login */}
+          {/* Optional Google login */}
           <button
             onClick={handleGoogle}
             disabled={loading}
@@ -258,7 +190,7 @@ export default function CustomerAuthPage() {
   );
 }
 
-/* 🔸 Small reusable input component */
+/* 🔸 Reusable input */
 function Input({
   icon,
   placeholder,

@@ -8,7 +8,7 @@ import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import ClientLayout from "../../components/ClientLayout";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
-import { Loader2, Camera, Save } from "lucide-react";
+import { Loader2, Camera } from "lucide-react";
 
 export default function CustomerProfile() {
   const router = useRouter();
@@ -26,6 +26,7 @@ export default function CustomerProfile() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  // 🔹 Load user & profile data
   useEffect(() => {
     const unsub = onAuthChange(async (u) => {
       if (!u) {
@@ -62,6 +63,7 @@ export default function CustomerProfile() {
 
   const handleChange = (f: string, v: any) => setForm((p) => ({ ...p, [f]: v }));
 
+  // 🔹 Upload photo
   const handleUpload = async (e: any) => {
     const file = e.target.files[0];
     if (!file || !user) return;
@@ -81,6 +83,7 @@ export default function CustomerProfile() {
     }
   };
 
+  // 🔹 Save form
   const handleSave = async () => {
     if (!user) return;
     setSaving(true);
@@ -157,36 +160,54 @@ export default function CustomerProfile() {
 
         {/* 🌿 Card */}
         <div className="rounded-3xl bg-white/90 backdrop-blur-md p-8 shadow-lg border border-emerald-100 hover:shadow-emerald-200 transition-all duration-300">
-          {/* Avatar */}
-          <div className="flex flex-col items-center mb-6 relative">
-            <div className="relative group">
-              <img
-                src={form.photo || "/default-avatar.png"}
-                alt="Foto profil"
-                className="w-28 h-28 rounded-full object-cover border-4 border-white shadow-lg transition-transform duration-300 group-hover:scale-105"
-              />
+          
+          {/* 🌈 Avatar Section */}
+          <div className="flex flex-col items-center mb-8">
+            <div className="relative group w-32 h-32">
+              {/* Avatar Image with gradient ring */}
+              <div className="absolute inset-0 rounded-full bg-gradient-to-r from-emerald-400 to-sky-400 p-[3px] shadow-md">
+                <div className="w-full h-full rounded-full bg-white p-[2px]">
+                  <img
+                    src={form.photo || "/default-avatar.png"}
+                    alt=" "
+                    className="w-full h-full rounded-full object-cover"
+                  />
+                </div>
+              </div>
+
+              {/* Hover Overlay */}
               <label
                 htmlFor="file-upload"
-                className="absolute bottom-1 right-1 bg-white border border-emerald-100 rounded-full p-2 shadow-md hover:shadow-lg transition-all cursor-pointer group-hover:scale-110"
-                title="Încarcă poză nouă"
+                className="absolute inset-0 flex flex-col items-center justify-center rounded-full bg-black/40 opacity-0 group-hover:opacity-100 cursor-pointer transition-all duration-300"
               >
-                <Camera size={16} className="text-emerald-500" />
+                <Camera size={22} className="text-white mb-1" />
+                <span className="text-xs text-white font-medium">Schimbă poza</span>
+                <input
+                  id="file-upload"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleUpload}
+                  disabled={uploading}
+                  className="hidden"
+                />
               </label>
-              <input
-                id="file-upload"
-                type="file"
-                accept="image/*"
-                onChange={handleUpload}
-                disabled={uploading}
-                className="hidden"
-              />
+
+              {/* Upload Loader Overlay */}
+              {uploading && (
+                <div className="absolute inset-0 flex items-center justify-center rounded-full bg-white/70">
+                  <Loader2 className="animate-spin text-emerald-500" size={28} />
+                </div>
+              )}
             </div>
-            {uploading && (
-              <p className="text-xs text-gray-500 mt-2">Se încarcă imaginea...</p>
-            )}
+
+            <p className="text-sm text-gray-500 mt-4">
+              {uploading
+                ? "Se încarcă imaginea..."
+                : "Formatele acceptate: JPG, PNG, WebP"}
+            </p>
           </div>
 
-          {/* Form fields */}
+          {/* 🌿 Form Fields */}
           <div className="space-y-4">
             <Input label="Nume complet" value={form.name} onChange={(e) => handleChange("name", e.target.value)} />
             <Input label="Telefon" value={form.phone} onChange={(e) => handleChange("phone", e.target.value)} />
@@ -198,7 +219,7 @@ export default function CustomerProfile() {
             </div>
           </div>
 
-          {/* Save Button */}
+          {/* 💾 Save Button */}
           <div className="mt-8 text-center">
             <button
               onClick={handleSave}
@@ -212,9 +233,7 @@ export default function CustomerProfile() {
                   <Loader2 className="animate-spin" size={18} /> Se salvează...
                 </>
               ) : (
-                <>
-                  💾 Salvează modificările
-                </>
+                <>💾 Salvează modificările</>
               )}
             </button>
           </div>
