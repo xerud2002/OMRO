@@ -2,7 +2,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ===== Helper functions =====
+    // === Helper functions ===
     function isSignedIn() {
       return request.auth != null;
     }
@@ -29,38 +29,51 @@ service cloud.firestore {
         get(userDoc()).data.role == "customer";
     }
 
-    // ===== USERS =====
+    // === USERS ===
     match /users/{userId} {
       allow create: if request.auth.uid == userId;
       allow read, update, delete: if request.auth.uid == userId || isAdmin();
       allow list: if isAdmin();
     }
 
-    // ===== COMPANIES =====
+    // === COMPANIES ===
     match /companies/{companyId} {
       allow read: if isSignedIn();
       allow write, delete: if isAdmin() || request.auth.uid == companyId;
       allow list: if isAdmin();
     }
 
-    // ===== REQUESTS (moving quotes) =====
+    // === REQUESTS ===
     match /requests/{reqId} {
       allow create: if isSignedIn();
       allow read, update, delete: if isAdmin() || resource.data.userId == request.auth.uid;
       allow list: if isAdmin();
     }
 
-    // ===== DRAFTS =====
+    // === PAYMENTS ===
+    match /payments/{paymentId} {
+      allow read, write: if isAdmin() || resource.data.userId == request.auth.uid;
+      allow list: if isAdmin();
+    }
+
+    // === ACTIVITY ===
+    match /activity/{logId} {
+      allow read, write: if isAdmin();
+      allow list: if isAdmin();
+    }
+
+    // === MESSAGES ===
+    match /messages/{msgId} {
+      allow read, write: if isAdmin() || resource.data.userId == request.auth.uid;
+      allow list: if isAdmin();
+    }
+
+    // === DRAFTS ===
     match /drafts/{draftId} {
       allow read, write, delete: if request.auth.uid == draftId || isAdmin();
     }
 
-    // ===== PAYMENTS =====
-    match /payments/{payId} {
-      allow read, write: if isAdmin() || resource.data.userId == request.auth.uid;
-    }
-
-    // ===== DEFAULT DENY =====
+    // === Default deny ===
     match /{document=**} {
       allow read, write: if false;
     }

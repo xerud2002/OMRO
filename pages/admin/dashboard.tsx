@@ -93,7 +93,7 @@ export default function AdminDashboardOverview() {
   useEffect(() => {
     const unsub = onAuthChange(async (u) => {
       if (!u) {
-        router.push("/company/auth");
+        router.push("/admin/auth");
         return;
       }
 
