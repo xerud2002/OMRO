@@ -1,17 +1,18 @@
 "use client";
 import React from "react";
 import { motion } from "framer-motion";
+import { UserRound, Phone, Mail } from "lucide-react";
 import FormInput from "../../components/form/FormInput";
 
 interface StepProps {
   formData: Record<string, any>;
   handleChange: (field: string, value: any) => void;
-  showErrors?: boolean; // <-- added to control validation timing
+  showErrors?: boolean;
 }
 
 /**
- * Step 10 – Contact Details
- * Collects the client's name, phone number, and email.
+ * Step 10 – Date de contact
+ * Colectează numele, telefonul și emailul clientului.
  */
 export default function StepContact({ formData, handleChange, showErrors }: StepProps) {
   const isEmailMissing = !formData.email || formData.email.trim() === "";
@@ -23,22 +24,25 @@ export default function StepContact({ formData, handleChange, showErrors }: Step
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
     >
-      <h2 className="text-2xl font-bold text-emerald-700">
+      {/* Titlu */}
+      <h2 className="text-2xl md:text-3xl font-bold text-emerald-700 flex items-center justify-center gap-2">
+        <UserRound className="text-sky-500" size={26} />
         Datele tale de contact
       </h2>
 
       <p className="text-sm text-gray-600 max-w-md mx-auto">
-        Completează datele tale corecte — companiile de mutări te vor contacta direct
-        pentru ofertă.
+        Completează datele corecte — echipele de mutări te vor contacta direct
+        pentru a discuta detaliile și a-ți trimite ofertele personalizate.
       </p>
 
+      {/* Card */}
       <motion.div
-        className="max-w-2xl mx-auto bg-white/70 backdrop-blur-sm border border-emerald-100 rounded-2xl shadow-sm p-6 space-y-5"
+        className="max-w-xl mx-auto bg-white/70 backdrop-blur-sm border border-emerald-100 rounded-3xl shadow-lg p-6 space-y-5"
         initial={{ opacity: 0, scale: 0.97 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.4 }}
       >
-        {/* Nume complet + Telefon */}
+        {/* --- Nume complet + Telefon --- */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-left">
           <FormInput
             id="name"
@@ -47,6 +51,7 @@ export default function StepContact({ formData, handleChange, showErrors }: Step
             value={formData.name || ""}
             onChange={(e) => handleChange("name", e.target.value)}
             required
+            icon={<UserRound size={18} className="text-emerald-500" />}
           />
 
           <FormInput
@@ -58,10 +63,11 @@ export default function StepContact({ formData, handleChange, showErrors }: Step
             value={formData.phone || ""}
             onChange={(e) => handleChange("phone", e.target.value)}
             required
+            icon={<Phone size={18} className="text-sky-500" />}
           />
         </div>
 
-        {/* Email */}
+        {/* --- Email --- */}
         <div className="text-left">
           <FormInput
             id="email"
@@ -71,8 +77,10 @@ export default function StepContact({ formData, handleChange, showErrors }: Step
             value={formData.email || ""}
             onChange={(e) => handleChange("email", e.target.value)}
             required
+            icon={<Mail size={18} className="text-emerald-500" />}
           />
-          {/* Show warning only after submission */}
+
+          {/* ⚠️ Mesaj eroare dacă emailul lipsește */}
           {showErrors && isEmailMissing && (
             <motion.p
               className="text-red-500 text-sm mt-1"
@@ -87,7 +95,8 @@ export default function StepContact({ formData, handleChange, showErrors }: Step
       </motion.div>
 
       <p className="text-sm text-gray-500 max-w-md mx-auto">
-        Verifică emailul introdus pentru a primi detaliile complete.
+        Asigură-te că adresa de email și numărul de telefon sunt corecte — așa
+        vei putea primi rapid ofertele și detaliile despre mutare.
       </p>
     </motion.div>
   );

@@ -16,21 +16,34 @@ export default function FormTextarea({
   ...props
 }: FormTextareaProps) {
   return (
-    <div className="space-y-1">
+    <div className="space-y-1.5">
       {label && (
         <label
           htmlFor={id}
-          className="block text-sm font-medium text-gray-700"
+          className="block text-sm font-semibold text-emerald-700"
         >
           {label}
         </label>
       )}
-      <textarea
-        id={id}
-        {...props}
-        className={`w-full border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-emerald-400 outline-none transition-all bg-white/70 ${className}`}
-      />
-      {error && <p className="text-red-500 text-xs">{error}</p>}
+
+      <div className="relative">
+        <textarea
+          id={id}
+          {...props}
+          className={`w-full bg-white/80 border border-emerald-100 rounded-xl p-3 text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-300 focus:border-emerald-400 transition-all hover:shadow-emerald-100 ${className}`}
+        />
+        <div
+          className={`h-[2px] w-full rounded-full transition-all duration-300 ${
+            props.value
+              ? "bg-gradient-to-r from-emerald-500 to-sky-500"
+              : "bg-gray-100"
+          }`}
+        />
+      </div>
+
+      {error && (
+        <p className="text-xs text-red-500 font-medium mt-1">{error}</p>
+      )}
     </div>
   );
 }

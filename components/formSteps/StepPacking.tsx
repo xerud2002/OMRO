@@ -1,6 +1,7 @@
 "use client";
 import React from "react";
 import { motion } from "framer-motion";
+import { PackageOpen } from "lucide-react";
 import FormTextarea from "../../components/form/FormTextarea";
 
 interface StepProps {
@@ -9,22 +10,25 @@ interface StepProps {
 }
 
 /**
- * Step 7 – Serviciu de împachetare
- * Întreabă dacă utilizatorul dorește ajutor la ambalare.
+ * Step 7 – Serviciu de împachetare (versiune modernizată)
+ * Întreabă utilizatorul dacă dorește ajutor profesional pentru ambalare.
  */
 export default function StepPacking({ formData, handleChange }: StepProps) {
   const options = [
     {
-      value: "Da, complet",
-      label: "Da, complet – dorim ca totul să fie împachetat de echipă",
+      value: "Complet",
+      label: "Împachetare completă",
+      desc: "Include toate materialele necesare (cutii, folie, bandă, protecții pentru mobilier).",
     },
     {
       value: "Parțial",
-      label: "Parțial – doar obiectele fragile sau mari",
+      label: "Împachetare parțială – doar obiectele fragile sau voluminoase",
+      desc: "Perfect dacă ai nevoie de ajutor doar pentru zonele sensibile.",
     },
     {
-      value: "Nu, ne ocupăm noi",
-      label: "Nu – ne ocupăm noi de împachetare",
+      value: "Fără",
+      label: "Nu este nevoie – ne ocupăm noi de împachetare",
+      desc: "Nu se adaugă costuri suplimentare pentru acest serviciu.",
     },
   ];
 
@@ -35,32 +39,34 @@ export default function StepPacking({ formData, handleChange }: StepProps) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
     >
-      <h2 className="text-2xl font-bold text-emerald-700">
+      {/* Titlu */}
+      <h2 className="text-2xl md:text-3xl font-bold text-emerald-700 flex justify-center items-center gap-2">
+        <PackageOpen className="text-sky-500" size={26} />
         Ai nevoie de ajutor la împachetare?
       </h2>
 
       <p className="text-sm text-gray-600 max-w-md mx-auto">
-        Alege una dintre opțiunile de mai jos. Dacă selectezi serviciul complet,
-        echipa va aduce materiale profesionale (folie, cutii, bandă etc.).
+        Selectează varianta potrivită pentru tine. Dacă alegi serviciul complet,
+        echipa va aduce materiale profesionale și va proteja toate bunurile cu
+        grijă.
       </p>
 
-      <div className="grid gap-3 max-w-md mx-auto">
-        {options.map((opt, index) => {
+      {/* Opțiuni de împachetare */}
+      <div className="grid gap-4 max-w-md mx-auto">
+        {options.map((opt, i) => {
           const selected = formData.packing === opt.value;
           return (
             <motion.label
               key={opt.value}
-              htmlFor={`packing-${index}`}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.96 }}
-              className={`p-4 rounded-xl border text-left cursor-pointer transition-all duration-200 shadow-sm ${
+              className={`p-5 rounded-2xl border text-left cursor-pointer transition-all duration-300 shadow-sm relative overflow-hidden ${
                 selected
-                  ? "border-emerald-500 bg-gradient-to-r from-emerald-50 to-sky-50 text-emerald-700 font-medium shadow-md"
-                  : "border-gray-300 hover:border-emerald-300 hover:bg-emerald-50/40 text-gray-700"
+                  ? "border-emerald-500 bg-gradient-to-r from-emerald-50 to-sky-50 text-emerald-800 font-medium shadow-md"
+                  : "border-gray-200 hover:border-emerald-300 hover:bg-emerald-50/40 text-gray-700"
               }`}
             >
               <input
-                id={`packing-${index}`}
                 type="radio"
                 name="packing"
                 value={opt.value}
@@ -68,14 +74,17 @@ export default function StepPacking({ formData, handleChange }: StepProps) {
                 onChange={(e) => handleChange("packing", e.target.value)}
                 className="hidden"
               />
-              {opt.label}
+              <div className="flex flex-col gap-1">
+                <span className="font-semibold">{opt.label}</span>
+                <span className="text-xs text-gray-600">{opt.desc}</span>
+              </div>
             </motion.label>
           );
         })}
       </div>
 
-      {/* 🧳 Câmp opțional pentru detalii suplimentare */}
-      {formData.packing && formData.packing !== "Nu, ne ocupăm noi" && (
+      {/* Câmp opțional pentru detalii */}
+      {formData.packing && formData.packing !== "Fără" && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -84,8 +93,8 @@ export default function StepPacking({ formData, handleChange }: StepProps) {
         >
           <FormTextarea
             id="packingDetails"
-            label="Detalii despre împachetare (opțional)"
-            placeholder="Ex: obiecte fragile, articole de bucătărie, tablouri..."
+            label="Detalii suplimentare despre împachetare (opțional)"
+            placeholder="Ex: obiecte fragile, articole de bucătărie, tablouri, echipamente electronice..."
             rows={3}
             value={formData.packingDetails || ""}
             onChange={(e) => handleChange("packingDetails", e.target.value)}
@@ -93,8 +102,8 @@ export default function StepPacking({ formData, handleChange }: StepProps) {
         </motion.div>
       )}
 
-      <p className="text-sm text-gray-500">
-        Poți actualiza această alegere ulterior din contul tău.
+      <p className="text-sm text-gray-500 max-w-md mx-auto">
+        Poți modifica această alegere mai târziu din contul tău de client.
       </p>
     </motion.div>
   );

@@ -1,6 +1,7 @@
 "use client";
 import React from "react";
 import { motion } from "framer-motion";
+import { Camera, Video, FilePlus2 } from "lucide-react";
 
 interface FormDataType {
   survey?: string;
@@ -15,17 +16,34 @@ interface StepProps {
 
 /**
  * Step 9 – Survey Estimare
- * Permite clientului să aleagă metoda de evaluare (video call, vizită, încărcare media etc.)
+ * Permite clientului să aleagă metoda de evaluare (video call, vizită, sau poze/video).
  */
 export default function StepSurvey({ formData, handleChange, setFormData }: StepProps) {
   const options = [
-    { value: "video", label: "Da, prin video call (WhatsApp / Facebook etc.)" },
-    { value: "in_person", label: "Da, vizită în persoană" },
-    { value: "estimate", label: "Nu, doresc doar o ofertă estimativă" },
-    { value: "media", label: "Vreau să atașez poze / video cu ce e de mutat acum" },
+    {
+      value: "video",
+      label: "Video call (WhatsApp / Facebook / Zoom)",
+      desc: "O discuție rapidă prin apel video pentru o evaluare precisă.",
+    },
+    {
+      value: "in_person",
+      label: "Vizită la fața locului",
+      desc: "Un membru al echipei poate veni pentru o evaluare detaliată.",
+    },
+    {
+      value: "estimate",
+      label: "Doar o ofertă estimativă",
+      desc: "Fără evaluare suplimentară — vom estima pe baza datelor completate.",
+    },
+    {
+      value: "media",
+      label: "Atașează poze sau videoclipuri acum",
+      desc: "Trimite imagini sau clipuri pentru o estimare rapidă.",
+    },
     {
       value: "media_later",
-      label: "Vreau să atașez poze / video mai târziu (voi primi link separat)",
+      label: "Voi trimite poze / video mai târziu",
+      desc: "Vei primi un link separat pentru a încărca fișierele ulterior.",
     },
   ];
 
@@ -33,7 +51,7 @@ export default function StepSurvey({ formData, handleChange, setFormData }: Step
   const handleMediaUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
     const files = Array.from(e.target.files);
-    setFormData((prev: FormDataType) => ({
+    setFormData((prev) => ({
       ...prev,
       media: [...(prev.media || []), ...files],
     }));
@@ -43,7 +61,7 @@ export default function StepSurvey({ formData, handleChange, setFormData }: Step
   const handleCameraCapture = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
     const files = Array.from(e.target.files);
-    setFormData((prev: FormDataType) => ({
+    setFormData((prev) => ({
       ...prev,
       media: [...(prev.media || []), ...files],
     }));
@@ -63,17 +81,19 @@ export default function StepSurvey({ formData, handleChange, setFormData }: Step
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5 }}
     >
-      <h2 className="text-2xl font-bold text-emerald-700">
-        Pentru o ofertă cât mai exactă, ești dispus să faci un survey?
+      {/* Titlu */}
+      <h2 className="text-2xl md:text-3xl font-bold text-emerald-700 flex justify-center items-center gap-2">
+        <Video className="text-sky-500" size={26} />
+        Cum dorești să se facă evaluarea mutării?
       </h2>
 
       <p className="text-sm text-gray-600 max-w-md mx-auto">
-        Alege metoda preferată pentru evaluarea mutării. Un video call sau câteva imagini pot ajuta echipa
-        să îți ofere o estimare mai precisă și rapidă.
+        Alege metoda preferată pentru a ne ajuta să estimăm corect costul.
+        Un video scurt sau câteva poze pot face diferența.
       </p>
 
       {/* 🔹 Survey Options */}
-      <div className="grid gap-3 max-w-md mx-auto">
+      <div className="grid gap-4 max-w-md mx-auto">
         {options.map((opt, index) => {
           const selected = formData.survey === opt.value;
           return (
@@ -82,10 +102,10 @@ export default function StepSurvey({ formData, handleChange, setFormData }: Step
               htmlFor={`survey-${index}`}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.96 }}
-              className={`p-4 rounded-xl border text-left cursor-pointer transition-all duration-200 shadow-sm ${
+              className={`p-5 rounded-2xl border text-left cursor-pointer transition-all duration-300 shadow-sm ${
                 selected
-                  ? "border-emerald-500 bg-gradient-to-r from-emerald-50 to-sky-50 text-emerald-700 font-medium shadow-md"
-                  : "border-gray-300 hover:border-emerald-300 hover:bg-emerald-50/40 text-gray-700"
+                  ? "border-emerald-500 bg-gradient-to-r from-emerald-50 to-sky-50 text-emerald-800 font-medium shadow-md"
+                  : "border-gray-200 hover:border-emerald-300 hover:bg-emerald-50/40 text-gray-700"
               }`}
             >
               <input
@@ -97,7 +117,10 @@ export default function StepSurvey({ formData, handleChange, setFormData }: Step
                 onChange={(e) => handleChange("survey", e.target.value)}
                 className="hidden"
               />
-              {opt.label}
+              <div className="flex flex-col gap-1">
+                <span className="font-semibold">{opt.label}</span>
+                <span className="text-xs text-gray-600">{opt.desc}</span>
+              </div>
             </motion.label>
           );
         })}
@@ -106,7 +129,7 @@ export default function StepSurvey({ formData, handleChange, setFormData }: Step
       {/* 📸 Upload + Camera Section */}
       {formData.survey === "media" && (
         <motion.div
-          className="max-w-md mx-auto mt-6 bg-white/80 backdrop-blur-sm border border-emerald-100 rounded-2xl p-6 shadow-sm text-left"
+          className="max-w-md mx-auto mt-6 bg-white/80 backdrop-blur-sm border border-emerald-100 rounded-3xl p-6 shadow-md text-left"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ duration: 0.3 }}
@@ -115,14 +138,13 @@ export default function StepSurvey({ formData, handleChange, setFormData }: Step
             Încarcă poze sau videoclipuri
           </label>
 
-          {/* --- Buttons for upload or camera --- */}
+          {/* --- Buttons --- */}
           <div className="flex flex-col sm:flex-row items-center gap-3">
-            {/* Upload from device */}
             <label
               htmlFor="mediaUpload"
-              className="inline-flex items-center justify-center px-4 py-2 rounded-xl font-medium text-white bg-gradient-to-r from-emerald-500 to-sky-500 shadow-md hover:shadow-lg cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.97]"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-medium text-white bg-gradient-to-r from-emerald-500 to-sky-500 shadow-md hover:shadow-lg cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.97]"
             >
-              📁 Alege fișiere
+              <FilePlus2 size={16} /> Alege fișiere
             </label>
             <input
               id="mediaUpload"
@@ -133,12 +155,11 @@ export default function StepSurvey({ formData, handleChange, setFormData }: Step
               className="hidden"
             />
 
-            {/* Open camera directly */}
             <label
               htmlFor="cameraCapture"
-              className="inline-flex items-center justify-center px-4 py-2 rounded-xl font-medium text-white bg-gradient-to-r from-sky-500 to-emerald-500 shadow-md hover:shadow-lg cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.97]"
+              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-medium text-white bg-gradient-to-r from-sky-500 to-emerald-500 shadow-md hover:shadow-lg cursor-pointer transition-all duration-200 hover:scale-[1.02] active:scale-[0.97]"
             >
-              🎥 Deschide camera
+              <Camera size={16} /> Deschide camera
             </label>
             <input
               id="cameraCapture"
@@ -150,10 +171,9 @@ export default function StepSurvey({ formData, handleChange, setFormData }: Step
             />
           </div>
 
-          {/* Info text */}
           <p className="text-xs text-gray-500 mt-2">
-            Poți selecta fișiere din galerie sau deschide camera pentru a înregistra acum. 
-            Filmează fiecare cameră și arată obiectele de mutat, ambalat sau demontat.
+            Poți selecta fișiere din galerie sau deschide camera pentru a filma direct.
+            Arată camerele și obiectele mari (mobilier, cutii, electrocasnice etc.).
           </p>
 
           {/* --- File Previews --- */}
@@ -183,7 +203,6 @@ export default function StepSurvey({ formData, handleChange, setFormData }: Step
                       />
                     )}
 
-                    {/* Remove Button */}
                     <button
                       onClick={() => removeFile(index)}
                       className="absolute top-1 right-1 bg-red-500/80 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold opacity-0 group-hover:opacity-100 transition"
@@ -192,7 +211,7 @@ export default function StepSurvey({ formData, handleChange, setFormData }: Step
                       ×
                     </button>
 
-                    <p className="text-xs text-center text-gray-600 truncate px-1 py-1">
+                    <p className="text-xs text-center text-gray-600 truncate px-1 py-1 bg-white/70 backdrop-blur-sm">
                       {file.name}
                     </p>
                   </div>
@@ -203,9 +222,8 @@ export default function StepSurvey({ formData, handleChange, setFormData }: Step
         </motion.div>
       )}
 
-      {/* ℹ️ Informații suplimentare */}
       <p className="text-sm text-gray-500 max-w-md mx-auto">
-        Poți schimba metoda de evaluare sau încărca poze ulterior din contul tău.
+        Poți schimba metoda de evaluare sau încărca poze ulterior din contul tău de client.
       </p>
     </motion.div>
   );
