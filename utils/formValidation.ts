@@ -2,14 +2,19 @@
 import { auth } from "./firebase";
 
 /**
- * Verifică dacă toate câmpurile obligatorii din formular sunt completate corect.
- * Returnează un mesaj de eroare (string) dacă există probleme, sau null dacă totul e valid.
+ * ✅ Validează toate câmpurile obligatorii din formularul de cerere mutare.
+ * Returnează:
+ *  - string → mesaj de eroare clar pentru utilizator
+ *  - null → totul este valid
  */
 export function validateForm(formData: Record<string, any>): string | null {
-  const currentUser = auth.currentUser;
+  // 🔹 În Next.js (cu "use client"), auth.currentUser poate fi null la prima randare
+  const currentUser = typeof window !== "undefined" ? auth.currentUser : null;
   const hasAutoEmail = !!currentUser?.email;
 
-  // ✅ Câmpuri obligatorii de bază
+  /* -------------------------------------------------------
+   * 🔸 1. Câmpuri obligatorii de bază
+   * ------------------------------------------------------- */
   const requiredFields = [
     "serviceType",
     "pickupCounty",
@@ -20,11 +25,12 @@ export function validateForm(formData: Record<string, any>): string | null {
     "phone",
   ];
 
-  // Email devine obligatoriu doar dacă nu e autentificat
+  // Email devine obligatoriu doar dacă userul nu e autentificat
   if (!hasAutoEmail) requiredFields.push("email");
 
   for (const field of requiredFields) {
-    if (!formData[field] || String(formData[field]).trim() === "") {
+    const value = formData[field];
+    if (!value || String(value).trim() === "") {
       switch (field) {
         case "serviceType":
           return "Selectează tipul de serviciu.";
@@ -44,31 +50,41 @@ export function validateForm(formData: Record<string, any>): string | null {
     }
   }
 
-  // ✅ Verificare format email doar dacă există în formData
+  /* -------------------------------------------------------
+   * 🔸 2. Email valid (doar dacă e necesar)
+   * ------------------------------------------------------- */
   if (formData.email && !hasAutoEmail) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
-      return "Te rugăm să introduci un email valid.";
+      return "Te rugăm să introduci o adresă de email validă.";
     }
   }
 
-  // ✅ Verificare număr de telefon
+  /* -------------------------------------------------------
+   * 🔸 3. Telefon valid
+   * ------------------------------------------------------- */
   const phoneRegex = /^[0-9+ ]{7,20}$/;
   if (formData.phone && !phoneRegex.test(formData.phone)) {
     return "Numărul de telefon introdus nu este valid.";
   }
 
-  // ✅ Verificare dată mutare sau opțiune flexibilă
+  /* -------------------------------------------------------
+   * 🔸 4. Dată mutare / flexibilitate
+   * ------------------------------------------------------- */
   if (!formData.moveDate && !formData.moveOption) {
-    return "Selectează data mutării sau marchează că ești flexibil.";
+    return "Selectează data mutării sau bifează că ești flexibil.";
   }
 
-  // ✅ Survey selectat
+  /* -------------------------------------------------------
+   * 🔸 5. Tip survey selectat
+   * ------------------------------------------------------- */
   if (!formData.survey) {
-    return "Selectează o opțiune pentru survey (vizită, video sau estimare).";
+    return "Selectează o opțiune pentru evaluare (vizită, video sau media).";
   }
 
-  // ✅ Upload media obligatoriu dacă survey = media
+  /* -------------------------------------------------------
+   * 🔸 6. Upload media dacă survey = "media"
+   * ------------------------------------------------------- */
   if (
     formData.survey === "media" &&
     (!formData.media || formData.media.length === 0)
@@ -76,5 +92,5 @@ export function validateForm(formData: Record<string, any>): string | null {
     return "Adaugă cel puțin o poză sau un video pentru estimare.";
   }
 
-  return null; // ✅ Totul e valid
+  return null; // ✅ Totul este valid
 }

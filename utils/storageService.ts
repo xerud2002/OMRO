@@ -1,3 +1,4 @@
+// utils/storageService.ts
 import {
   getStorage,
   ref,
@@ -5,13 +6,11 @@ import {
   getDownloadURL,
   deleteObject,
 } from "firebase/storage";
-import app from "./firebase";
+import { app } from "./firebase";
 
 /**
- * Upload multiple files to Firebase Storage and return their download URLs
- * @param files Array of File objects
- * @param folder Folder path (e.g. "uploads/requests")
- * @param setProgress Optional progress callback (0–100)
+ * 📦 Upload multiple files to Firebase Storage and return their download URLs.
+ * Compatible with cereri clienți / companii / admin uploads.
  */
 export async function uploadMultipleFiles(
   files: File[],
@@ -44,13 +43,10 @@ export async function uploadMultipleFiles(
 }
 
 /**
- * Upload a single file with progress tracking
- * @param file File object
- * @param folder Folder name in Firebase Storage
- * @param onProgress Optional callback for upload progress (0–100)
- * @param storage Optional custom storage instance
+ * 🧩 Upload a single file to Firebase Storage with progress tracking.
+ * Automatically sanitizes filenames and returns the public download URL.
  */
-async function uploadSingleFile(
+export async function uploadSingleFile(
   file: File,
   folder: string,
   onProgress?: (progress: number) => void,
@@ -58,8 +54,10 @@ async function uploadSingleFile(
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     try {
-      const safeName = file.name.replace(/\s+/g, "_"); // avoid spaces
-      const path = `${folder}/${Date.now()}_${safeName}`;
+      if (!file) throw new Error("Fișier invalid sau inexistent.");
+
+      const sanitizedName = file.name.replace(/[^\w.()-]/g, "_");
+      const path = `${folder}/${Date.now()}_${sanitizedName}`;
       const storageRef = ref(storage, path);
       const uploadTask = uploadBytesResumable(storageRef, file);
 
@@ -74,9 +72,14 @@ async function uploadSingleFile(
           reject(error);
         },
         async () => {
-          const url = await getDownloadURL(uploadTask.snapshot.ref);
-          console.log("✅ Uploaded:", url);
-          resolve(url);
+          try {
+            const url = await getDownloadURL(uploadTask.snapshot.ref);
+            console.log("✅ Uploaded:", url);
+            resolve(url);
+          } catch (err) {
+            console.error("❌ Error getting download URL:", err);
+            reject(err);
+          }
         }
       );
     } catch (err) {
@@ -87,8 +90,7 @@ async function uploadSingleFile(
 }
 
 /**
- * Delete a file from Firebase Storage by path or full URL
- * @param pathOrUrl Either full download URL or storage path
+ * 🗑️ Delete a file from Firebase Storage by path or full URL.
  */
 export async function deleteFileFromStorage(pathOrUrl: string): Promise<void> {
   try {
@@ -96,7 +98,7 @@ export async function deleteFileFromStorage(pathOrUrl: string): Promise<void> {
     let fileRef;
 
     if (pathOrUrl.startsWith("http")) {
-      // Convert URL to ref
+      // Convert download URL → storage ref
       const baseUrl = `https://firebasestorage.googleapis.com/v0/b/${process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET}/o/`;
       const path = decodeURIComponent(pathOrUrl.replace(baseUrl, "").split("?")[0]);
       fileRef = ref(storage, path);
