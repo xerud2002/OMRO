@@ -7,7 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { collection, getDocs } from "firebase/firestore";
-import { logout, db } from "../utils/firebase";
+import { db, logout } from "../utils/firebase";
 import {
   LayoutDashboard,
   Building2,
@@ -38,6 +38,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   const [pendingCompanies, setPendingCompanies] = useState<number>(0);
   const [newRequests, setNewRequests] = useState<number>(0);
 
+  // 🔹 Fetch badge counts (pending companies + new requests)
   useEffect(() => {
     const fetchCounts = async () => {
       try {
@@ -51,7 +52,8 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         ).length;
 
         const newReq = requestsSnap.docs.filter(
-          (r) => r.data().status?.toLowerCase?.() === "noua"
+          (r) => r.data().status?.toLowerCase?.() === "nouă" ||
+                  r.data().status?.toLowerCase?.() === "noua"
         ).length;
 
         setPendingCompanies(pending);
@@ -64,11 +66,17 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     fetchCounts();
   }, []);
 
+  // 🔹 Logout handler
   const handleLogout = async () => {
-    await logout();
-    router.replace("/company/auth");
+    try {
+      await logout();
+      router.replace("/admin/auth");
+    } catch (err) {
+      console.error("❌ Eroare la logout:", err);
+    }
   };
 
+  // 🔹 Menu sections
   const sections = [
     {
       title: "General",
@@ -104,10 +112,10 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     },
   ];
 
-  // ✅ Safe navigation helper
+  // 🔹 Active link highlight
   const isActive = (path: string) => pathname?.startsWith(path) ?? false;
 
-  // ✅ Safe title resolver
+  // 🔹 Dynamic page title
   const getHeaderTitle = () => {
     if (!pathname) return "Admin Panel";
     if (pathname.startsWith("/admin/dashboard")) return "📊 Panou general";
@@ -147,7 +155,6 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
               className="md:hidden text-gray-600 hover:text-emerald-700"
               onClick={() => setIsOpen(false)}
             >
-              <span className="sr-only">Close menu</span>
               <X size={22} />
             </button>
           </div>
@@ -210,7 +217,6 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
         aria-label="Open menu"
         className="md:hidden fixed top-4 left-4 bg-gradient-to-r from-emerald-500 to-sky-500 text-white p-2 rounded-lg shadow-lg z-50"
       >
-        <span className="sr-only">Open menu</span>
         <Menu size={22} />
       </button>
 

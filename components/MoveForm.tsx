@@ -34,7 +34,6 @@ const steps = [
   "Date de contact",
 ];
 
-// === Default empty form ===
 const defaultFormData = {
   serviceType: "",
   propertyType: "",
@@ -82,9 +81,11 @@ export default function MoveForm() {
   const [submitting, setSubmitting] = useState(false);
   const [ready, setReady] = useState(false);
 
-  // === Authentication listener ===
+  /* ===============================
+     🔹 Check user authentication
+  ================================ */
   useEffect(() => {
-    const unsub = auth.onAuthStateChanged((user) => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
       if (!user) {
         toast.error("Trebuie să te autentifici pentru a completa cererea.");
         router.push("/customer/auth");
@@ -93,17 +94,15 @@ export default function MoveForm() {
         setReady(true);
       }
     });
-    return () => unsub();
+    return () => unsubscribe();
   }, [router]);
 
   const handleChange = useCallback(
-    (field: string, value: any) =>
-      setFormData((prev: any) => ({ ...prev, [field]: value })),
+    (field: string, value: any) => setFormData((prev: any) => ({ ...prev, [field]: value })),
     []
   );
 
-  // === Validation per step (basic)
-  const required: Record<number, string[]> = {
+  const requiredSteps: Record<number, string[]> = {
     0: ["serviceType"],
     1: ["propertyType"],
     2: ["pickupCity", "pickupCounty"],
@@ -112,7 +111,7 @@ export default function MoveForm() {
   };
 
   const validateStep = useCallback(() => {
-    const fields = required[step];
+    const fields = requiredSteps[step];
     if (!fields) return true;
     for (const f of fields) {
       if (!formData[f]?.trim()) {
@@ -126,11 +125,14 @@ export default function MoveForm() {
   const nextStep = () => validateStep() && setStep((p) => Math.min(p + 1, steps.length - 1));
   const prevStep = () => setStep((p) => Math.max(p - 1, 0));
 
-  // === Handle submit ===
+  /* ===============================
+     🚀 Handle submit
+  ================================ */
   const handleSubmit = async () => {
     if (submitting) return;
     if (!currentUser?.uid) {
-      toast.error("Eroare: utilizatorul nu este autentificat corect.");
+      toast.error("Autentificarea a expirat. Te rugăm să te reconectezi.");
+      router.push("/customer/auth");
       return;
     }
 
@@ -138,35 +140,35 @@ export default function MoveForm() {
     toast.loading("Se trimite cererea...");
 
     try {
-      // Generate unique request ID
+      // ✅ Generate unique request ID
       let shortId: string;
       do {
         shortId = `REQ-${Math.random().toString(36).substring(2, 7).toUpperCase()}`;
       } while ((await getDoc(doc(db, "requests", shortId))).exists());
 
-      // Upload files if any
+      // ✅ Upload media files if any
       const mediaUrls =
         formData.survey === "media" && formData.media?.length
-          ? await uploadMultipleFiles(formData.media, `uploads/${shortId}`, (p) => setProgress(p))
+          ? await uploadMultipleFiles(formData.media, `uploads/${shortId}`, setProgress)
           : [];
 
-      // Build document
+      // ✅ Build Firestore document
       const requestPayload = {
         ...formData,
         media: mediaUrls,
         userId: currentUser.uid,
-        email: formData.email || currentUser.email,
+        email: currentUser.email,
         createdAt: Timestamp.now(),
         status: "Nouă",
         requestId: shortId,
       };
 
-      console.log("📦 Payload trimis:", requestPayload);
+      console.log("📦 Payload Firestore:", requestPayload);
 
-      // Save to Firestore
+      // ✅ Save request
       await setDoc(doc(db, "requests", shortId), requestPayload);
 
-      // Update user profile
+      // ✅ Update user profile
       await setDoc(
         doc(db, "users", currentUser.uid),
         {
@@ -180,7 +182,7 @@ export default function MoveForm() {
         { merge: true }
       );
 
-      // Optional email reminder (if needed)
+      // ✅ Optional email (survey media later)
       if (formData.survey === "media_later" && currentUser.email) {
         try {
           const uploadLink = `${window.location.origin}/upload/${shortId}`;
@@ -195,7 +197,7 @@ export default function MoveForm() {
             process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY!
           );
         } catch (e) {
-          console.warn("⚠️ Eroare la trimiterea emailului:", e);
+          console.warn("⚠️ EmailJS send failed:", e);
         }
       }
 
@@ -203,19 +205,18 @@ export default function MoveForm() {
       toast.success("✅ Cererea a fost trimisă cu succes!");
       setTimeout(() => router.push(`/form/success?id=${shortId}`), 1000);
 
-      // Reset form
+      // ✅ Reset form
       setFormData(defaultFormData);
       setStep(0);
     } catch (err: any) {
-      console.error("❌ Eroare Firestore:", err);
+      console.error("❌ Firestore error:", err);
       toast.dismiss();
-      toast.error("Eroare la trimiterea cererii: " + (err?.message || err?.code));
+      toast.error("Eroare la trimiterea cererii: " + (err.message || err.code));
     } finally {
       setSubmitting(false);
     }
   };
 
-  // === Step Renderer ===
   const stepComponents = [
     StepService,
     StepProperty,
@@ -245,7 +246,7 @@ export default function MoveForm() {
         transition={{ duration: 0.6 }}
         className="bg-white/80 backdrop-blur-md border border-emerald-100 shadow-xl rounded-3xl p-10 w-full max-w-2xl"
       >
-        {/* === Progress bar === */}
+        {/* === Progress === */}
         <div className="mb-10 text-center">
           <p className="text-sm text-gray-600 mb-1">
             {steps[step]} • Pasul {step + 1} din {steps.length}
@@ -259,7 +260,7 @@ export default function MoveForm() {
           </div>
         </div>
 
-        {/* === Step Content === */}
+        {/* === Step === */}
         <AnimatePresence mode="wait">
           <motion.div
             key={step}
@@ -282,7 +283,7 @@ export default function MoveForm() {
           </div>
         )}
 
-        {/* === Navigation Buttons === */}
+        {/* === Navigation === */}
         <div className="mt-10 flex justify-between items-center">
           {step > 0 ? (
             <button
@@ -312,13 +313,7 @@ export default function MoveForm() {
                   : "bg-gradient-to-r from-emerald-500 to-sky-500 text-white hover:scale-105"
               }`}
             >
-              {submitting ? (
-                "Se trimite..."
-              ) : (
-                <>
-                  Trimite cererea <Send size={18} />
-                </>
-              )}
+              {submitting ? "Se trimite..." : <>Trimite cererea <Send size={18} /></>}
             </button>
           )}
         </div>

@@ -2,43 +2,49 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ✅ Helper functions
+    // ===== Helper functions =====
     function isSignedIn() {
       return request.auth != null;
     }
 
-    function isAdmin() {
-      return isSignedIn() &&
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "admin";
+    function userDoc() {
+      return /databases/$(database)/documents/users/$(request.auth.uid);
     }
 
-    // 🧍 USERS
+    function isAdmin() {
+      return isSignedIn()
+        && exists(userDoc())
+        && get(userDoc()).data.role == "admin";
+    }
+
+    // ===== USERS =====
     match /users/{userId} {
       allow create: if isSignedIn() && request.auth.uid == userId;
       allow read, update, delete: if isSignedIn() && request.auth.uid == userId;
     }
 
-    // 📦 REQUESTS (client moves)
+    // ===== REQUESTS (cereri de mutare) =====
     match /requests/{requestId} {
-      // ✅ client can create only if request contains his own userId
-      allow create: if isSignedIn() &&
-        request.resource.data.userId == request.auth.uid;
-
-      // ✅ read/update/delete only by the owner or admin
-      allow read, update, delete: if isSignedIn() &&
-        (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if isSignedIn()
+        && resource.data.userId == request.auth.uid;
     }
 
-    // 📝 DRAFTS
-    match /drafts/{userId} {
-      allow read, write, delete: if isSignedIn() && request.auth.uid == userId;
-    }
-
-    // 🏢 COMPANIES
+    // ===== COMPANIES =====
     match /companies/{companyId} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow write, delete: if isSignedIn() && request.auth.uid == companyId;
+    }
+
+    // ===== ADMIN =====
+    match /admin/{docId} {
+      allow read, write, delete: if isAdmin();
+    }
+
+    // ===== DEFAULT DENY =====
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
