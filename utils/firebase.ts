@@ -1,5 +1,5 @@
 // utils/firebase.ts
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApps, getApp } from "firebase/app";
 import {
   getAuth,
   onAuthStateChanged,
@@ -17,10 +17,13 @@ import {
   setDoc,
   getDoc,
   serverTimestamp,
+  connectFirestoreEmulator,
 } from "firebase/firestore";
-import { getStorage } from "firebase/storage";
+import { getStorage, connectStorageEmulator } from "firebase/storage";
 
-// 🔹 Configurația Firebase
+/* ================================
+ 🔹 Firebase Configuration
+================================ */
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -30,27 +33,43 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// 🔹 Initialize Firebase
-const app = initializeApp(firebaseConfig);
+// ✅ Prevent reinitialization in Next.js (hot reload safe)
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+
+// 🔥 Initialize Core Services
 export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 
+/* ================================
+ ⚙️ Optional Local Emulator (safe)
+================================ */
+if (process.env.NEXT_PUBLIC_FIREBASE_USE_EMULATOR === "true") {
+  try {
+    console.log("⚙️ Connecting to Firebase emulators...");
+    connectFirestoreEmulator(db, "127.0.0.1", 8080);
+    connectStorageEmulator(storage, "127.0.0.1", 9199);
+  } catch (e) {
+    console.warn("Emulator connection failed (already connected?)", e);
+  }
+}
+
+/* ================================
+ 🔐 AUTH HELPERS
+================================ */
 const provider = new GoogleAuthProvider();
 
-/* ========== 🔐 AUTH HELPERS ========== */
-
-// 🟢 Înregistrare cu email/parolă
+// 🟢 Register with email/password
 export async function registerWithEmail(email: string, password: string) {
   return await createUserWithEmailAndPassword(auth, email, password);
 }
 
-// 🟢 Login cu email/parolă
+// 🟢 Login with email/password
 export async function loginWithEmail(email: string, password: string) {
   return await signInWithEmailAndPassword(auth, email, password);
 }
 
-// 🟢 Login cu Google (cu rol opțional: "customer" sau "company")
+// 🟢 Login with Google (role: customer/company)
 export async function loginWithGoogle(role: "customer" | "company" = "customer") {
   const result = await signInWithPopup(auth, provider);
   const user = result.user;
@@ -66,17 +85,17 @@ export async function loginWithGoogle(role: "customer" | "company" = "customer")
       createdAt: serverTimestamp(),
     });
   } else {
-    // dacă există deja dar fără rol, îl completăm
-    const existingData = userSnap.data();
-    if (!existingData.role) {
+    const existing = userSnap.data();
+    if (!existing.role) {
       await setDoc(userRef, { role }, { merge: true });
     }
   }
 
-  // Dacă e firmă, creează și în "companies"
+  // 🏢 If company role, ensure company record exists
   if (role === "company") {
     const companyRef = doc(db, "companies", user.uid);
     const companySnap = await getDoc(companyRef);
+
     if (!companySnap.exists()) {
       await setDoc(companyRef, {
         name: user.displayName || "",
@@ -95,7 +114,7 @@ export async function loginWithGoogle(role: "customer" | "company" = "customer")
   return result;
 }
 
-// 🟢 Resetare parolă prin email
+// 🟢 Reset password
 export async function resetPassword(email: string) {
   return await sendPasswordResetEmail(auth, email);
 }
@@ -105,24 +124,28 @@ export async function logout() {
   return await signOut(auth);
 }
 
-// 🟢 Detectare schimbare stare utilizator
+// 🟢 Auth state listener
 export function onAuthChange(callback: (user: User | null) => void) {
   return onAuthStateChanged(auth, callback);
 }
 
-/* ========== 🗃️ USER UTILS ========== */
-
+/* ================================
+ 👤 USER PROFILE HELPER
+================================ */
 export async function ensureUserProfile(user: User, role: string = "customer") {
-  const ref = doc(db, "users", user.uid);
-  const snap = await getDoc(ref);
-
-  if (!snap.exists()) {
-    await setDoc(ref, {
-      email: user.email,
-      name: user.displayName || "",
-      role,
-      createdAt: serverTimestamp(),
-    });
+  try {
+    const ref = doc(db, "users", user.uid);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) {
+      await setDoc(ref, {
+        email: user.email,
+        name: user.displayName || "",
+        role,
+        createdAt: serverTimestamp(),
+      });
+    }
+  } catch (error) {
+    console.error("❌ Error creating user profile:", error);
   }
 }
 

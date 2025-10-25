@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "./firebase";
 import { User } from "firebase/auth";
 import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
@@ -6,7 +6,7 @@ import toast from "react-hot-toast";
 
 /**
  * 🔁 Redirecționează utilizatorul în funcție de rolul său.
- * Include feedback vizual cu toast-uri pentru o experiență fluentă.
+ * Compatibil cu reguli Firestore restrictive și fallback sigur pentru roluri lipsă.
  */
 export async function handleRoleRedirect(user: User, router: AppRouterInstance) {
   if (!user?.uid || !user.email) {
@@ -19,20 +19,31 @@ export async function handleRoleRedirect(user: User, router: AppRouterInstance) 
 
   try {
     const userRef = doc(db, "users", user.uid);
-    const snap = await getDoc(userRef);
+    let userSnap = null;
 
-    // ✅ 1. Hardcoded admin override
+    try {
+      userSnap = await getDoc(userRef);
+    } catch (e) {
+      console.warn("⚠️ Lipsă acces temporar la users/", user.uid, e);
+    }
+
+    // ✅ Hardcoded admin override
     const adminEmails = ["admin@admin.ro", "admin@omro.ro"];
     if (adminEmails.includes(user.email.toLowerCase())) {
-      if (!snap.exists()) {
+      if (!userSnap?.exists()) {
         await setDoc(userRef, {
           email: user.email,
           name: user.displayName || "Administrator",
           role: "admin",
-          createdAt: new Date(),
+          userId: user.uid,
+          createdAt: serverTimestamp(),
         });
-      } else if (snap.data().role !== "admin") {
-        await setDoc(userRef, { role: "admin" }, { merge: true });
+      } else if (userSnap.data().role !== "admin") {
+        await setDoc(
+          userRef,
+          { role: "admin", userId: user.uid, updatedAt: serverTimestamp() },
+          { merge: true }
+        );
       }
 
       toast.dismiss();
@@ -41,24 +52,33 @@ export async function handleRoleRedirect(user: User, router: AppRouterInstance) 
       return;
     }
 
-    // ✅ 2. Default role logic
+    // ✅ Default role = customer
     let role = "customer";
-    if (snap.exists()) {
-      role = snap.data().role || "customer";
+    if (userSnap?.exists()) {
+      role = userSnap.data().role || "customer";
     } else {
       await setDoc(userRef, {
         email: user.email,
         name: user.displayName || "",
         role,
-        createdAt: new Date(),
+        userId: user.uid,
+        createdAt: serverTimestamp(),
       });
     }
 
-    // ✅ 3. Detect company ownership
-    const companySnap = await getDoc(doc(db, "companies", user.uid));
-    if (companySnap.exists()) {
-      role = "company";
-      await setDoc(userRef, { role: "company" }, { merge: true });
+    // ✅ Check if company document exists (verified business account)
+    try {
+      const companySnap = await getDoc(doc(db, "companies", user.uid));
+      if (companySnap.exists()) {
+        role = "company";
+        await setDoc(
+          userRef,
+          { role: "company", userId: user.uid, updatedAt: serverTimestamp() },
+          { merge: true }
+        );
+      }
+    } catch (e) {
+      console.warn("⚠️ Lipsă acces temporar la companies/", e);
     }
 
     toast.dismiss();
@@ -68,19 +88,27 @@ export async function handleRoleRedirect(user: User, router: AppRouterInstance) 
         toast.success("👑 Redirecționăm către panoul de administrare...");
         router.push("/admin/dashboard");
         break;
+
       case "company":
         toast.success("🏢 Redirecționăm către dashboard-ul firmei...");
         router.push("/company/dashboard");
         break;
+
       default:
-        toast.success("🙌 Bine ai revenit! Redirecționăm către contul tău...");
-        router.push("/customer/dashboard");
+        // 🔸 Dacă e primul login, mergem direct la formular
+        if (!userSnap?.exists()) {
+          toast.success("🎉 Bine ai venit! Începem cu cererea ta de mutare...");
+          router.push("/form");
+        } else {
+          toast.success("🙌 Bine ai revenit! Redirecționăm către contul tău...");
+          router.push("/customer/dashboard");
+        }
         break;
     }
   } catch (error: any) {
     console.error("❌ Eroare în handleRoleRedirect:", error.message);
     toast.dismiss();
-    toast.error("Eroare de permisiune. Redirecționăm către contul tău...");
+    toast.error("Eroare la verificarea rolului. Redirecționăm către contul tău...");
     router.push("/customer/dashboard");
   }
 }

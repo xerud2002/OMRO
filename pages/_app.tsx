@@ -1,11 +1,18 @@
 import type { AppProps } from "next/app";
 import "../styles/globals.css";
 import Head from "next/head";
+import { useRouter } from "next/router";
 import { Toaster } from "react-hot-toast";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 
 export default function MyApp({ Component, pageProps }: AppProps) {
+  const router = useRouter();
+
+  // 🔹 Pagini unde nu vrei Navbar / Footer (ex. login, admin auth)
+  const hideLayoutOn = ["/admin/auth", "/company/auth"];
+  const hideLayout = hideLayoutOn.some((path) => router.pathname.startsWith(path));
+
   return (
     <>
       <Head>
@@ -18,18 +25,16 @@ export default function MyApp({ Component, pageProps }: AppProps) {
         />
       </Head>
 
-      {/* ✅ Navbar always visible */}
-      <Navbar />
+      {/* 🌿 Global Navbar + Footer */}
+      {!hideLayout && <Navbar />}
 
-      {/* ✅ Page content */}
-      <main className="pt-[80px] pb-[60px] min-h-[calc(100vh-140px)]">
+      <main className="min-h-screen flex flex-col">
         <Component {...pageProps} />
       </main>
 
-      {/* ✅ Footer always visible */}
-      <Footer />
+      {!hideLayout && <Footer />}
 
-      {/* ✅ Toasts */}
+      {/* 🔔 Notificări globale */}
       <Toaster position="top-right" reverseOrder={false} />
     </>
   );

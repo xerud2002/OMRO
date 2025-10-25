@@ -5,8 +5,6 @@ import Head from "next/head";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Truck, FormInput, Users, CheckCircle, ArrowRight } from "lucide-react";
-import Navbar from "../components/Navbar";
-import Footer from "../components/Footer";
 import { onAuthChange, logout } from "../utils/firebase";
 import { User } from "firebase/auth";
 import FadeInWhenVisible from "../components/FadeInWhenVisible";
@@ -86,7 +84,7 @@ export default function HomePage() {
         />
       </Head>
 
-      <Navbar />
+      
       <div className="h-[80px]" />
 
       {/* === HERO === */}
@@ -533,7 +531,6 @@ export default function HomePage() {
           </div>
         </FadeInWhenVisible>
       </section>
-      <Footer />
     </>
   );
 }

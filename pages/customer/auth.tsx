@@ -14,7 +14,7 @@ import {
   resetPassword,
   db,
 } from "../../utils/firebase";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { User } from "firebase/auth";
 import {
   UserPlus,
@@ -48,6 +48,7 @@ export default function CustomerAuthPage() {
 
   // 🔹 Email / Password Auth
   const handleEmailAuth = async () => {
+    if (loading) return;
     if (!email || !password) return toast.error("Completează toate câmpurile!");
     setLoading(true);
     try {
@@ -58,7 +59,8 @@ export default function CustomerAuthPage() {
         await setDoc(doc(db, "users", uid), {
           email,
           role: "customer",
-          createdAt: new Date(),
+          userId: uid, // ✅ Firestore rule requirement
+          createdAt: serverTimestamp(),
         });
 
         toast.success("✅ Cont client creat cu succes!");
@@ -69,6 +71,7 @@ export default function CustomerAuthPage() {
         router.push("/form");
       }
     } catch (err: any) {
+      console.error("❌ Eroare autentificare:", err);
       toast.error(err.message || "Eroare la autentificare.");
     } finally {
       setLoading(false);
@@ -82,19 +85,36 @@ export default function CustomerAuthPage() {
       await resetPassword(email);
       toast.success("📩 Email trimis pentru resetarea parolei.");
     } catch (err: any) {
+      console.error("Eroare resetare parolă:", err);
       toast.error("Eroare: " + err.message);
     }
   };
 
   // 🔹 Google login
   const handleGoogle = async () => {
+    if (loading) return;
     setLoading(true);
     try {
-      const cred = await loginWithGoogle();
+      const cred = await loginWithGoogle("customer"); // ✅ set role explicitly
       const u = cred.user;
+
+      // ✅ Ensure user profile exists and has userId field
+      await setDoc(
+        doc(db, "users", u.uid),
+        {
+          email: u.email,
+          name: u.displayName || "",
+          role: "customer",
+          userId: u.uid,
+          createdAt: serverTimestamp(),
+        },
+        { merge: true }
+      );
+
       toast.success("✅ Autentificat cu Google!");
       await handleRoleRedirect(u, router);
     } catch (err: any) {
+      console.error("Eroare Google Login:", err);
       toast.error("Eroare Google Login: " + err.message);
     } finally {
       setLoading(false);
