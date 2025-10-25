@@ -254,7 +254,7 @@ export default function MoveForm() {
       await deleteDoc(doc(db, "drafts", currentUser.uid));
       toast.dismiss();
       toast.success("✅ Cererea a fost trimisă cu succes!");
-      setTimeout(() => router.push("/form/success"), 1500);
+      setTimeout(() => router.push(`/form/success?id=${shortId}`), 1500);
       setFormData(defaultFormData);
       setStep(0);
       setHasDraft(false);
