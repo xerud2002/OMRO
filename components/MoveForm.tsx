@@ -91,6 +91,7 @@ export default function MoveForm() {
   const [ready, setReady] = useState(false);
   const saveTimeout = useRef<NodeJS.Timeout | null>(null);
 
+  // 🔹 Load user auth state
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
       setCurrentUser(user);
@@ -99,6 +100,7 @@ export default function MoveForm() {
     return () => unsubscribe();
   }, []);
 
+  // 🔹 Load draft or reset if new
   useEffect(() => {
     if (!ready || !currentUser) return;
     (async () => {
@@ -122,6 +124,7 @@ export default function MoveForm() {
     })();
   }, [currentUser, ready, searchParams]);
 
+  // 🔹 Auto-save draft
   const saveDraft = useCallback(async () => {
     if (!ready || !currentUser || submitting) return;
     try {
@@ -154,6 +157,7 @@ export default function MoveForm() {
     []
   );
 
+  // 🔹 Validation per step
   const required = {
     0: ["serviceType"],
     1: ["propertyType"],
@@ -178,6 +182,7 @@ export default function MoveForm() {
     validateStep() && setStep((p) => Math.min(p + 1, steps.length - 1));
   const prevStep = () => setStep((p) => Math.max(p - 1, 0));
 
+  // 🔹 Submit request
   const handleSubmit = async () => {
     if (submitting) return;
     setSubmitting(true);
@@ -191,6 +196,7 @@ export default function MoveForm() {
         return;
       }
 
+      // ✅ Generează un ID unic pentru cerere
       let shortId: string;
       do {
         shortId = `REQ-${Math.random()
@@ -199,6 +205,7 @@ export default function MoveForm() {
           .toUpperCase()}`;
       } while ((await getDoc(doc(db, "requests", shortId))).exists());
 
+      // ✅ Încarcă fișiere media (dacă există)
       const mediaUrls =
         formData.survey === "media" && formData.media?.length
           ? await uploadMultipleFiles(
@@ -208,6 +215,7 @@ export default function MoveForm() {
             )
           : [];
 
+      // ✅ Salvează cererea principală
       const ref = doc(db, "requests", shortId);
       await setDoc(ref, {
         ...formData,
@@ -218,6 +226,7 @@ export default function MoveForm() {
         requestId: shortId,
       });
 
+      // ✅ Salvează detalii contact
       await setDoc(doc(collection(ref, "contact"), "info"), {
         name: formData.name,
         phone: formData.phone,
@@ -225,6 +234,7 @@ export default function MoveForm() {
         createdAt: Timestamp.now(),
       });
 
+      // ✅ Actualizează profilul utilizatorului
       await setDoc(
         doc(db, "users", currentUser.uid),
         {
@@ -237,6 +247,7 @@ export default function MoveForm() {
         { merge: true }
       );
 
+      // ✅ Trimite link de upload dacă a ales “media_later”
       if (formData.survey === "media_later" && formData.email) {
         const uploadLink = `${window.location.origin}/upload/${shortId}`;
         await emailjs.send(
@@ -251,10 +262,15 @@ export default function MoveForm() {
         );
       }
 
+      // ✅ Curăță draftul și confirmă trimiterea
       await deleteDoc(doc(db, "drafts", currentUser.uid));
       toast.dismiss();
       toast.success("✅ Cererea a fost trimisă cu succes!");
+
+      // 🔁 Redirecționează către pagina de succes cu ID-ul cererii
       setTimeout(() => router.push(`/form/success?id=${shortId}`), 1500);
+
+      // 🔄 Resetează formularul local
       setFormData(defaultFormData);
       setStep(0);
       setHasDraft(false);
@@ -267,6 +283,7 @@ export default function MoveForm() {
     }
   };
 
+  // 🔹 Render steps
   const renderStep = () => {
     const stepProps = { formData, handleChange, setFormData };
     const stepsList = [
@@ -292,6 +309,7 @@ export default function MoveForm() {
       </div>
     );
 
+  // 🔹 UI principal
   return (
     <div className="flex flex-col min-h-screen">
       <div className="flex flex-col items-center justify-start bg-gradient-to-br from-emerald-50 to-sky-50 px-4 py-10 min-h-screen">
@@ -314,12 +332,14 @@ export default function MoveForm() {
           </div>
         )}
 
+        {/* === Card principal === */}
         <motion.div
           initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
           className="bg-white/80 backdrop-blur-xl border border-emerald-100 shadow-xl rounded-3xl p-10 w-full max-w-2xl hover:shadow-emerald-100"
         >
+          {/* Progres */}
           <div className="mb-10 text-center">
             <p className="text-sm text-gray-600 mb-1 font-medium">
               {steps[step]} • Pasul {step + 1} din {steps.length}
@@ -333,6 +353,7 @@ export default function MoveForm() {
             </div>
           </div>
 
+          {/* Etapa curentă */}
           <AnimatePresence mode="wait">
             <motion.div
               key={step}
@@ -345,6 +366,7 @@ export default function MoveForm() {
             </motion.div>
           </AnimatePresence>
 
+          {/* Bara de progres upload */}
           {progress > 0 && progress < 100 && (
             <div className="mt-6 w-full bg-gray-200 h-2 rounded-full overflow-hidden">
               <div
@@ -354,10 +376,11 @@ export default function MoveForm() {
             </div>
           )}
 
+          {/* Butoane navigare */}
           <div className="mt-10 flex justify-between items-center">
             {step > 0 ? (
               <button
-                onClick={() => setStep((p) => Math.max(p - 1, 0))}
+                onClick={prevStep}
                 className="flex items-center gap-2 px-6 py-2 rounded-full bg-gray-200 text-gray-700 hover:bg-gray-300 transition-all"
               >
                 <ArrowLeft size={18} /> Înapoi
@@ -368,10 +391,7 @@ export default function MoveForm() {
 
             {step < steps.length - 1 ? (
               <button
-                onClick={() =>
-                  validateStep() &&
-                  setStep((p) => Math.min(p + 1, steps.length - 1))
-                }
+                onClick={nextStep}
                 className="flex items-center gap-2 px-6 py-2 rounded-full bg-gradient-to-r from-emerald-500 to-sky-500 text-white font-medium shadow-md hover:scale-105 transition-all"
               >
                 Următorul <ArrowRight size={18} />

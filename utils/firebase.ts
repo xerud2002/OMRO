@@ -1,14 +1,27 @@
 // utils/firebase.ts
-import { initializeApp, getApps } from "firebase/app";
+import { initializeApp } from "firebase/app";
 import {
   getAuth,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  sendPasswordResetEmail,
+  GoogleAuthProvider,
+  signInWithPopup,
   signOut,
   onAuthStateChanged,
   User,
 } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
-import { getStorage } from "firebase/storage";
+import {
+  getFirestore,
+  collection,
+  doc,
+  setDoc,
+  getDoc,
+  updateDoc,
+  serverTimestamp,
+} from "firebase/firestore";
 
+// ✅ Configurația ta Firebase (înlocuiește cu valorile proprii)
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -18,16 +31,40 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Initialize Firebase (prevent duplicate)
-export const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
-
-// Services
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
-export const storage = getStorage(app);
 
-// 🔹 Auth helpers
-export const logout = async () => signOut(auth);
+// 🔹 Înregistrare cu email & parolă
+export async function registerWithEmail(email: string, password: string) {
+  return await createUserWithEmailAndPassword(auth, email, password);
+}
 
-export const onAuthChange = (callback: (user: User | null) => void) =>
-  onAuthStateChanged(auth, callback);
+// 🔹 Login cu email & parolă
+export async function loginWithEmail(email: string, password: string) {
+  return await signInWithEmailAndPassword(auth, email, password);
+}
+
+// 🔹 Resetare parolă
+export async function resetPassword(email: string) {
+  return await sendPasswordResetEmail(auth, email);
+}
+
+// 🔹 Login cu Google
+export async function loginWithGoogle() {
+  const provider = new GoogleAuthProvider();
+  return await signInWithPopup(auth, provider);
+}
+
+// 🔹 Logout
+export async function logout() {
+  return await signOut(auth);
+}
+
+// 🔹 Listener pentru schimbarea autentificării
+export function onAuthChange(callback: (user: User | null) => void) {
+  return onAuthStateChanged(auth, callback);
+}
+
+export { collection, doc, setDoc, getDoc, updateDoc, serverTimestamp };

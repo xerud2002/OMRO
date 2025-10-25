@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import toast from "react-hot-toast";
 import { handleRoleRedirect } from "../../utils/handleRoleRedirect";
 import {
   registerWithEmail,
@@ -29,6 +30,7 @@ export default function CustomerAuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isRegister, setIsRegister] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   // 🔹 Detect auth state and redirect by role
   useEffect(() => {
@@ -36,6 +38,8 @@ export default function CustomerAuthPage() {
       if (u) {
         setUser(u);
         await handleRoleRedirect(u, router);
+      } else {
+        setUser(null);
       }
     });
     return () => unsub();
@@ -43,6 +47,8 @@ export default function CustomerAuthPage() {
 
   // 🔹 Email / Password Auth
   const handleEmailAuth = async () => {
+    if (!email || !password) return toast.error("Completează toate câmpurile!");
+    setLoading(true);
     try {
       if (isRegister) {
         const cred = await registerWithEmail(email, password);
@@ -54,37 +60,43 @@ export default function CustomerAuthPage() {
           createdAt: new Date(),
         });
 
-        alert("✅ Cont client creat cu succes!");
-        router.push("/customer/dashboard");
+        toast.success("✅ Cont client creat cu succes!");
+        router.push("/form"); // direct spre formular
       } else {
         await loginWithEmail(email, password);
-        alert("✅ Autentificat cu succes!");
+        toast.success("✅ Autentificat cu succes!");
+        router.push("/form");
       }
     } catch (err: any) {
-      alert("❌ Eroare: " + err.message);
+      toast.error(err.message || "Eroare la autentificare.");
+    } finally {
+      setLoading(false);
     }
   };
 
   // 🔹 Reset password
   const handleResetPassword = async () => {
-    if (!email) return alert("Introduceți adresa de email!");
+    if (!email) return toast.error("Introduceți adresa de email!");
     try {
       await resetPassword(email);
-      alert("📩 Email trimis pentru resetarea parolei.");
+      toast.success("📩 Email trimis pentru resetarea parolei.");
     } catch (err: any) {
-      alert("❌ Eroare: " + err.message);
+      toast.error("Eroare: " + err.message);
     }
   };
 
   // 🔹 Google login
   const handleGoogle = async () => {
+    setLoading(true);
     try {
       const cred = await loginWithGoogle();
       const u = cred.user;
-
+      toast.success("✅ Autentificat cu Google!");
       await handleRoleRedirect(u, router);
     } catch (err: any) {
-      alert("❌ Eroare Google Login: " + err.message);
+      toast.error("Eroare Google Login: " + err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -98,7 +110,7 @@ export default function CustomerAuthPage() {
           className="bg-white/80 backdrop-blur-md p-8 rounded-3xl shadow-lg w-full max-w-md text-center border border-emerald-100"
         >
           <p className="text-lg font-semibold mb-4 text-emerald-700">
-            Salut, {user.email}
+            Salut, <span className="font-medium">{user.email}</span>
           </p>
           <button
             onClick={logout}
@@ -128,7 +140,7 @@ export default function CustomerAuthPage() {
           <p className="text-gray-600 text-sm">
             {isRegister
               ? "Creează-ți contul pentru a solicita oferte"
-              : "Autentifică-te pentru a accesa contul tău"}
+              : "Autentifică-te pentru a continua cererea"}
           </p>
         </div>
 
@@ -151,9 +163,16 @@ export default function CustomerAuthPage() {
         {/* Submit Button */}
         <button
           onClick={handleEmailAuth}
-          className="w-full inline-flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-500 to-sky-500 text-white py-2.5 rounded-xl mb-3 shadow-md hover:scale-[1.03] transition-all"
+          disabled={loading}
+          className={`w-full inline-flex items-center justify-center gap-2 py-2.5 rounded-xl mb-3 font-medium shadow-md transition-all ${
+            loading
+              ? "bg-gray-400 text-white cursor-not-allowed"
+              : "bg-gradient-to-r from-emerald-500 to-sky-500 text-white hover:scale-[1.03]"
+          }`}
         >
-          {isRegister ? (
+          {loading ? (
+            "Se procesează..."
+          ) : isRegister ? (
             <>
               <UserPlus size={18} /> Creează cont
             </>
@@ -189,6 +208,7 @@ export default function CustomerAuthPage() {
         {/* Google Login */}
         <button
           onClick={handleGoogle}
+          disabled={loading}
           className="w-full inline-flex items-center justify-center gap-2 bg-red-500 text-white py-2.5 rounded-xl shadow-md hover:bg-red-600 transition-all"
         >
           <img src="/icons/google.svg" alt="Google" className="w-5 h-5" />
@@ -219,7 +239,7 @@ function Input({
       <input
         type={type}
         placeholder={placeholder}
-        className="w-full border border-gray-300 p-3 pl-10 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400"
+        className="w-full border border-gray-300 p-3 pl-10 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white/80 transition-all"
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />
