@@ -85,7 +85,7 @@ export default function MoveForm() {
   const [submitting, setSubmitting] = useState(false);
   const [ready, setReady] = useState(false);
 
-  // 🔐 Auth check
+  // 🔐 Verify Auth State
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
       if (!user) {
@@ -99,14 +99,13 @@ export default function MoveForm() {
     return () => unsubscribe();
   }, [router]);
 
-  // 🔹 Handle form updates
   const handleChange = useCallback(
     (field: string, value: any) =>
       setFormData((prev: any) => ({ ...prev, [field]: value })),
     []
   );
 
-  // 🔹 Required fields validation per step
+  // 🔹 Step validation
   const required: Record<number, string[]> = {
     0: ["serviceType"],
     1: ["propertyType"],
@@ -131,20 +130,18 @@ export default function MoveForm() {
     validateStep() && setStep((p) => Math.min(p + 1, steps.length - 1));
   const prevStep = () => setStep((p) => Math.max(p - 1, 0));
 
-  // 🔹 Submit final request
+  // 🔹 Submit request
   const handleSubmit = async () => {
     if (submitting) return;
+    if (!currentUser?.uid) {
+      toast.error("Eroare: utilizatorul nu este autentificat.");
+      return;
+    }
+
     setSubmitting(true);
     toast.loading("Se trimite cererea...");
 
     try {
-      if (!currentUser) {
-        toast.dismiss();
-        toast.error("Autentifică-te pentru a trimite cererea.");
-        router.push("/customer/auth");
-        return;
-      }
-
       // ✅ Unique short ID
       let shortId: string;
       do {
@@ -154,7 +151,9 @@ export default function MoveForm() {
           .toUpperCase()}`;
       } while ((await getDoc(doc(db, "requests", shortId))).exists());
 
-      // ✅ Upload files if survey = "media"
+      console.log("🧾 UID curent:", currentUser.uid);
+
+      // ✅ Upload files if survey = media
       const mediaUrls =
         formData.survey === "media" && formData.media?.length
           ? await uploadMultipleFiles(
@@ -164,18 +163,22 @@ export default function MoveForm() {
             )
           : [];
 
-      // ✅ Save main request document
-      const ref = doc(db, "requests", shortId);
-      await setDoc(ref, {
+      // ✅ Compose final document
+      const requestPayload = {
         ...formData,
         media: mediaUrls,
-        userId: currentUser.uid, // ✅ Required by Firestore rules
+        userId: currentUser.uid,
         createdAt: Timestamp.now(),
         status: "Nouă",
         requestId: shortId,
-      });
+      };
 
-      // ✅ Ensure user profile exists / updated
+      console.log("📦 Document trimis:", requestPayload);
+
+      // ✅ Write to Firestore
+      await setDoc(doc(db, "requests", shortId), requestPayload);
+
+      // ✅ Update user profile
       await setDoc(
         doc(db, "users", currentUser.uid),
         {
@@ -189,7 +192,7 @@ export default function MoveForm() {
         { merge: true }
       );
 
-      // ✅ Send upload link if survey = "media_later"
+      // ✅ Optional email if survey = media_later
       if (formData.survey === "media_later" && formData.email) {
         try {
           const uploadLink = `${window.location.origin}/upload/${shortId}`;
@@ -210,9 +213,8 @@ export default function MoveForm() {
 
       toast.dismiss();
       toast.success("✅ Cererea a fost trimisă cu succes!");
-      setTimeout(() => router.push(`/form/success?id=${shortId}`), 1500);
+      setTimeout(() => router.push(`/form/success?id=${shortId}`), 1200);
 
-      // ✅ Reset form state
       setFormData(defaultFormData);
       setStep(0);
     } catch (err: any) {
@@ -220,7 +222,7 @@ export default function MoveForm() {
       toast.dismiss();
       toast.error(
         err?.code === "permission-denied"
-          ? "Permisiune refuzată. Verifică autentificarea."
+          ? "Permisiune refuzată. Verifică autentificarea și regulile Firestore."
           : "A apărut o eroare la trimiterea cererii."
       );
     } finally {
@@ -228,7 +230,6 @@ export default function MoveForm() {
     }
   };
 
-  // 🔹 Step renderer
   const renderStep = () => {
     const stepProps = { formData, handleChange, setFormData };
     const stepComponents = [
@@ -254,7 +255,6 @@ export default function MoveForm() {
       </div>
     );
 
-  // 🔹 UI
   return (
     <div className="flex flex-col min-h-screen">
       <div className="flex flex-col items-center justify-start bg-gradient-to-br from-emerald-50 to-sky-50 px-4 py-10 min-h-screen">
@@ -264,7 +264,7 @@ export default function MoveForm() {
           transition={{ duration: 0.6 }}
           className="bg-white/80 backdrop-blur-xl border border-emerald-100 shadow-xl rounded-3xl p-10 w-full max-w-2xl hover:shadow-emerald-100"
         >
-          {/* Progres bar */}
+          {/* Progress */}
           <div className="mb-10 text-center">
             <p className="text-sm text-gray-600 mb-1 font-medium">
               {steps[step]} • Pasul {step + 1} din {steps.length}
@@ -301,7 +301,7 @@ export default function MoveForm() {
             </div>
           )}
 
-          {/* Navigation buttons */}
+          {/* Navigation */}
           <div className="mt-10 flex justify-between items-center">
             {step > 0 ? (
               <button
