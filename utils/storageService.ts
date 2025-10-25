@@ -1,6 +1,12 @@
 // utils/storageService.ts
-import { getStorage, ref, uploadBytesResumable, getDownloadURL } from "firebase/storage";
-import { app } from "./firebase";
+import {
+  getStorage,
+  ref,
+  uploadBytesResumable,
+  getDownloadURL,
+  deleteObject,
+} from "firebase/storage";
+import app from "./firebase";
 
 /**
  * Upload multiple files and return their URLs
@@ -19,10 +25,15 @@ export async function uploadMultipleFiles(
   let completed = 0;
 
   for (const file of files) {
-    const url = await uploadSingleFile(file, folder, (progress) => {
-      const overall = ((completed + progress / 100) / total) * 100;
-      if (setProgress) setProgress(overall);
-    }, storage);
+    const url = await uploadSingleFile(
+      file,
+      folder,
+      (progress) => {
+        const overall = ((completed + progress / 100) / total) * 100;
+        if (setProgress) setProgress(overall);
+      },
+      storage
+    );
     urls.push(url);
     completed++;
   }
@@ -62,4 +73,29 @@ async function uploadSingleFile(
       }
     );
   });
+}
+
+/**
+ * Delete a file from Firebase Storage by its URL or storage path
+ * @param pathOrUrl string (can be full URL or storage path)
+ */
+export async function deleteFileFromStorage(pathOrUrl: string): Promise<void> {
+  try {
+    const storage = getStorage(app);
+    let fileRef;
+
+    if (pathOrUrl.startsWith("http")) {
+      // Convert full download URL to reference
+      const baseUrl = `https://firebasestorage.googleapis.com/v0/b/${process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET}/o/`;
+      const path = decodeURIComponent(pathOrUrl.replace(baseUrl, "").split("?")[0]);
+      fileRef = ref(storage, path);
+    } else {
+      fileRef = ref(storage, pathOrUrl);
+    }
+
+    await deleteObject(fileRef);
+    console.log(`🗑️ File deleted from storage: ${pathOrUrl}`);
+  } catch (error) {
+    console.error("❌ Error deleting file:", error);
+  }
 }

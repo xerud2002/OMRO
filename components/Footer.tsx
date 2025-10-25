@@ -9,39 +9,43 @@ import {
   Mail,
   MapPin,
 } from "lucide-react";
+import { fadeUp, staggerContainer } from "../utils/animations"; // ✅ global animations
 
 export default function Footer() {
   return (
-    <footer className="relative bg-[radial-gradient(circle_at_center,_#022c22,_#000)] text-gray-300 mt-24 overflow-hidden">
-      {/* === Pattern Overlay === */}
-      <div className="absolute inset-0 bg-[url('/patterns/mesh.svg')] opacity-10 bg-cover" />
+    <footer className="relative bg-[radial-gradient(circle_at_center,_#012015,_#000)] text-gray-300 mt-28 overflow-hidden">
+      {/* === Decorative Line === */}
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-emerald-500/40 to-transparent" />
 
-      {/* === Main Content === */}
+      {/* === Pattern Overlay === */}
+      <div className="absolute inset-0 bg-[url('/patterns/mesh.svg')] opacity-[0.07] bg-cover" />
+
+      {/* === Main Footer === */}
       <motion.div
-        initial={{ opacity: 0, y: 40 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6, ease: "easeOut" }}
+        variants={staggerContainer}
+        initial="hidden"
+        whileInView="visible"
         viewport={{ once: true }}
-        className="relative max-w-7xl mx-auto px-6 py-12 md:py-16 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-[2fr_1fr_1fr_1fr] gap-8 sm:gap-10 z-10"
+        className="relative max-w-7xl mx-auto px-6 py-14 md:py-20 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-[2fr_1fr_1fr_1fr] gap-10 sm:gap-12 z-10"
       >
-        {/* --- Column 1: About --- */}
-        <div>
-          <div className="flex items-center mb-4 gap-3">
+        {/* --- About Column --- */}
+        <motion.div variants={fadeUp}>
+          <div className="flex items-center mb-5 gap-3">
             <img
               src="/logo.png"
               alt="ofertemutare.ro logo"
-              width={120}
+              width={140}
               height={100}
-              className="rounded-lg opacity-90"
+              className="rounded-lg opacity-95"
             />
           </div>
 
-          <p className="mt-2 text-gray-400 leading-relaxed text-sm max-w-xs">
+          <p className="text-gray-400 leading-relaxed text-sm max-w-xs mb-4">
             Platforma care conectează clienți și firme de mutări verificate din
             România. Rapid, sigur și transparent.
           </p>
 
-          <div className="flex flex-col gap-1 mt-4 text-sm text-gray-400">
+          <div className="flex flex-col gap-1 text-sm text-gray-400">
             <div className="flex items-center gap-2">
               <PhoneCall size={16} className="text-emerald-400" />
               <span>+40 700 000 000</span>
@@ -55,31 +59,35 @@ export default function Footer() {
               <span>București, România</span>
             </div>
           </div>
-        </div>
+        </motion.div>
 
-        {/* --- Column 2: Useful Links --- */}
-        <FooterColumn
-          title="Linkuri utile"
-          links={[
-            { href: "/about", label: "Despre noi" },
-            { href: "/contact", label: "Contact" },
-            { href: "/customer/auth", label: "Autentificare client" },
-            { href: "/company/auth", label: "Devino partener" },
-          ]}
-        />
+        {/* --- Useful Links --- */}
+        <motion.div variants={fadeUp}>
+          <FooterColumn
+            title="Linkuri utile"
+            links={[
+              { href: "/about", label: "Despre noi" },
+              { href: "/contact", label: "Contact" },
+              { href: "/customer/auth", label: "Autentificare client" },
+              { href: "/company/auth", label: "Devino partener" },
+            ]}
+          />
+        </motion.div>
 
-        {/* --- Column 3: Resources --- */}
-        <FooterColumn
-          title="Resurse"
-          links={[
-            { href: "/articles/tips", label: "Tips & Tricks mutare" },
-            { href: "/faq", label: "Întrebări frecvente" },
-            { href: "/guides/mutare", label: "Ghid complet de mutare" },
-          ]}
-        />
+        {/* --- Resources --- */}
+        <motion.div variants={fadeUp}>
+          <FooterColumn
+            title="Resurse"
+            links={[
+              { href: "/articles/tips", label: "Tips & Tricks mutare" },
+              { href: "/faq", label: "Întrebări frecvente" },
+              { href: "/guides/mutare", label: "Ghid complet de mutare" },
+            ]}
+          />
+        </motion.div>
 
-        {/* --- Column 4: Legal & Social --- */}
-        <div>
+        {/* --- Legal + Social --- */}
+        <motion.div variants={fadeUp}>
           <h3 className="text-lg font-semibold text-emerald-400 mb-4">Legal</h3>
           <ul className="space-y-2 text-sm mb-6">
             {[
@@ -89,47 +97,50 @@ export default function Footer() {
               <li key={item.href}>
                 <Link
                   href={item.href}
-                  className="hover:text-emerald-300 transition-all duration-200 border-b border-transparent hover:border-emerald-400 pb-0.5"
+                  className="group relative inline-block hover:text-emerald-300 transition-all duration-300"
                 >
                   {item.label}
+                  <span className="absolute left-0 bottom-0 w-0 h-[1px] bg-gradient-to-r from-emerald-400 to-sky-400 transition-all duration-300 group-hover:w-full" />
                 </Link>
               </li>
             ))}
           </ul>
 
-          {/* --- Social Icons --- */}
           <div className="flex gap-4">
-            {[
-              { icon: <Facebook size={20} />, href: "#" },
-              { icon: <Instagram size={20} />, href: "#" },
-              { icon: <Linkedin size={20} />, href: "#" },
-            ].map((item, idx) => (
+            {[ 
+              { icon: <Facebook size={18} />, href: "#" },
+              { icon: <Instagram size={18} />, href: "#" },
+              { icon: <Linkedin size={18} />, href: "#" },
+            ].map((item, i) => (
               <motion.a
-                key={idx}
+                key={i}
                 href={item.href}
-                aria-label={`Link către ${item.href}`}
-                whileHover={{ scale: 1.15, rotate: 5 }}
+                target="_blank"
+                rel="noopener noreferrer"
+                whileHover={{ scale: 1.15, rotate: 4 }}
                 whileTap={{ scale: 0.9 }}
-                className="p-2 rounded-full bg-white/10 text-gray-200 hover:text-white hover:bg-gradient-to-r hover:from-emerald-500 hover:to-sky-500 transition-all duration-300 shadow-md"
+                className="p-2 rounded-full bg-white/10 text-gray-200 hover:text-white hover:bg-gradient-to-r hover:from-emerald-500 hover:to-sky-500 transition-all duration-300 shadow-md hover:shadow-emerald-500/20"
               >
                 {item.icon}
               </motion.a>
             ))}
           </div>
-        </div>
+        </motion.div>
       </motion.div>
 
-      {/* === Sub-Footer === */}
-      <div className="relative border-t border-emerald-900/40 py-4 text-center text-gray-400 text-sm bg-black/40 backdrop-blur-md shadow-inner">
-        © {new Date().getFullYear()}{" "}
-        <span className="text-emerald-400 font-medium">ofertemutare.ro</span> ·
-        Toate drepturile rezervate
+      {/* === Sub-footer === */}
+      <div className="relative border-t border-emerald-800/40 py-5 text-center text-gray-400 text-sm bg-black/40 backdrop-blur-sm shadow-inner">
+        <p>
+          © {new Date().getFullYear()}{" "}
+          <span className="text-emerald-400 font-medium">ofertemutare.ro</span>{" "}
+          · Toate drepturile rezervate
+        </p>
       </div>
     </footer>
   );
 }
 
-/* 🔸 Reusable column component for cleaner structure */
+/* 🔸 Reusable column component */
 function FooterColumn({
   title,
   links,
@@ -145,9 +156,10 @@ function FooterColumn({
           <li key={item.href}>
             <Link
               href={item.href}
-              className="hover:text-emerald-300 transition-all duration-200 border-b border-transparent hover:border-emerald-400 pb-0.5"
+              className="group relative inline-block hover:text-emerald-300 transition-all duration-300"
             >
               {item.label}
+              <span className="absolute left-0 bottom-0 w-0 h-[1px] bg-gradient-to-r from-emerald-400 to-sky-400 transition-all duration-300 group-hover:w-full" />
             </Link>
           </li>
         ))}

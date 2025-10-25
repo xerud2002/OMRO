@@ -4,9 +4,17 @@ import Head from "next/head";
 import { motion } from "framer-motion";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
+import { PhoneCall, Mail, MapPin } from "lucide-react";
 
 export default function ContactPage() {
   const [form, setForm] = useState({ name: "", email: "", message: "" });
+  const [submitted, setSubmitted] = useState(false);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmitted(true);
+    setTimeout(() => setSubmitted(false), 4000);
+  };
 
   return (
     <>
@@ -20,27 +28,69 @@ export default function ContactPage() {
 
       <Navbar />
 
-      <section className="py-24 bg-gradient-to-br from-emerald-50 to-white">
-        <div className="max-w-4xl mx-auto px-6 text-center">
-          <motion.h1
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            className="text-4xl font-bold text-emerald-700 mb-6"
+      {/* === CONTACT SECTION === */}
+      <section className="relative py-28 bg-gradient-to-br from-emerald-50 via-white to-sky-50 overflow-hidden">
+        <div className="max-w-6xl mx-auto px-6 grid md:grid-cols-2 gap-12 items-start">
+          {/* --- Left: Contact Info --- */}
+          <motion.div
+            initial={{ opacity: 0, x: -40 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.7, ease: "easeOut" }}
+            viewport={{ once: true }}
+            className="space-y-6 text-center md:text-left"
           >
-            Contactează-ne
-          </motion.h1>
+            <h1 className="text-4xl font-bold text-emerald-700 mb-4">
+              Contactează-ne
+            </h1>
+            <p className="text-gray-700 text-lg mb-6 max-w-md">
+              Ai întrebări sau vrei să colaborezi cu noi? Suntem aici să te
+              ajutăm cu informații și soluții rapide.
+            </p>
 
-          <p className="text-gray-600 mb-12 max-w-2xl mx-auto">
-            Ai întrebări sau vrei să colaborezi cu noi? Completează formularul
-            de mai jos și te vom contacta în cel mai scurt timp.
-          </p>
+            <div className="space-y-4">
+              <div className="flex items-center justify-center md:justify-start gap-3 text-gray-700">
+                <PhoneCall className="text-emerald-500" size={20} />
+                <span>+40 700 000 000</span>
+              </div>
+              <div className="flex items-center justify-center md:justify-start gap-3 text-gray-700">
+                <Mail className="text-emerald-500" size={20} />
+                <span>contact@ofertemutare.ro</span>
+              </div>
+              <div className="flex items-center justify-center md:justify-start gap-3 text-gray-700">
+                <MapPin className="text-emerald-500" size={20} />
+                <span>București, România</span>
+              </div>
+            </div>
 
-          <form
-            className="bg-white/80 backdrop-blur-md border border-emerald-100 rounded-3xl shadow-md p-8 text-left max-w-lg mx-auto"
-            aria-label="Formular de contact"
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+              viewport={{ once: true }}
+              className="mt-10"
+            >
+              <div className="bg-gradient-to-r from-emerald-500 to-sky-500 text-white px-6 py-4 rounded-2xl shadow-md">
+                <p className="font-semibold">Program</p>
+                <p className="text-sm text-white/90">
+                  Luni - Vineri: 09:00 - 18:00
+                </p>
+              </div>
+            </motion.div>
+          </motion.div>
+
+          {/* --- Right: Contact Form --- */}
+          <motion.form
+            onSubmit={handleSubmit}
+            initial={{ opacity: 0, x: 40 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.7, ease: "easeOut" }}
+            viewport={{ once: true }}
+            className="bg-white/80 backdrop-blur-lg border border-emerald-100 rounded-3xl shadow-md p-8"
           >
-            {/* Nume complet */}
+            <h2 className="text-2xl font-semibold text-emerald-700 mb-6 text-center">
+              Trimite-ne un mesaj
+            </h2>
+
             <div className="mb-4">
               <label
                 htmlFor="name"
@@ -51,16 +101,14 @@ export default function ContactPage() {
               <input
                 id="name"
                 type="text"
-                title="Introduceți numele complet"
                 placeholder="Ex: Ion Popescu"
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
-                className="w-full border rounded-lg p-3 focus:ring-2 focus:ring-emerald-400"
+                className="w-full border rounded-lg p-3 focus:ring-2 focus:ring-emerald-400 outline-none"
                 required
               />
             </div>
 
-            {/* Email */}
             <div className="mb-4">
               <label
                 htmlFor="email"
@@ -71,16 +119,14 @@ export default function ContactPage() {
               <input
                 id="email"
                 type="email"
-                title="Introduceți adresa de email"
                 placeholder="exemplu@email.com"
                 value={form.email}
                 onChange={(e) => setForm({ ...form, email: e.target.value })}
-                className="w-full border rounded-lg p-3 focus:ring-2 focus:ring-emerald-400"
+                className="w-full border rounded-lg p-3 focus:ring-2 focus:ring-emerald-400 outline-none"
                 required
               />
             </div>
 
-            {/* Mesaj */}
             <div className="mb-6">
               <label
                 htmlFor="message"
@@ -90,27 +136,38 @@ export default function ContactPage() {
               </label>
               <textarea
                 id="message"
-                title="Scrie mesajul tău"
-                placeholder="Scrie aici mesajul tău..."
                 rows={5}
+                placeholder="Scrie aici mesajul tău..."
                 value={form.message}
                 onChange={(e) => setForm({ ...form, message: e.target.value })}
-                className="w-full border rounded-lg p-3 focus:ring-2 focus:ring-emerald-400"
+                className="w-full border rounded-lg p-3 focus:ring-2 focus:ring-emerald-400 outline-none"
                 required
               />
             </div>
 
-            {/* Submit button */}
             <motion.button
-              whileHover={{ scale: 1.05 }}
+              whileHover={{ scale: 1.04 }}
+              whileTap={{ scale: 0.96 }}
               type="submit"
-              className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-sky-500 text-white font-semibold shadow-lg hover:shadow-emerald-300/40 transition-all"
+              className="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-sky-500 text-white font-semibold shadow-md hover:shadow-lg transition-all"
             >
               Trimite mesajul
             </motion.button>
-          </form>
+
+            {submitted && (
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="mt-4 text-emerald-600 text-center font-medium"
+              >
+                ✅ Mesajul a fost trimis! Vom reveni în curând.
+              </motion.p>
+            )}
+          </motion.form>
         </div>
       </section>
+
+      <div className="w-full h-px bg-gradient-to-r from-transparent via-emerald-200 to-transparent" />
 
       <Footer />
     </>

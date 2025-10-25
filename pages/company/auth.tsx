@@ -53,6 +53,12 @@ export default function CompanyAuthPage() {
   // 🔹 Register / Login handler
   const handleAuth = async () => {
     try {
+      if (!email || !password)
+        return alert("Completează emailul și parola!");
+
+      if (isRegister && (!companyName || !phone || !city || !county))
+        return alert("Completează toate câmpurile firmei!");
+
       if (isRegister) {
         const cred = await registerWithEmail(email, password);
         const uid = cred.user.uid;
@@ -77,10 +83,11 @@ export default function CompanyAuthPage() {
         });
 
         alert("✅ Cont firmă creat! În așteptarea verificării.");
-        router.push("/company/dashboard");
+        await handleRoleRedirect(cred.user, router);
       } else {
         await loginWithEmail(email, password);
         alert("✅ Autentificat cu succes!");
+        await handleRoleRedirect({ email } as User, router);
       }
     } catch (err: any) {
       alert("❌ Eroare: " + err.message);
@@ -237,7 +244,7 @@ function Input({
       <input
         type={type}
         placeholder={placeholder}
-        className="w-full border border-gray-300 p-3 pl-10 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400"
+        className="w-full border border-gray-300 p-3 pl-10 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white/80 transition-all"
         value={value}
         onChange={(e) => onChange(e.target.value)}
       />
