@@ -35,15 +35,14 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 
-// === AUTH HELPERS ===
 const provider = new GoogleAuthProvider();
 
+// Auth functions
 export async function registerWithEmail(email: string, password: string) {
   const cred = await createUserWithEmailAndPassword(auth, email, password);
   const uid = cred.user.uid;
   await setDoc(doc(db, "users", uid), {
     email,
-    name: "",
     role: "customer",
     userId: uid,
     createdAt: serverTimestamp(),

@@ -19,9 +19,9 @@ service cloud.firestore {
         (request.auth.uid == userId || isAdmin());
     }
 
-    // REQUESTS (customer requests)
+    // REQUESTS (customer leads)
     match /requests/{requestId} {
-      allow create: if isSignedIn();  // allow all authenticated users to create
+      allow create: if isSignedIn();
       allow read, update, delete: if isSignedIn() &&
         (resource.data.userId == request.auth.uid || isAdmin());
     }
