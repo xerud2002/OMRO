@@ -1,6 +1,6 @@
 // utils/handleRoleRedirect.ts
 import { doc, getDoc, setDoc } from "firebase/firestore";
-import { db } from "./firebase";
+import { db } from "../extra/firebase";
 import { User } from "firebase/auth";
 import { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import toast from "react-hot-toast";

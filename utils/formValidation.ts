@@ -1,5 +1,5 @@
 // utils/formValidation.ts
-import { auth } from "./firebase";
+import { auth } from "../extra/firebase";
 
 /**
  * ✅ Validează toate câmpurile obligatorii din formularul de cerere mutare.

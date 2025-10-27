@@ -1,16 +1,10 @@
 "use client";
+
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  Menu,
-  X,
-  PhoneCall,
-  LogOut,
-  User,
-  LayoutDashboard,
-} from "lucide-react";
+import { Menu, X, PhoneCall, LogOut, User, LayoutDashboard } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
 import { onAuthChange, logout } from "../utils/firebase";
 import { User as FirebaseUser } from "firebase/auth";
@@ -23,14 +17,12 @@ export default function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
 
-  // 🟢 Scroll background transition
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 20);
     window.addEventListener("scroll", onScroll);
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // 🟢 Auth state
   useEffect(() => {
     const unsub = onAuthChange(setUser);
     return () => unsub();
@@ -67,12 +59,7 @@ export default function Navbar() {
       }`}
     >
       <div className="max-w-7xl mx-auto flex justify-between items-center px-6 py-3">
-        {/* === LOGO === */}
-        <Link
-          href="/"
-          className="flex items-center space-x-2 select-none"
-          aria-label="Acasă"
-        >
+        <Link href="/" aria-label="Acasă" className="flex items-center space-x-2 select-none">
           <Image
             src="/logo.png"
             alt="ofertemutare.ro"
@@ -83,7 +70,7 @@ export default function Navbar() {
           />
         </Link>
 
-        {/* === DESKTOP NAV === */}
+        {/* Desktop Nav */}
         <nav className="hidden md:flex items-center space-x-2">
           {navLinks.map((link) => (
             <Link
@@ -99,10 +86,10 @@ export default function Navbar() {
             </Link>
           ))}
 
-          {/* === CTA / User Menu === */}
           {!user ? (
             <button
               onClick={handleGetOffers}
+              aria-label="Cont Client"
               className="ml-3 inline-flex items-center gap-2 px-5 py-2 rounded-full text-white font-semibold bg-gradient-to-r from-emerald-500 to-sky-500 shadow-md hover:shadow-lg hover:scale-[1.04] transition-all"
             >
               <PhoneCall size={18} /> Cont Client
@@ -110,7 +97,9 @@ export default function Navbar() {
           ) : (
             <div className="relative ml-3">
               <button
-                onClick={() => setShowUserMenu(!showUserMenu)}
+                onClick={() => setShowUserMenu((v) => !v)}
+                aria-haspopup="true"
+                aria-expanded={showUserMenu}
                 className="flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-emerald-500 to-sky-500 text-white font-semibold shadow-md hover:scale-[1.04] transition-all"
               >
                 <User size={18} />
@@ -146,7 +135,7 @@ export default function Navbar() {
           )}
         </nav>
 
-        {/* === MOBILE TOGGLE === */}
+        {/* Mobile Toggle */}
         <button
           onClick={() => setIsOpen(!isOpen)}
           aria-label="Menu"
@@ -156,7 +145,7 @@ export default function Navbar() {
         </button>
       </div>
 
-      {/* === MOBILE MENU === */}
+      {/* Mobile Menu */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -182,7 +171,6 @@ export default function Navbar() {
                 </Link>
               ))}
 
-              {/* CTA Mobile */}
               <button
                 onClick={handleGetOffers}
                 className="mt-3 inline-flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-500 to-sky-500 text-white font-semibold px-5 py-2 rounded-full shadow-md hover:shadow-lg transition-all"

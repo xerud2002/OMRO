@@ -1,5 +1,5 @@
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
-import { db, auth } from "./firebase";
+import { db, auth } from "../extra/firebase";
 
 /**
  * Logs important admin or system actions (verification, suspension, reminder, etc.)
