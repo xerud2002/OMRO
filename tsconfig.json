@@ -3,23 +3,21 @@
     "target": "ES2022",
     "module": "NodeNext",
     "lib": ["DOM", "DOM.Iterable", "ESNext"],
-
     "strict": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "isolatedModules": true,
     "noEmit": true,
-
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "resolveJsonModule": true,
-    "moduleResolution": "NodeNext",
-
+    "moduleResolution": "Node",
     "jsx": "react-jsx",
     "types": ["node"],
     "incremental": true,
     "allowJs": true,
 
+    // ✅ Make sure these two lines exist and are correct
     "baseUrl": ".",
     "paths": {
       "@/*": ["*"]

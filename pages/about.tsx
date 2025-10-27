@@ -3,8 +3,8 @@ import React from "react";
 import Head from "next/head";
 import Image from "next/image";
 import { motion, type Variants } from "framer-motion"; // ✅ import Variants type
-import Navbar from "../components/Navbar";
-import Footer from "../components/Footer";
+import Navbar from "@/components/ui/Navbar";
+import Footer from "@/components/ui/Footer";
 
 export default function AboutPage() {
   // ✅ Typed variants

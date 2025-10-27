@@ -2,8 +2,8 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { UserRound, Phone, Mail } from "lucide-react";
-import FormInput from "../../components/form/FormInput";
-import { auth } from "../../utils/firebase";
+import FormInput from "@/components/form/FormInput";
+import { auth } from "@/services/firebase";
 
 interface StepProps {
   formData: Record<string, any>;

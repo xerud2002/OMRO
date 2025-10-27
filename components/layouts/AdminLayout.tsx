@@ -7,7 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { collection, getDocs } from "firebase/firestore";
-import { db, logout } from "../utils/firebase";
+import { db, logout } from "@/services/firebase";
 import {
   LayoutDashboard,
   Building2,

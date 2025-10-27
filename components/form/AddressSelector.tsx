@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useMemo, useState } from "react";
 import Select from "react-select";
-import { counties } from "../../utils/counties";
+import counties from "@/utils/counties";
 import FormInput from "./FormInput";
 interface AddressSelectorProps {
   type: "pickup" | "delivery";
@@ -20,7 +20,7 @@ export default function AddressSelector({ type, formData, handleChange }: Addres
 
   // Lazy-load cities doar când componenta e montată
   useEffect(() => {
-    import("../../extra/cities").then((mod) => setCities(mod.default));
+    import("../../utils/cities").then((mod) => setCities(mod.default));
   }, []);
 
   // Opțiuni orașe pe baza județului selectat

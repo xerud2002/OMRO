@@ -2,24 +2,24 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { auth, db } from "../../extra/firebase";
-import { uploadMultipleFiles } from "../../extra/storageService";
+import { auth, db } from "@/config/firebaseConfig";
+import { uploadMultipleFiles } from "@/utils/storageService";
 import { setDoc, doc, getDoc, Timestamp } from "firebase/firestore";
 import toast from "react-hot-toast";
 import emailjs from "@emailjs/browser";
 import { ArrowLeft, ArrowRight, Send } from "lucide-react";
 
 // === Form steps ===
-import StepService from "./components/form/steps/StepService";
-import StepProperty from "../components/form/steps/StepProperty";
-import StepPickupAddress from "../components/form/steps/StepPickupAddress";
-import StepDeliveryProperty from "../components/form/steps/StepDeliveryProperty";
-import StepDeliveryAddress from "../components/form/steps/StepDeliveryAddress";
-import StepMoveDate from "../components/form/steps/StepMoveDate";
-import StepPacking from "../components/form/steps/StepPacking";
-import StepDismantling from "../components/form/steps/StepDismantling";
-import StepSurvey from "../components/form/steps/StepSurvey";
-import StepContact from "../components/form/steps/StepContact";
+import StepService from "@/components/form/steps/StepService";
+import StepProperty from "@/components/form/steps/StepProperty";
+import StepPickupAddress from "@/components/form/steps/StepPickupAddress";
+import StepDeliveryProperty from "@/components/form/steps/StepDeliveryProperty";
+import StepDeliveryAddress from "@/components/form/steps/StepDeliveryAddress";
+import StepMoveDate from "@/components/form/steps/StepMoveDate";
+import StepPacking from "@/components/form/steps/StepPacking";
+import StepDismantling from "@/components/form/steps/StepDismantling";
+import StepSurvey from "@/components/form/steps/StepSurvey";
+import StepContact from "@/components/form/steps/StepContact";
 
 const steps = [
   "Tip serviciu",

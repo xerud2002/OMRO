@@ -5,7 +5,7 @@ export const revalidate = 0;
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { db, onAuthChange } from "../../extra/firebase";
+import { db, onAuthChange } from "@/services/firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import AdminLayout from "../../components/layouts/AdminLayout";
 import { motion } from "framer-motion";
@@ -22,7 +22,7 @@ import {
   FolderOpen,
   CheckCircle,
 } from "lucide-react";
-import { logActivity } from "../../extra/logActivity";
+import { logActivity } from "@/services/logActivity";
 
 export default function AdminCompanyProfile() {
   const router = useRouter();

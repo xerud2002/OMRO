@@ -2,7 +2,7 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { Wrench } from "lucide-react";
-import FormTextarea from "../../components/form/FormTextarea";
+import FormTextarea from "@/components/form/FormTextarea";
 
 interface StepProps {
   formData: Record<string, any>;

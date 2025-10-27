@@ -1,5 +1,5 @@
 // utils/testConnection.ts
-import { auth, db, storage } from "./firebase";
+import { auth, db, storage } from "../services/firebase";
 import {
   signInAnonymously,
   User,

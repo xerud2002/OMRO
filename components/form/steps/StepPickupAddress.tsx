@@ -1,9 +1,9 @@
 "use client";
 import React from "react";
 import { motion } from "framer-motion";
-import AddressSelector from "../../components/form/AddressSelector";
-import FormInput from "../../components/form/FormInput";
-import FormTextarea from "../../components/form/FormTextarea";
+import AddressSelector from "@/components/form/AddressSelector";
+import FormInput from "@/components/form/FormInput";
+import FormTextarea from "@/components/form/FormTextarea";
 import { MapPin } from "lucide-react";
 
 interface StepProps {
