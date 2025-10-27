@@ -2,10 +2,10 @@
 import Head from "next/head";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { db, onAuthChange, storage } from "../../extra/firebase";
+import { db, onAuthChange, storage } from "@/services/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import ClientLayout from "../../components/ClientLayout";
+import ClientLayout from "../../components/layouts/ClientLayout";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
 import { Loader2, Camera } from "lucide-react";

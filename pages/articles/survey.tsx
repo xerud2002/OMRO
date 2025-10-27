@@ -1,8 +1,8 @@
 "use client";
 import React from "react";
 import Head from "next/head";
-import Navbar from "../../components/Navbar";
-import Footer from "../../components/Footer";
+import Navbar from "../../components/ui/Navbar";
+import Footer from "../../components//ui/Footer";
 import { motion } from "framer-motion";
 import Image from "next/image";
 

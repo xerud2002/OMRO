@@ -1,10 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { db, storage, auth, onAuthChange } from "../../extra/firebase";
+import { db, storage, auth, onAuthChange } from "../../services/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import CompanyLayout from "../../components/CompanyLayout";
+import CompanyLayout from "../../components/layouts/CompanyLayout";
 import { motion } from "framer-motion";
 import {
   Building2,

@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { db, onAuthChange } from "../../extra/firebase";
+import { db, onAuthChange } from "@/services/firebase";
 import {
   collection,
   getDocs,
@@ -13,8 +13,8 @@ import {
   updateDoc,
   setDoc,
 } from "firebase/firestore";
-import CompanyLayout from "../../components/CompanyLayout";
-import counties from "../../extra/counties";
+import CompanyLayout from "../../components/layouts/CompanyLayout";
+import counties from "../../utils/counties";
 import { motion } from "framer-motion";
 import {
   MapPinned,

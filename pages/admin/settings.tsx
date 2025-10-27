@@ -1,10 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
-import { db, onAuthChange } from "../../extra/firebase";
+import { db, onAuthChange } from "@/services/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
-import AdminLayout from "../../components/AdminLayout";
-import AdminProtectedRoute from "../../components/AdminProtectedRoute";
+import AdminLayout from "@/components/layouts/AdminLayout";
+import AdminProtectedRoute from "../../components/layouts/AdminProtectedRoute";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
 import {

@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import Head from "next/head";
 import { useRouter } from "next/navigation";
-import { db, onAuthChange } from "../../extra/firebase";
+import { db, onAuthChange } from "@/services/firebase";
 import {
   collection,
   query,
@@ -13,7 +13,7 @@ import {
   deleteDoc,
 } from "firebase/firestore";
 import { User } from "firebase/auth";
-import ClientLayout from "../../components/ClientLayout";
+import ClientLayout from "../../components/layouts/ClientLayout";
 import { motion } from "framer-motion";
 import {
   Loader2,
@@ -28,7 +28,7 @@ import {
   Trash2,
   BugPlay,
 } from "lucide-react";
-import { testFirebaseConnection } from "../../extra/testConnection";
+import { testFirebaseConnection } from "@/dev/testConnection";
 import toast from "react-hot-toast";
 
 export default function ClientDashboard() {

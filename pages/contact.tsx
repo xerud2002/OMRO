@@ -2,8 +2,8 @@
 import React, { useState } from "react";
 import Head from "next/head";
 import { motion } from "framer-motion";
-import Navbar from "../components/Navbar";
-import Footer from "../components/Footer";
+import Navbar from "../components/ui/Navbar";
+import Footer from "../components/ui/Footer";
 import { PhoneCall, Mail, MapPin } from "lucide-react";
 
 export default function ContactPage() {

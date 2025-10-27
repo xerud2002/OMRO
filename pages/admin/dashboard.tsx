@@ -4,7 +4,7 @@ export const fetchCache = "force-no-store";
 export const revalidate = 0;
 
 import { useEffect, useState } from "react";
-import { db, onAuthChange } from "../../extra/firebase";
+import { db, onAuthChange } from "@/services/firebase";
 import {
   collection,
   getDocs,
@@ -47,7 +47,7 @@ import {
 import { motion } from "framer-motion";
 import Link from "next/link";
 import toast from "react-hot-toast";
-import AdminLayout from "../../components/AdminLayout";
+import AdminLayout from "@/components/layouts/AdminLayout";
 
 interface CompanyData {
   id: string;

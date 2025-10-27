@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES2022",
-    "module": "NodeNext",
+    "module": "ESNext",
     "lib": ["DOM", "DOM.Iterable", "ESNext"],
     "strict": true,
     "skipLibCheck": true,
@@ -17,7 +17,6 @@
     "incremental": true,
     "allowJs": true,
 
-    // ✅ Make sure these two lines exist and are correct
     "baseUrl": ".",
     "paths": {
       "@/*": ["*"]

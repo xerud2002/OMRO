@@ -6,17 +6,14 @@ import { onAuthChange } from "../../utils/firebaseHelpers";
 import { db } from "../../config/firebaseConfig";
 import { doc, getDoc } from "firebase/firestore";
 import toast from "react-hot-toast";
-import LoadingSpinner from "../../components/ui/LoadingSpinner";
+import LoadingSpinner from "../ui/LoadingSpinner";
 
 interface AdminProtectedRouteProps {
   children: ReactNode;
 }
 
 /**
- * 🔒 Protects admin-only pages.
- * - Checks Firebase auth state.
- * - Verifies user role from Firestore.
- * - Redirects unauthorized users.
+ * 🔒 Protects admin-only routes
  */
 export default function AdminProtectedRoute({ children }: AdminProtectedRouteProps) {
   const [checking, setChecking] = useState(true);
@@ -24,9 +21,9 @@ export default function AdminProtectedRoute({ children }: AdminProtectedRoutePro
   const router = useRouter();
 
   useEffect(() => {
-    const unsub = onAuthChange(async (user) => {
+    const unsubscribe = onAuthChange(async (user) => {
       if (!user) {
-        toast.error("Autentifică-te pentru a accesa zona de administrare.");
+        toast.error("Autentifică-te pentru a accesa panoul de administrare.");
         router.push("/admin/auth");
         return;
       }
@@ -51,10 +48,13 @@ export default function AdminProtectedRoute({ children }: AdminProtectedRoutePro
       }
     });
 
-    return () => unsub();
+    return () => unsubscribe();
   }, [router]);
 
-  if (checking) return <LoadingSpinner text="Se verifică accesul..." />;
+  if (checking) {
+    return <LoadingSpinner text="Se verifică accesul..." />;
+  }
+
   if (!allowed) return null;
 
   return <>{children}</>;

@@ -1,14 +1,14 @@
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
-import { db, auth } from "../extra/firebase";
+import { db, auth } from "@/config/firebaseConfig";
 
 /**
- * Logs important admin or system actions (verification, suspension, reminder, etc.)
- * into the 'activity' collection.
+ * Logs important admin or system actions (verification, suspension, etc.)
+ * into the 'activity' Firestore collection.
  *
- * @param type - e.g. "verification", "suspension", "reminder", etc.
- * @param message - Human-readable message (e.g. "Admin verified company X")
- * @param actor - Object describing the actor: { email, name }
- * @param targetId - ID of the affected document (company, request, etc.)
+ * @param type - e.g. "verification", "suspension", "reminder"
+ * @param message - Description of the action
+ * @param actor - The user performing the action (optional)
+ * @param targetId - The document ID affected (company, request, etc.)
  */
 export async function logActivity(
   type: string,
@@ -19,13 +19,12 @@ export async function logActivity(
   try {
     const currentUser = auth.currentUser;
 
-    // Prevent writes if unauthenticated
+    // Prevent writing logs if no authenticated user
     if (!currentUser) {
       console.warn("⚠️ logActivity skipped: no authenticated user.");
       return;
     }
 
-    // Construct full record
     const data = {
       type,
       message,
@@ -41,6 +40,6 @@ export async function logActivity(
     await addDoc(collection(db, "activity"), data);
     console.log("✅ Activity logged:", message);
   } catch (err) {
-    console.error("⚠️ Eroare la logActivity:", err);
+    console.error("⚠️ Error in logActivity:", err);
   }
 }

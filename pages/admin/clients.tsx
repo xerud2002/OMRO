@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { db, onAuthChange } from "../../extra/firebase";
+import { db, onAuthChange } from "@/services/firebase";
 import {
   collection,
   getDocs,
@@ -24,9 +24,9 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
-import AdminLayout from "../../components/AdminLayout";
-import AdminProtectedRoute from "../../components/AdminProtectedRoute";
-import { logActivity } from "../../extra/logActivity";
+import AdminLayout from "@/components/layouts/AdminLayout";
+import AdminProtectedRoute from "@/components/layouts/AdminProtectedRoute";
+import { logActivity } from "@/services/logActivity";
 
 interface UserData {
   id: string;

@@ -4,7 +4,7 @@ export const fetchCache = "force-no-store";
 export const revalidate = 0;
 
 import { useEffect, useState } from "react";
-import { db, onAuthChange } from "../../extra/firebase";
+import { db, onAuthChange } from "@/services/firebase";
 import {
   collection,
   getDocs,
@@ -38,8 +38,8 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
-import AdminLayout from "../../components/AdminLayout";
-import AdminProtectedRoute from "../../components/AdminProtectedRoute";
+import AdminLayout from "@/components/layouts/AdminLayout";
+import AdminProtectedRoute from "../../components/layouts/AdminProtectedRoute";
 
 export default function AdminRequestsPage() {
   const router = useRouter();
