@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import Head from "next/head";
 import { useRouter } from "next/navigation";
-import { db, onAuthChange } from "../../utils/firebase";
+import { db, onAuthChange } from "../../extra/firebase";
 import {
   collection,
   query,
@@ -28,7 +28,7 @@ import {
   Trash2,
   BugPlay,
 } from "lucide-react";
-import { testFirebaseConnection } from "../../utils/testConnection";
+import { testFirebaseConnection } from "../../extra/testConnection";
 import toast from "react-hot-toast";
 
 export default function ClientDashboard() {

@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import Head from "next/head";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
-import { handleRoleRedirect } from "../../utils/handleRoleRedirect";
+import { handleRoleRedirect } from "../../extra/handleRoleRedirect";
 import {
   registerWithEmail,
   loginWithEmail,
@@ -13,7 +13,7 @@ import {
   onAuthChange,
   resetPassword,
   db,
-} from "../../utils/firebase";
+} from "../../extra/firebase";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { User } from "firebase/auth";
 import {

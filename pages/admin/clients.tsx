@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { db, onAuthChange } from "../../utils/firebase";
+import { db, onAuthChange } from "../../extra/firebase";
 import {
   collection,
   getDocs,
@@ -26,7 +26,7 @@ import { motion } from "framer-motion";
 import toast from "react-hot-toast";
 import AdminLayout from "../../components/AdminLayout";
 import AdminProtectedRoute from "../../components/AdminProtectedRoute";
-import { logActivity } from "../../utils/logActivity";
+import { logActivity } from "../../extra/logActivity";
 
 interface UserData {
   id: string;

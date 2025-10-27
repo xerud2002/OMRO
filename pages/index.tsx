@@ -5,7 +5,7 @@ import Head from "next/head";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Truck, FormInput, Users, CheckCircle, ArrowRight } from "lucide-react";
-import { onAuthChange, logout } from "../utils/firebase";
+import { onAuthChange, logout } from "../extra/firebase";
 import { User } from "firebase/auth";
 import FadeInWhenVisible from "../components/FadeInWhenVisible";
 import { motion } from "framer-motion";

@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { db, storage, auth, onAuthChange } from "../../utils/firebase";
+import { db, storage, auth, onAuthChange } from "../../extra/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import CompanyLayout from "../../components/CompanyLayout";

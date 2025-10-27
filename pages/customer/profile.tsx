@@ -2,7 +2,7 @@
 import Head from "next/head";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { db, onAuthChange, storage } from "../../utils/firebase";
+import { db, onAuthChange, storage } from "../../extra/firebase";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import ClientLayout from "../../components/ClientLayout";
