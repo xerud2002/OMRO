@@ -1,9 +1,8 @@
 "use client";
 import React, { useEffect, useMemo, useState } from "react";
 import Select from "react-select";
-import counties from "../../extra/counties";
+import { counties } from "../../utils/counties";
 import FormInput from "./FormInput";
-
 interface AddressSelectorProps {
   type: "pickup" | "delivery";
   formData: Record<string, any>;

@@ -8,6 +8,7 @@ import { Menu, X, PhoneCall, LogOut, User, LayoutDashboard } from "lucide-react"
 import { useRouter, usePathname } from "next/navigation";
 import { onAuthChange, logout } from "@/config/firebaseConfig";
 import { User as FirebaseUser } from "firebase/auth";
+import { onAuthChange, logout } from "@/utils/firebaseHelpers";
 
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
