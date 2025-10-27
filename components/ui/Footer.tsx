@@ -9,7 +9,7 @@ import {
   Mail,
   MapPin,
 } from "lucide-react";
-import { fadeUp, staggerContainer } from "../utils/animations"; // ✅ global animations
+import { fadeUp, staggerContainer } from "@/utils/animations"; // ✅ global animations
 
 export default function Footer() {
   return (

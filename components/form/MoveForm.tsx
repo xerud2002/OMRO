@@ -10,16 +10,16 @@ import emailjs from "@emailjs/browser";
 import { ArrowLeft, ArrowRight, Send } from "lucide-react";
 
 // === Form steps ===
-import StepService from "../components/formSteps/StepService";
-import StepProperty from "../components/formSteps/StepProperty";
-import StepPickupAddress from "../components/formSteps/StepPickupAddress";
-import StepDeliveryProperty from "../components/formSteps/StepDeliveryProperty";
-import StepDeliveryAddress from "../components/formSteps/StepDeliveryAddress";
-import StepMoveDate from "../components/formSteps/StepMoveDate";
-import StepPacking from "../components/formSteps/StepPacking";
-import StepDismantling from "../components/formSteps/StepDismantling";
-import StepSurvey from "../components/formSteps/StepSurvey";
-import StepContact from "../components/formSteps/StepContact";
+import StepService from "./components/form/steps/StepService";
+import StepProperty from "../components/form/steps/StepProperty";
+import StepPickupAddress from "../components/form/steps/StepPickupAddress";
+import StepDeliveryProperty from "../components/form/steps/StepDeliveryProperty";
+import StepDeliveryAddress from "../components/form/steps/StepDeliveryAddress";
+import StepMoveDate from "../components/form/steps/StepMoveDate";
+import StepPacking from "../components/form/steps/StepPacking";
+import StepDismantling from "../components/form/steps/StepDismantling";
+import StepSurvey from "../components/form/steps/StepSurvey";
+import StepContact from "../components/form/steps/StepContact";
 
 const steps = [
   "Tip serviciu",

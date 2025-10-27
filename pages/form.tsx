@@ -1,6 +1,6 @@
 "use client";
 import Head from "next/head";
-import MoveForm from "../components/form/MoveForm";
+import MoveForm from "@/components/form/MoveForm";
 import { motion } from "framer-motion";
 
 export default function FormPage() {

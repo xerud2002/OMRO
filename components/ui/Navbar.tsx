@@ -6,7 +6,7 @@ import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, PhoneCall, LogOut, User, LayoutDashboard } from "lucide-react";
 import { useRouter, usePathname } from "next/navigation";
-import { onAuthChange, logout } from "../utils/firebase";
+import { onAuthChange, logout } from "@/config/firebaseConfig";
 import { User as FirebaseUser } from "firebase/auth";
 
 export default function Navbar() {
