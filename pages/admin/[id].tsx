@@ -8,7 +8,6 @@ import { useRouter, useParams } from "next/navigation";
 import { db, onAuthChange } from "../../utils/firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import AdminLayout from "../../components/layouts/AdminLayout";
-import AdminProtectedRoute from "../../components/layouts/AdminProtectedRoute";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
 import {
