@@ -2,8 +2,8 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { auth, db } from "../utils/firebase";
-import { uploadMultipleFiles } from "../utils/storageService";
+import { auth, db } from "../../utils/firebase";
+import { uploadMultipleFiles } from "../../utils/storageService";
 import { setDoc, doc, getDoc, Timestamp } from "firebase/firestore";
 import toast from "react-hot-toast";
 import emailjs from "@emailjs/browser";
