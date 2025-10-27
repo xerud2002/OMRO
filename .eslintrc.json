@@ -1,0 +1,10 @@
+{
+  "extends": ["next/core-web-vitals"],
+  "rules": {
+    "import/no-unresolved": "error",
+    "no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
+    "react-hooks/exhaustive-deps": "warn",
+    "semi": ["error", "always"],
+    "quotes": ["warn", "double"]
+  }
+}
