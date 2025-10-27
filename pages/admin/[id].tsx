@@ -5,10 +5,10 @@ export const revalidate = 0;
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { db, onAuthChange } from "../../../utils/firebase";
+import { db, onAuthChange } from "../../utils/firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
-import AdminLayout from "../../../components/AdminLayout";
-import AdminProtectedRoute from "../../../components/AdminProtectedRoute";
+import AdminLayout from "../../components/layouts/AdminLayout";
+import AdminProtectedRoute from "../../components/layouts/AdminProtectedRoute";
 import { motion } from "framer-motion";
 import toast from "react-hot-toast";
 import {
@@ -23,7 +23,7 @@ import {
   FolderOpen,
   CheckCircle,
 } from "lucide-react";
-import { logActivity } from "../../../utils/logActivity";
+import { logActivity } from "../../utils/logActivity";
 
 export default function AdminCompanyProfile() {
   const router = useRouter();

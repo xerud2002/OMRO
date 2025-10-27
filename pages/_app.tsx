@@ -3,8 +3,8 @@ import "../styles/globals.css";
 import Head from "next/head";
 import { useRouter } from "next/router";
 import { Toaster } from "react-hot-toast";
-import Navbar from "../components/Navbar";
-import Footer from "../components/Footer";
+import Navbar from "../components/ui/Navbar";
+import Footer from "../components/ui/Footer";
 
 export default function MyApp({ Component, pageProps }: AppProps) {
   const router = useRouter();
