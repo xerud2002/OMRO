@@ -2,36 +2,34 @@
   "compilerOptions": {
     /* ---- Target & Module ---- */
     "target": "ES2022",
-    "module": "esnext",
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "module": "ESNext",
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
 
-    /* ---- Strictness & Checks ---- */
+    /* ---- Type Checking ---- */
     "strict": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "isolatedModules": true,
     "noEmit": true,
 
-    /* ---- Interop & Imports ---- */
+    /* ---- Imports & Modules ---- */
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "resolveJsonModule": true,
+    "moduleResolution": "NodeNext",
 
-    /* ---- React / JSX ---- */
+    /* ---- JSX / React ---- */
     "jsx": "react-jsx",
 
-    /* ---- Node / Scripts ---- */
-    "moduleResolution": "node",
+    /* ---- Node ---- */
     "types": ["node"],
 
     /* ---- Incremental Builds ---- */
     "incremental": true,
 
-    /* ---- Experimental / ESM Support ---- */
+    /* ---- Allow JS ---- */
     "allowJs": true
   },
-
-  /* ---- Include TS & MTS ---- */
   "include": [
     "next-env.d.ts",
     "**/*.ts",
@@ -39,7 +37,5 @@
     "scripts/**/*.mts",
     "utils/**/*.ts"
   ],
-
-  /* ---- Exclude node_modules ---- */
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", ".next"]
 }
