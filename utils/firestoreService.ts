@@ -12,7 +12,7 @@ import {
   orderBy,
   Timestamp,
 } from "firebase/firestore";
-import { db, auth } from "../extra/firebase";
+import { db, auth } from "../services/firebase";
 
 /* ------------------------- USERS ------------------------- */
 

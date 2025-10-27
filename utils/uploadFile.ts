@@ -7,7 +7,7 @@ import {
   StorageError,
   UploadMetadata,
 } from "firebase/storage";
-import { auth, storage, db } from "../extra/firebase";
+import { auth, storage, db } from "../services/firebase";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 
 /**
